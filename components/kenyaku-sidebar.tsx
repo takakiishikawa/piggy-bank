@@ -146,7 +146,7 @@ export function KenyakuGoSidebar() {
                 isActive: isActive("/concept"),
               },
               {
-                title: "設定",
+                title: "予算",
                 icon: Settings,
                 onSelect: () => router.push("/settings"),
                 isActive: isActive("/settings"),
