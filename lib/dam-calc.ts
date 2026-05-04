@@ -1,10 +1,12 @@
 import { DAM_START } from "./constants";
 import type { MonthlyBudget } from "./budget";
 import { monthKey } from "./budget";
+import { projectMonthlyTotal, sumFixedSpent } from "./projection";
 
 interface TxForDam {
   amount: number;
   date: string;
+  category?: string;
 }
 
 interface DamCalcOptions {
@@ -29,6 +31,9 @@ interface MonthBalance {
 /**
  * DAM_START から現在月までの月次残高を計算する。
  * 月ごとに budget が異なる場合に対応（monthly_budgets テーブル前提）。
+ *
+ * 現在月の予測は lib/projection.ts の projectMonthlyTotal を使用し、
+ * /api/weekly のレポート画面と同じ式を使う。
  */
 export function calcDamMonths(opts: DamCalcOptions): MonthBalance[] {
   const {
@@ -38,19 +43,17 @@ export function calcDamMonths(opts: DamCalcOptions): MonthBalance[] {
     now = new Date(),
   } = opts;
 
-  const dayOfMonth = now.getDate();
-  const daysInMonth = new Date(
-    now.getFullYear(),
-    now.getMonth() + 1,
-    0,
-  ).getDate();
-
-  // 月ごとの支出を集計
+  // 月ごとの (合計, カテゴリ別) を集計
   const spendMap: Record<string, number> = {};
+  const byCategoryMap: Record<string, Record<string, number>> = {};
   for (const tx of txs) {
     const d = new Date(tx.date);
     const key = monthKey(d.getFullYear(), d.getMonth());
     spendMap[key] = (spendMap[key] ?? 0) + tx.amount;
+    if (tx.category) {
+      const map = (byCategoryMap[key] ??= {});
+      map[tx.category] = (map[tx.category] ?? 0) + tx.amount;
+    }
   }
 
   const months: MonthBalance[] = [];
@@ -73,10 +76,13 @@ export function calcDamMonths(opts: DamCalcOptions): MonthBalance[] {
 
     let projected: number;
     if (isCurrent && spent > 0) {
-      const variableSpend = Math.max(0, spent - fixedCosts);
-      projected = Math.round(
-        fixedCosts + (variableSpend / dayOfMonth) * daysInMonth,
-      );
+      const fixedSpent = sumFixedSpent(byCategoryMap[key] ?? {});
+      projected = projectMonthlyTotal({
+        total: spent,
+        fixedSpent,
+        fixedBudget: fixedCosts,
+        now,
+      });
     } else {
       projected = spent;
     }

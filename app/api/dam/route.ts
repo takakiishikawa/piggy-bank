@@ -39,7 +39,7 @@ export async function GET() {
   const [txRes, thisMonthCatRes, budgets] = await Promise.all([
     db
       .from("transactions")
-      .select("amount, date")
+      .select("amount, date, category")
       .gt("amount", 0)
       .gte("date", DAM_START.toISOString())
       .limit(100000),
@@ -53,7 +53,10 @@ export async function GET() {
     fetchAllBudgets(db),
   ]);
 
-  const txs = (txRes.data ?? []) as Pick<Transaction, "amount" | "date">[];
+  const txs = (txRes.data ?? []) as Pick<
+    Transaction,
+    "amount" | "date" | "category"
+  >[];
   const thisMonthCatTxs = (thisMonthCatRes.data ?? []) as Pick<
     Transaction,
     "amount" | "category"

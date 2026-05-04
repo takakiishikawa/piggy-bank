@@ -3,6 +3,7 @@ import { getAuthDb } from "@/lib/supabase/auth-db";
 import { type Transaction } from "@/lib/supabase/db";
 import { fetchAllBudgets, getCurrentMonthKey } from "@/lib/budget";
 import { FIXED_CATEGORIES } from "@/lib/constants";
+import { projectMonthlyTotal, sumFixedSpent } from "@/lib/projection";
 
 function getWeekStart(date: Date): Date {
   const d = new Date(date);
@@ -132,22 +133,17 @@ export async function GET(req: NextRequest) {
   let projectedTotal: number | null = null;
 
   // 期間中に発生済みの固定費（家賃・通信）。これは日割り対象から外す
-  const fixedSpentThisPeriod = FIXED_CATEGORIES.reduce(
-    (sum, cat) => sum + (currentPeriod?.byCategory[cat] ?? 0),
-    0,
-  );
+  const fixedSpentThisPeriod = sumFixedSpent(currentPeriod?.byCategory ?? {});
   const variableSpend = Math.max(0, currentTotal - fixedSpentThisPeriod);
 
   if (period === "month" && currentTotal > 0) {
-    const dayOfMonth = now.getDate();
-    const daysInMonth = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
-      0,
-    ).getDate();
-    projectedTotal = Math.round(
-      fixedSpentThisPeriod + (variableSpend / dayOfMonth) * daysInMonth,
-    );
+    // /api/dam の calcDamMonths と同一の式を使う（食い違い防止）
+    projectedTotal = projectMonthlyTotal({
+      total: currentTotal,
+      fixedSpent: fixedSpentThisPeriod,
+      fixedBudget: fixedCosts,
+      now,
+    });
   } else if (period === "week" && currentTotal > 0) {
     const dayOfWeek = now.getDay() === 0 ? 7 : now.getDay();
     projectedTotal = Math.round(
