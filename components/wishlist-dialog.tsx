@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Heart, Plus, X } from "lucide-react";
+import { Check, Heart, Plus, RotateCcw, X } from "lucide-react";
 import {
   Button,
   Dialog,
@@ -31,73 +31,86 @@ function WishCard({
 }) {
   const isGot = wish.status === "got";
   return (
-    <div className="group relative">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-label={isGot ? "欲しいに戻す" : "購入済にする"}
-        className="block w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg overflow-hidden"
-      >
-        <div className="relative w-full aspect-square">
-          {wish.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={wish.image_url}
-              alt={wish.name}
-              className="w-full h-full object-cover"
-              style={{ opacity: isGot ? 0.5 : 1 }}
-              onError={(e) => {
-                const img = e.currentTarget as HTMLImageElement;
-                img.style.display = "none";
-              }}
-            />
-          ) : null}
-          {!wish.image_url && (
-            <div
-              className="w-full h-full flex items-center justify-center"
-              style={{ backgroundColor: "var(--kg-surface-2)" }}
-            >
-              <Heart
-                size={36}
-                className="opacity-30"
-                style={{ color: "var(--color-primary)" }}
-              />
-            </div>
-          )}
-          {isGot && (
-            <div
-              className="absolute inset-0 flex items-center justify-center text-white text-xs font-semibold tracking-widest uppercase pointer-events-none"
-              style={{ backgroundColor: "rgba(0,0,0,0.35)" }}
-            >
-              購入済
-            </div>
-          )}
-        </div>
-        <div className="p-3 text-left bg-card border-x border-b border-border rounded-b-lg">
-          <p
-            className="text-sm font-medium line-clamp-2 leading-snug"
-            style={{
-              textDecoration: isGot ? "line-through" : undefined,
-              opacity: isGot ? 0.7 : 1,
+    <div className="group relative rounded-lg overflow-hidden border border-border bg-card">
+      <div className="relative w-full aspect-square">
+        {wish.image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={wish.image_url}
+            alt={wish.name}
+            className="w-full h-full object-cover"
+            style={{ opacity: isGot ? 0.5 : 1 }}
+            onError={(e) => {
+              const img = e.currentTarget as HTMLImageElement;
+              img.style.display = "none";
             }}
+          />
+        ) : (
+          <div
+            className="w-full h-full flex items-center justify-center"
+            style={{ backgroundColor: "var(--kg-surface-2)" }}
           >
-            {wish.name}
-          </p>
-        </div>
-      </button>
+            <Heart
+              size={36}
+              className="opacity-30"
+              style={{ color: "var(--color-primary)" }}
+            />
+          </div>
+        )}
 
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        aria-label="削除"
-        className="absolute top-2 right-2 inline-flex items-center justify-center h-7 w-7 rounded-full text-white shadow-md transition opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
-      >
-        <X size={14} />
-      </button>
+        {isGot && (
+          <div
+            className="absolute inset-0 flex items-center justify-center text-white text-xs font-semibold tracking-widest uppercase pointer-events-none"
+            style={{ backgroundColor: "rgba(0,0,0,0.35)" }}
+          >
+            購入済
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={onDelete}
+          aria-label="削除"
+          className="absolute top-2 right-2 inline-flex items-center justify-center h-7 w-7 rounded-full text-white shadow-md transition opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2 p-3">
+        <p
+          className="flex-1 text-sm font-medium line-clamp-2 leading-snug"
+          style={{
+            textDecoration: isGot ? "line-through" : undefined,
+            opacity: isGot ? 0.7 : 1,
+          }}
+        >
+          {wish.name}
+        </p>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={isGot ? "欲しいに戻す" : "購入済にする"}
+          title={isGot ? "欲しいに戻す" : "購入済にする"}
+          className="shrink-0 inline-flex items-center justify-center h-8 w-8 rounded-full border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          style={
+            isGot
+              ? {
+                  backgroundColor: "var(--color-success-subtle)",
+                  borderColor: "var(--color-success)",
+                  color: "var(--color-success)",
+                }
+              : {
+                  backgroundColor: "transparent",
+                  borderColor: "var(--border)",
+                  color: "var(--muted-foreground)",
+                }
+          }
+        >
+          {isGot ? <RotateCcw size={14} /> : <Check size={14} />}
+        </button>
+      </div>
     </div>
   );
 }
