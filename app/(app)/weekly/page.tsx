@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
 import { TrendingDown, TrendingUp, History } from "lucide-react";
 import { formatVND } from "@/lib/format";
+import { getCategoryColors } from "@/lib/category-colors";
 import {
   Button,
   Card,
@@ -55,46 +56,70 @@ const LABELS: Record<
 interface ChartRow {
   label: string;
   total: number;
+  value: number;
   byCategory: Record<string, number>;
 }
 
-function ChartTooltipContentTop5({
+function ChartTooltipContent({
   active,
   payload,
+  filter,
 }: {
   active?: boolean;
   payload?: { payload: ChartRow }[];
+  filter: string;
 }) {
   if (!active || !payload?.length) return null;
   const row = payload[0].payload;
-  const top10 = Object.entries(row.byCategory)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 10);
+
+  if (filter === "all") {
+    const top10 = Object.entries(row.byCategory)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 10);
+    return (
+      <div className="rounded-lg border bg-background px-3 py-2 text-xs shadow-sm min-w-44">
+        <p className="font-medium text-foreground mb-1.5">{row.label}</p>
+        <div className="space-y-1">
+          {top10.length === 0 ? (
+            <p className="text-muted-foreground">データなし</p>
+          ) : (
+            top10.map(([cat, amt]) => (
+              <div
+                key={cat}
+                className="flex items-center justify-between gap-3"
+              >
+                <span className="text-muted-foreground truncate">{cat}</span>
+                <span className="font-num font-medium text-foreground shrink-0">
+                  {formatVND(amt)}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="mt-2 pt-2 border-t flex items-center justify-between gap-3">
+          <span className="text-muted-foreground">合計</span>
+          <span className="font-num font-semibold text-foreground">
+            {formatVND(row.total)}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  const amount = row.byCategory[filter] ?? 0;
+  const pct = row.total > 0 ? Math.round((amount / row.total) * 100) : 0;
   return (
     <div className="rounded-lg border bg-background px-3 py-2 text-xs shadow-sm min-w-44">
       <p className="font-medium text-foreground mb-1.5">{row.label}</p>
-      <div className="space-y-1">
-        {top10.length === 0 ? (
-          <p className="text-muted-foreground">データなし</p>
-        ) : (
-          top10.map(([cat, amt]) => (
-            <div
-              key={cat}
-              className="flex items-center justify-between gap-3"
-            >
-              <span className="text-muted-foreground truncate">{cat}</span>
-              <span className="font-num font-medium text-foreground shrink-0">
-                {formatVND(amt)}
-              </span>
-            </div>
-          ))
-        )}
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-muted-foreground truncate">{filter}</span>
+        <span className="font-num font-medium text-foreground shrink-0">
+          {formatVND(amount)}
+        </span>
       </div>
       <div className="mt-2 pt-2 border-t flex items-center justify-between gap-3">
-        <span className="text-muted-foreground">合計</span>
-        <span className="font-num font-semibold text-foreground">
-          {formatVND(row.total)}
-        </span>
+        <span className="text-muted-foreground">合計に占める割合</span>
+        <span className="font-num font-semibold text-foreground">{pct}%</span>
       </div>
     </div>
   );
@@ -239,6 +264,7 @@ function SavingsHistoryChart({ months }: { months: MonthRecord[] }) {
 
 export default function ReportPage() {
   const [period, setPeriod] = useState<Period>("week");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [data, setData] = useState<ReportData | null>(null);
   const [history, setHistory] = useState<MonthRecord[] | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -255,6 +281,17 @@ export default function ReportPage() {
     fetchData(period);
   }, [period, fetchData]);
 
+  // 期間切替などで topCategories から外れたら "all" に戻す
+  useEffect(() => {
+    if (
+      categoryFilter !== "all" &&
+      data &&
+      !data.topCategories.includes(categoryFilter)
+    ) {
+      setCategoryFilter("all");
+    }
+  }, [data, categoryFilter]);
+
   // 履歴は初回 Dialog を開いた時にだけ取得
   useEffect(() => {
     if (!historyOpen || history !== null) return;
@@ -269,14 +306,26 @@ export default function ReportPage() {
     data?.periods.map((p) => ({
       label: p.label,
       total: p.total,
+      value:
+        categoryFilter === "all"
+          ? p.total
+          : (p.byCategory?.[categoryFilter] ?? 0),
       byCategory: p.byCategory ?? {},
     })) ?? [];
 
+  const chartColor =
+    categoryFilter === "all"
+      ? "var(--color-primary)"
+      : getCategoryColors(categoryFilter).text;
+
   const chartConfig = useMemo<ChartConfig>(
     () => ({
-      total: { label: "合計", color: "var(--color-primary)" },
+      value: {
+        label: categoryFilter === "all" ? "合計" : categoryFilter,
+        color: chartColor,
+      },
     }),
-    [],
+    [categoryFilter, chartColor],
   );
 
   const labels = LABELS[period];
@@ -412,9 +461,26 @@ export default function ReportPage() {
       </div>
 
       <Card className="p-7 mb-5">
-        <p className="text-xs font-medium uppercase tracking-widest mb-6 text-muted-foreground">
-          支出推移
-        </p>
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            支出推移
+          </p>
+          {data && data.topCategories.length > 0 && (
+            <Tabs
+              value={categoryFilter}
+              onValueChange={setCategoryFilter}
+            >
+              <TabsList>
+                <TabsTrigger value="all">すべて</TabsTrigger>
+                {data.topCategories.map((cat) => (
+                  <TabsTrigger key={cat} value={cat}>
+                    {cat}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          )}
+        </div>
         {chartData.length > 0 ? (
           <ChartContainer
             config={chartConfig}
@@ -423,16 +489,8 @@ export default function ReportPage() {
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="reportTotalFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="5%"
-                    stopColor="var(--color-primary)"
-                    stopOpacity={0.4}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor="var(--color-primary)"
-                    stopOpacity={0.05}
-                  />
+                  <stop offset="5%" stopColor={chartColor} stopOpacity={0.4} />
+                  <stop offset="95%" stopColor={chartColor} stopOpacity={0.05} />
                 </linearGradient>
               </defs>
               <CartesianGrid vertical={false} />
@@ -450,13 +508,13 @@ export default function ReportPage() {
               />
               <ChartTooltip
                 cursor={false}
-                content={<ChartTooltipContentTop5 />}
+                content={<ChartTooltipContent filter={categoryFilter} />}
               />
               <Area
-                dataKey="total"
+                dataKey="value"
                 type="natural"
                 fill="url(#reportTotalFill)"
-                stroke="var(--color-primary)"
+                stroke={chartColor}
                 strokeWidth={2}
               />
             </AreaChart>
