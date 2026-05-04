@@ -71,8 +71,7 @@ function WishCard({
           type="button"
           onClick={onDelete}
           aria-label="削除"
-          className="absolute top-2 right-2 inline-flex items-center justify-center h-7 w-7 rounded-full text-white shadow-md transition opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+          className="absolute top-2 right-2 inline-flex items-center justify-center h-7 w-7 rounded-full text-white shadow-md cursor-pointer transition-all duration-150 opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-black/55 hover:bg-black/80 hover:scale-110 active:bg-black/90 active:scale-95"
         >
           <X size={14} />
         </button>
@@ -93,19 +92,10 @@ function WishCard({
           onClick={onToggle}
           aria-label={isGot ? "欲しいに戻す" : "購入済にする"}
           title={isGot ? "欲しいに戻す" : "購入済にする"}
-          className="shrink-0 inline-flex items-center justify-center h-8 w-8 rounded-full border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          style={
+          className={
             isGot
-              ? {
-                  backgroundColor: "var(--color-success-subtle)",
-                  borderColor: "var(--color-success)",
-                  color: "var(--color-success)",
-                }
-              : {
-                  backgroundColor: "transparent",
-                  borderColor: "var(--border)",
-                  color: "var(--muted-foreground)",
-                }
+              ? "shrink-0 inline-flex items-center justify-center h-8 w-8 rounded-full border cursor-pointer transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-[var(--color-success-subtle)] border-[var(--color-success)] text-[var(--color-success)] hover:bg-[var(--color-success)] hover:text-white hover:scale-110 active:scale-95 active:brightness-90"
+              : "shrink-0 inline-flex items-center justify-center h-8 w-8 rounded-full border border-border cursor-pointer transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-transparent text-muted-foreground hover:bg-[var(--color-success-subtle)] hover:border-[var(--color-success)] hover:text-[var(--color-success)] hover:scale-110 active:scale-95 active:brightness-95"
           }
         >
           {isGot ? <RotateCcw size={14} /> : <Check size={14} />}
