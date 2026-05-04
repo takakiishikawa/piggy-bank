@@ -31,6 +31,19 @@ export interface Settings {
   updated_at: string;
 }
 
+export interface Wish {
+  id: string;
+  name: string;
+  price: number | null;
+  url: string | null;
+  note: string | null;
+  priority: "high" | "mid" | "low";
+  status: "want" | "got" | "gave_up";
+  image_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Subscription {
   store: string;
   category: string;
