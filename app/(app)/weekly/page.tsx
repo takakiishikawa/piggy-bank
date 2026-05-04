@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
-import { TrendingDown, TrendingUp, History } from "lucide-react";
+import { TrendingDown, TrendingUp, History, Heart } from "lucide-react";
 import { formatVND } from "@/lib/format";
 import { getCategoryColors } from "@/lib/category-colors";
 import {
@@ -23,6 +23,7 @@ import {
   type ChartConfig,
 } from "@takaki/go-design-system";
 import type { MonthRecord } from "@/app/api/dam/route";
+import { WishlistDialog } from "@/components/wishlist-dialog";
 
 interface PeriodItem {
   label: string;
@@ -268,6 +269,7 @@ export default function ReportPage() {
   const [data, setData] = useState<ReportData | null>(null);
   const [history, setHistory] = useState<MonthRecord[] | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [wishlistOpen, setWishlistOpen] = useState(false);
 
   const fetchData = useCallback(async (p: Period) => {
     setData(null);
@@ -347,28 +349,40 @@ export default function ReportPage() {
       <PageHeader
         title="レポート"
         actions={
-          <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <History size={14} />
-                月毎の倹約
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl p-0 overflow-hidden">
-              <DialogHeader className="px-7 py-5 border-b">
-                <DialogTitle>月毎の倹約</DialogTitle>
-              </DialogHeader>
-              {history === null ? (
-                <div className="p-7">
-                  <Skeleton className="h-72 w-full rounded" />
-                </div>
-              ) : (
-                <SavingsHistoryChart months={history} />
-              )}
-            </DialogContent>
-          </Dialog>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setWishlistOpen(true)}
+            >
+              <Heart size={14} />
+              ウィッシュリスト
+            </Button>
+            <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <History size={14} />
+                  月毎の倹約
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl p-0 overflow-hidden">
+                <DialogHeader className="px-7 py-5 border-b">
+                  <DialogTitle>月毎の倹約</DialogTitle>
+                </DialogHeader>
+                {history === null ? (
+                  <div className="p-7">
+                    <Skeleton className="h-72 w-full rounded" />
+                  </div>
+                ) : (
+                  <SavingsHistoryChart months={history} />
+                )}
+              </DialogContent>
+            </Dialog>
+          </div>
         }
       />
+
+      <WishlistDialog open={wishlistOpen} onOpenChange={setWishlistOpen} />
 
       <div className="mt-6 mb-8">
         <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)}>

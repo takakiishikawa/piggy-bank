@@ -26,7 +26,6 @@ import {
   Lightbulb,
   Repeat2,
   Settings,
-  Heart,
 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
@@ -40,7 +39,6 @@ const UserMenu = dynamic(() =>
 
 const navItems = [
   { href: "/", label: "ダッシュボード", icon: LayoutDashboard },
-  { href: "/wishes", label: "ウィッシュリスト", icon: Heart },
   { href: "/weekly", label: "レポート", icon: BarChart2 },
   { href: "/transactions", label: "トランザクション", icon: List },
   { href: "/subscriptions", label: "サブスク", icon: Repeat2 },

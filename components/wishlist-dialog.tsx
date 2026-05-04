@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Check,
   ExternalLink,
   Heart,
   Pencil,
   Plus,
   Trash2,
-  Check,
   X as XIcon,
 } from "lucide-react";
 import {
@@ -21,7 +21,6 @@ import {
   EmptyState,
   Input,
   Label,
-  PageHeader,
   Select,
   SelectContent,
   SelectItem,
@@ -119,58 +118,56 @@ function buildPayload(f: WishFormState) {
   };
 }
 
-function WishCard({
-  wish,
-  onClick,
-}: {
-  wish: Wish;
-  onClick: () => void;
-}) {
+function WishCard({ wish, onClick }: { wish: Wish; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
     >
-      <Card className="p-4 hover:shadow-md transition-shadow h-full flex flex-col gap-3">
+      <Card className="p-3 hover:shadow-md transition-shadow h-full flex flex-col gap-2">
         {wish.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={wish.image_url}
             alt={wish.name}
-            className="w-full h-36 object-cover rounded-md bg-muted"
+            className="w-full h-28 object-cover rounded-md bg-muted"
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).style.display = "none";
             }}
           />
         ) : (
           <div
-            className="w-full h-36 rounded-md flex items-center justify-center"
+            className="w-full h-28 rounded-md flex items-center justify-center"
             style={{ backgroundColor: "var(--kg-surface-2)" }}
           >
             <Heart
               className="opacity-30"
-              size={36}
+              size={28}
               style={{ color: "var(--color-primary)" }}
             />
           </div>
         )}
-        <div className="flex-1 flex flex-col gap-2">
+        <div className="flex-1 flex flex-col gap-1.5">
           <p
             className="text-sm font-medium line-clamp-2"
             style={{
-              textDecoration: wish.status === "gave_up" ? "line-through" : undefined,
+              textDecoration:
+                wish.status === "gave_up" ? "line-through" : undefined,
               opacity: wish.status === "gave_up" ? 0.6 : 1,
             }}
           >
             {wish.name}
           </p>
           {wish.price != null && (
-            <p className="text-base font-num font-semibold" style={{ color: "var(--color-primary)" }}>
+            <p
+              className="text-sm font-num font-semibold"
+              style={{ color: "var(--color-primary)" }}
+            >
               {formatVND(wish.price)}
             </p>
           )}
-          <div className="flex flex-wrap items-center gap-2 mt-auto">
+          <div className="flex flex-wrap items-center gap-1.5 mt-auto">
             <PriorityTag priority={wish.priority} />
             {wish.status !== "want" && <StatusTag status={wish.status} />}
           </div>
@@ -444,7 +441,13 @@ function WishDetailDialog({
   );
 }
 
-export default function WishesPage() {
+export function WishlistDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
   const [wishes, setWishes] = useState<Wish[] | null>(null);
   const [tab, setTab] = useState<Status>("want");
   const [addOpen, setAddOpen] = useState(false);
@@ -462,9 +465,10 @@ export default function WishesPage() {
     }
   }, []);
 
+  // 初回 open のときにフェッチ
   useEffect(() => {
-    load();
-  }, [load]);
+    if (open && wishes === null) load();
+  }, [open, wishes, load]);
 
   const grouped = useMemo(() => {
     const list = wishes ?? [];
@@ -564,26 +568,18 @@ export default function WishesPage() {
   );
 
   return (
-    <div>
-      <PageHeader
-        title="ウィッシュリスト"
-        actions={
-          <Button size="sm" onClick={() => setAddOpen(true)}>
-            <Plus size={14} />
-            追加
-          </Button>
-        }
-      />
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden flex flex-col max-h-[85vh]">
+          <DialogHeader className="px-7 py-5 border-b flex-row items-center justify-between gap-3 space-y-0">
+            <DialogTitle>ウィッシュリスト</DialogTitle>
+            <Button size="sm" onClick={() => setAddOpen(true)}>
+              <Plus size={14} />
+              追加
+            </Button>
+          </DialogHeader>
 
-      {wishes === null ? (
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-64 rounded-lg" />
-          ))}
-        </div>
-      ) : (
-        <>
-          <div className="mt-6 mb-4">
+          <div className="px-7 pt-4">
             <Tabs value={tab} onValueChange={(v) => setTab(v as Status)}>
               <TabsList>
                 <TabsTrigger value="want">
@@ -602,38 +598,46 @@ export default function WishesPage() {
             </Tabs>
           </div>
 
-          {visible.length === 0 ? (
-            <EmptyState
-              icon={<Heart size={32} />}
-              title={
-                tab === "want"
-                  ? "ウィッシュリストは空です"
-                  : tab === "got"
-                    ? "購入済のアイテムはまだありません"
-                    : "あきらめたアイテムはありません"
-              }
-              description={
-                tab === "want" ? "欲しいものを追加してみましょう" : undefined
-              }
-              action={
-                tab === "want"
-                  ? { label: "追加する", onClick: () => setAddOpen(true) }
-                  : undefined
-              }
-            />
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {visible.map((w) => (
-                <WishCard
-                  key={w.id}
-                  wish={w}
-                  onClick={() => setViewing(w)}
-                />
-              ))}
-            </div>
-          )}
-        </>
-      )}
+          <div className="flex-1 overflow-y-auto px-7 py-5">
+            {wishes === null ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <Skeleton key={i} className="h-52 rounded-lg" />
+                ))}
+              </div>
+            ) : visible.length === 0 ? (
+              <EmptyState
+                icon={<Heart size={32} />}
+                title={
+                  tab === "want"
+                    ? "ウィッシュリストは空です"
+                    : tab === "got"
+                      ? "購入済のアイテムはまだありません"
+                      : "あきらめたアイテムはありません"
+                }
+                description={
+                  tab === "want" ? "欲しいものを追加してみましょう" : undefined
+                }
+                action={
+                  tab === "want"
+                    ? { label: "追加する", onClick: () => setAddOpen(true) }
+                    : undefined
+                }
+              />
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {visible.map((w) => (
+                  <WishCard
+                    key={w.id}
+                    wish={w}
+                    onClick={() => setViewing(w)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <WishFormDialog
         open={addOpen}
@@ -663,6 +667,6 @@ export default function WishesPage() {
         onDelete={handleDelete}
         onQuickStatus={handleQuickStatus}
       />
-    </div>
+    </>
   );
 }
