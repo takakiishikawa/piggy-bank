@@ -8,6 +8,7 @@ import {
   fetchAllBudgets,
   getCurrentMonthKey,
 } from "@/lib/budget";
+import { projectMonthlyTotal, sumFixedSpent } from "@/lib/projection";
 
 export async function GET() {
   const result = await getAuthDb();
@@ -55,7 +56,7 @@ export async function GET() {
         .lte("date", prev7End.toISOString()),
       db
         .from("transactions")
-        .select("amount")
+        .select("amount, category")
         .gte("date", monthStart.toISOString())
         .lte("date", monthEnd.toISOString()),
       (() => {
@@ -72,7 +73,7 @@ export async function GET() {
       fetchAllBudgets(db),
       db
         .from("transactions")
-        .select("amount, date")
+        .select("amount, date, category")
         .gt("amount", 0)
         .gte("date", DAM_START.toISOString()),
     ]);
@@ -97,7 +98,7 @@ export async function GET() {
   >[];
   const thisMonthTxs = (thisMonthRes.data ?? []) as Pick<
     Transaction,
-    "amount"
+    "amount" | "category"
   >[];
   const recentTxs = (recentRes.data ?? []) as Pick<
     Transaction,
@@ -125,22 +126,26 @@ export async function GET() {
   const targetMonthly = currentBudget?.target_monthly ?? 0;
   const fixedCosts = currentBudget?.fixed_costs ?? 0;
 
-  const dayOfMonth = now.getDate();
-  const daysInMonth = new Date(
-    now.getFullYear(),
-    now.getMonth() + 1,
-    0,
-  ).getDate();
-  const variableSpend = Math.max(0, thisMonthTotal - fixedCosts);
+  // 当月の予測も /api/weekly, /api/dam と同じ式（lib/projection.ts）に統一
+  const thisMonthByCategory: Record<string, number> = {};
+  for (const tx of thisMonthTxs) {
+    thisMonthByCategory[tx.category] =
+      (thisMonthByCategory[tx.category] ?? 0) + tx.amount;
+  }
   const projectedMonthTotal =
     thisMonthTotal > 0
-      ? Math.round(fixedCosts + (variableSpend / dayOfMonth) * daysInMonth)
+      ? projectMonthlyTotal({
+          total: thisMonthTotal,
+          fixedSpent: sumFixedSpent(thisMonthByCategory),
+          fixedBudget: fixedCosts,
+          now,
+        })
       : null;
 
   // 共通ユーティリティで累計ダム残高を計算
   const allMonthTxs = (allMonthsRes.data ?? []) as Pick<
     Transaction,
-    "amount" | "date"
+    "amount" | "date" | "category"
   >[];
   const damMonths = calcDamMonths({
     txs: allMonthTxs,
