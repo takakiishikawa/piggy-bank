@@ -5,18 +5,11 @@ import type { Wish } from "@/lib/supabase/db";
 
 export const maxDuration = 30;
 
-const PriorityEnum = z.enum(["high", "mid", "low"]);
-const StatusEnum = z.enum(["want", "got", "gave_up"]);
+const StatusEnum = z.enum(["want", "got"]);
 
 const PatchSchema = z
   .object({
-    name: z.string().trim().min(1).max(120).optional(),
-    price: z.number().int().nonnegative().nullable().optional(),
-    url: z.string().trim().url().max(2000).nullable().optional(),
-    note: z.string().trim().max(2000).nullable().optional(),
-    priority: PriorityEnum.optional(),
     status: StatusEnum.optional(),
-    image_url: z.string().trim().url().max(2000).nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, {
     message: "更新項目がありません",
