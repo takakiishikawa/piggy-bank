@@ -392,7 +392,7 @@ export default function TransactionsPage() {
     () =>
       searchQuery.trim()
         ? transactions.filter((tx) =>
-            tx.category.toLowerCase().includes(searchQuery.toLowerCase()),
+            tx.store.toLowerCase().includes(searchQuery.toLowerCase()),
           )
         : transactions,
     [transactions, searchQuery],
@@ -621,7 +621,7 @@ export default function TransactionsPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="カテゴリを入力"
+            placeholder="名前で検索"
             className="pl-9"
           />
         </div>
