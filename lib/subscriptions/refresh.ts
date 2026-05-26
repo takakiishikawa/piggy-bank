@@ -118,7 +118,8 @@ export async function refreshSubscriptions(db: Db): Promise<SubscriptionRow[]> {
       last_charged_at: g.lastDate.slice(0, 10),
       judgment,
       reasoning,
-      is_active: true,
+      // user が手動で実行/終了を管理している場合はその状態を尊重し、cron で上書きしない
+      is_active: existing?.user_locked ? existing.is_active : true,
       user_locked: existing?.user_locked ?? false,
       judged_at: existing?.user_locked ? existing.judged_at : now,
       updated_at: now,
@@ -133,12 +134,14 @@ export async function refreshSubscriptions(db: Db): Promise<SubscriptionRow[]> {
   }
 
   // 直近30日に登場しなかった既存サブスクは終了扱いに
+  // ただし user が手動管理している (user_locked) サブスクは対象外
   const seenStores = new Set(stores);
   const { data: existingActive } = await db
     .from("subscriptions")
     .select("store")
     .eq("judgment", "sub")
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .eq("user_locked", false);
   const toEnd = ((existingActive ?? []) as { store: string }[])
     .map((r) => r.store)
     .filter((s) => !seenStores.has(s));

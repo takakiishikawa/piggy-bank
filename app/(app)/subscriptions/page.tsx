@@ -50,6 +50,8 @@ export default function SubscriptionsPage() {
     null,
   );
   const [tab, setTab] = useState<TabValue>("active");
+  const [pendingEnd, setPendingEnd] = useState<SubscriptionItem | null>(null);
+  const [busyStore, setBusyStore] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<SubscriptionHistoryPoint[] | null>(
     null,
@@ -70,6 +72,35 @@ export default function SubscriptionsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const updateActive = useCallback(
+    async (store: string, isActive: boolean) => {
+      setBusyStore(store);
+      try {
+        const r = await fetch("/api/subscriptions", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ store, isActive }),
+        });
+        if (!r.ok) throw new Error();
+        setSubscriptions((prev) =>
+          prev
+            ? prev.map((s) =>
+                s.store === store ? { ...s, isActive, userLocked: true } : s,
+              )
+            : prev,
+        );
+        toast.success(
+          isActive ? "サブスクを実行中に戻しました" : "サブスクを終了しました",
+        );
+      } catch {
+        toast.error("更新に失敗しました");
+      } finally {
+        setBusyStore(null);
+      }
+    },
+    [],
+  );
 
   // 推移は Dialog を開いた時に遅延取得
   useEffect(() => {
@@ -139,8 +170,39 @@ export default function SubscriptionsPage() {
           </div>
         ),
       },
+      {
+        id: "actions",
+        header: () => <span className="sr-only">操作</span>,
+        cell: ({ row }) => {
+          const s = row.original;
+          return (
+            <div className="text-right whitespace-nowrap">
+              {s.isActive ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground"
+                  disabled={busyStore === s.store}
+                  onClick={() => setPendingEnd(s)}
+                >
+                  終了
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busyStore === s.store}
+                  onClick={() => updateActive(s.store, true)}
+                >
+                  再開
+                </Button>
+              )}
+            </div>
+          );
+        },
+      },
     ],
-    [],
+    [busyStore, updateActive],
   );
 
   const chartConfig = useMemo<ChartConfig>(
@@ -246,6 +308,37 @@ export default function SubscriptionsPage() {
           </div>
         </>
       )}
+
+      <Dialog
+        open={pendingEnd !== null}
+        onOpenChange={(o) => {
+          if (!o) setPendingEnd(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>サブスクを終了しますか？</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground px-1">
+            「{pendingEnd?.store}」を終了済みに移動します。あとから「再開」で戻せます。
+          </p>
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="outline" onClick={() => setPendingEnd(null)}>
+              キャンセル
+            </Button>
+            <Button
+              disabled={pendingEnd !== null && busyStore === pendingEnd.store}
+              onClick={() => {
+                const s = pendingEnd;
+                setPendingEnd(null);
+                if (s) updateActive(s.store, false);
+              }}
+            >
+              終了する
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
