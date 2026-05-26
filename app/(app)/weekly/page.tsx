@@ -1,7 +1,20 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  type CSSProperties,
+} from "react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  type MouseHandlerDataParam,
+} from "recharts";
 import { TrendingDown, TrendingUp, History, Heart } from "lucide-react";
 import { formatVND } from "@/lib/format";
 import { getCategoryColors } from "@/lib/category-colors";
@@ -29,6 +42,15 @@ interface PeriodItem {
   label: string;
   total: number;
   byCategory: Record<string, number>;
+  start: string;
+  end: string;
+}
+interface TxItem {
+  id: string;
+  store: string;
+  amount: number;
+  category: string;
+  date: string;
 }
 interface ReportData {
   periods: PeriodItem[];
@@ -59,6 +81,8 @@ interface ChartRow {
   total: number;
   value: number;
   byCategory: Record<string, number>;
+  start: string;
+  end: string;
 }
 
 function ChartTooltipContent({
@@ -74,17 +98,18 @@ function ChartTooltipContent({
   const row = payload[0].payload;
 
   if (filter === "all") {
-    const top10 = Object.entries(row.byCategory)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 10);
+    // その期間に発生した全カテゴリを表示（上位 N で切らない）
+    const allCategories = Object.entries(row.byCategory).sort(
+      ([, a], [, b]) => b - a,
+    );
     return (
-      <div className="rounded-lg border bg-background px-3 py-2 text-xs shadow-sm min-w-44">
+      <div className="rounded-lg border bg-background px-3 py-2 text-xs shadow-sm min-w-44 max-h-72 overflow-y-auto">
         <p className="font-medium text-foreground mb-1.5">{row.label}</p>
         <div className="space-y-1">
-          {top10.length === 0 ? (
+          {allCategories.length === 0 ? (
             <p className="text-muted-foreground">データなし</p>
           ) : (
-            top10.map(([cat, amt]) => (
+            allCategories.map(([cat, amt]) => (
               <div
                 key={cat}
                 className="flex items-center justify-between gap-3"
@@ -123,6 +148,51 @@ function ChartTooltipContent({
         <span className="font-num font-semibold text-foreground">{pct}%</span>
       </div>
     </div>
+  );
+}
+
+function CategoryChip({
+  label,
+  value,
+  active,
+  onSelect,
+}: {
+  label: string;
+  value: string;
+  active: boolean;
+  onSelect: (value: string) => void;
+}) {
+  const colors = value === "all" ? null : getCategoryColors(value);
+  const activeStyle: CSSProperties =
+    value === "all"
+      ? {
+          backgroundColor: "var(--color-primary)",
+          borderColor: "var(--color-primary)",
+          color: "#fff",
+        }
+      : {
+          backgroundColor: colors!.bg,
+          borderColor: colors!.border,
+          color: colors!.text,
+        };
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(value)}
+      aria-pressed={active}
+      className="rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer hover:bg-muted/60"
+      style={
+        active
+          ? activeStyle
+          : {
+              backgroundColor: "transparent",
+              borderColor: "var(--border)",
+              color: "var(--muted-foreground)",
+            }
+      }
+    >
+      {label}
+    </button>
   );
 }
 
@@ -270,6 +340,11 @@ export default function ReportPage() {
   const [history, setHistory] = useState<MonthRecord[] | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
+  const [detail, setDetail] = useState<{
+    label: string;
+    category: string;
+    txs: TxItem[] | null;
+  } | null>(null);
 
   const fetchData = useCallback(async (p: Period) => {
     setData(null);
@@ -313,7 +388,44 @@ export default function ReportPage() {
           ? p.total
           : (p.byCategory?.[categoryFilter] ?? 0),
       byCategory: p.byCategory ?? {},
+      start: p.start,
+      end: p.end,
     })) ?? [];
+
+  // グラフの点をクリック → その期間 × 選択中カテゴリの明細を popup 表示
+  const openDetail = useCallback(
+    async (row: ChartRow) => {
+      const category = categoryFilter;
+      setDetail({ label: row.label, category, txs: null });
+      try {
+        const params = new URLSearchParams({ from: row.start, to: row.end });
+        if (category !== "all") params.set("category", category);
+        const r = await fetch(`/api/transactions?${params.toString()}`);
+        if (!r.ok) throw new Error();
+        const txs = (await r.json()) as TxItem[];
+        setDetail((d) =>
+          d && d.label === row.label && d.category === category
+            ? { ...d, txs }
+            : d,
+        );
+      } catch {
+        setDetail((d) =>
+          d && d.label === row.label && d.category === category
+            ? { ...d, txs: [] }
+            : d,
+        );
+      }
+    },
+    [categoryFilter],
+  );
+
+  const handleChartClick = useCallback(
+    (state: MouseHandlerDataParam) => {
+      const row = chartData.find((r) => r.label === state.activeLabel);
+      if (row) openDetail(row);
+    },
+    [chartData, openDetail],
+  );
 
   const chartColor =
     categoryFilter === "all"
@@ -480,19 +592,23 @@ export default function ReportPage() {
             支出推移
           </p>
           {data && data.topCategories.length > 0 && (
-            <Tabs
-              value={categoryFilter}
-              onValueChange={setCategoryFilter}
-            >
-              <TabsList>
-                <TabsTrigger value="all">すべて</TabsTrigger>
-                {data.topCategories.map((cat) => (
-                  <TabsTrigger key={cat} value={cat}>
-                    {cat}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <CategoryChip
+                label="すべて"
+                value="all"
+                active={categoryFilter === "all"}
+                onSelect={setCategoryFilter}
+              />
+              {data.topCategories.map((cat) => (
+                <CategoryChip
+                  key={cat}
+                  label={cat}
+                  value={cat}
+                  active={categoryFilter === cat}
+                  onSelect={setCategoryFilter}
+                />
+              ))}
+            </div>
           )}
         </div>
         {chartData.length > 0 ? (
@@ -500,7 +616,11 @@ export default function ReportPage() {
             config={chartConfig}
             className="aspect-auto h-[320px] w-full"
           >
-            <AreaChart data={chartData}>
+            <AreaChart
+              data={chartData}
+              onClick={handleChartClick}
+              style={{ cursor: "pointer" }}
+            >
               <defs>
                 <linearGradient id="reportTotalFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor={chartColor} stopOpacity={0.4} />
@@ -540,6 +660,75 @@ export default function ReportPage() {
         )}
       </Card>
 
+      <Dialog
+        open={detail !== null}
+        onOpenChange={(o) => {
+          if (!o) setDetail(null);
+        }}
+      >
+        <DialogContent className="max-w-lg p-0 overflow-hidden">
+          <DialogHeader className="px-7 py-5 border-b">
+            <DialogTitle className="flex items-center gap-2">
+              {detail?.label}
+              {detail && detail.category !== "all" && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  {detail.category}
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto px-7 py-5">
+            {detail?.txs === null ? (
+              <div className="space-y-2">
+                {[1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} className="h-10 w-full rounded" />
+                ))}
+              </div>
+            ) : detail && detail.txs.length === 0 ? (
+              <p className="text-center py-10 text-sm text-muted-foreground">
+                この期間の支出はありません
+              </p>
+            ) : (
+              <>
+                <ul className="divide-y">
+                  {detail?.txs?.map((t) => (
+                    <li
+                      key={t.id}
+                      className="flex items-center justify-between gap-4 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm text-foreground truncate">
+                          {t.store}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(t.date).toLocaleDateString("ja-JP", {
+                            month: "short",
+                            day: "numeric",
+                          })}{" "}
+                          · {t.category}
+                        </p>
+                      </div>
+                      <span className="font-num text-sm text-foreground shrink-0">
+                        {formatVND(t.amount)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {detail && detail.txs.length > 0 && (
+                  <div className="mt-3 pt-3 border-t flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">合計</span>
+                    <span className="font-num font-semibold text-foreground">
+                      {formatVND(
+                        detail.txs.reduce((sum, t) => sum + t.amount, 0),
+                      )}
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

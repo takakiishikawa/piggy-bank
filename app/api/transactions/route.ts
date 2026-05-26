@@ -60,6 +60,20 @@ export async function GET(req: NextRequest) {
     return q;
   };
 
+  // 任意期間の明細取得（レポートのグラフから特定の週/月をクリックした時など）
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
+  if (from || to) {
+    const { data, error } = await buildQuery(
+      from ? new Date(from) : undefined,
+      to ? new Date(to) : undefined,
+    );
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json((data ?? []) as TxRow[]);
+  }
+
   if (period === "all") {
     const weekBuckets: { start: Date; end: Date }[] = [];
     const cursor = new Date(DATA_START);

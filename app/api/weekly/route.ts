@@ -25,6 +25,8 @@ type PeriodItem = {
   label: string;
   total: number;
   byCategory: Record<string, number>;
+  start: string;
+  end: string;
 };
 
 type BucketDef = { label: string; start: Date; end: Date };
@@ -94,7 +96,7 @@ export async function GET(req: NextRequest) {
   const targetMonthly = currentBudget?.target_monthly ?? 0;
   const fixedCosts = currentBudget?.fixed_costs ?? 0;
 
-  const periods: PeriodItem[] = bucketDefs.map(({ label }, i) => {
+  const periods: PeriodItem[] = bucketDefs.map(({ label, start, end }, i) => {
     const txs = (results[i].data ?? []) as Pick<
       Transaction,
       "category" | "amount" | "date"
@@ -105,7 +107,13 @@ export async function GET(req: NextRequest) {
       byCategory[t.category] = (byCategory[t.category] ?? 0) + t.amount;
       total += t.amount;
     }
-    return { label, total, byCategory };
+    return {
+      label,
+      total,
+      byCategory,
+      start: start.toISOString(),
+      end: end.toISOString(),
+    };
   });
 
   const categoryTotals: Record<string, number> = {};
@@ -116,7 +124,7 @@ export async function GET(req: NextRequest) {
   }
   const topCategories = Object.entries(categoryTotals)
     .sort(([, a], [, b]) => b - a)
-    .slice(0, 5)
+    .slice(0, 10)
     .map(([cat]) => cat);
 
   const currentPeriod = periods[periods.length - 1];
