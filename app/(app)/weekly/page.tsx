@@ -33,6 +33,7 @@ import {
   TabsTrigger,
   ChartContainer,
   ChartTooltip,
+  cn,
   type ChartConfig,
 } from "@takaki/go-design-system";
 import type { MonthRecord } from "@/app/api/dam/route";
@@ -99,17 +100,29 @@ function ChartTooltipContent({
 
   if (filter === "all") {
     // その期間に発生した全カテゴリを表示（上位 N で切らない）
+    // 件数が多い時は2カラムにして縦に伸びすぎないようにする
     const allCategories = Object.entries(row.byCategory).sort(
       ([, a], [, b]) => b - a,
     );
+    const twoCol = allCategories.length > 8;
     return (
-      <div className="rounded-lg border bg-background px-3 py-2 text-xs shadow-sm min-w-44 max-h-72 overflow-y-auto">
+      <div
+        className={cn(
+          "rounded-lg border bg-background px-3 py-2 text-xs shadow-sm",
+          twoCol ? "min-w-[24rem]" : "min-w-44",
+        )}
+      >
         <p className="font-medium text-foreground mb-1.5">{row.label}</p>
-        <div className="space-y-1">
-          {allCategories.length === 0 ? (
-            <p className="text-muted-foreground">データなし</p>
-          ) : (
-            allCategories.map(([cat, amt]) => (
+        {allCategories.length === 0 ? (
+          <p className="text-muted-foreground">データなし</p>
+        ) : (
+          <div
+            className={cn(
+              "gap-x-5 gap-y-1",
+              twoCol ? "grid grid-cols-2" : "space-y-1",
+            )}
+          >
+            {allCategories.map(([cat, amt]) => (
               <div
                 key={cat}
                 className="flex items-center justify-between gap-3"
@@ -119,9 +132,9 @@ function ChartTooltipContent({
                   {formatVND(amt)}
                 </span>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
         <div className="mt-2 pt-2 border-t flex items-center justify-between gap-3">
           <span className="text-muted-foreground">合計</span>
           <span className="font-num font-semibold text-foreground">
@@ -642,6 +655,7 @@ export default function ReportPage() {
               />
               <ChartTooltip
                 cursor={false}
+                allowEscapeViewBox={{ x: false, y: true }}
                 content={<ChartTooltipContent filter={categoryFilter} />}
               />
               <Area
