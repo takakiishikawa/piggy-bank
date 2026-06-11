@@ -23,6 +23,13 @@ export interface Transaction {
   created_at: string;
 }
 
+// ユーザーが手動で確定した店舗→カテゴリの正解ルール（AI推測とは分離）
+export interface StoreCategoryRule {
+  store: string;
+  category: string;
+  updated_at: string;
+}
+
 export interface Settings {
   id: string;
   target_monthly: number;

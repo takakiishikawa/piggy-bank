@@ -8,6 +8,7 @@ import { listVietcombankMessageIds, fetchEmailBody } from "@/lib/gmail";
 import { parseVietcombankEmail } from "@/lib/parser";
 import { convertToVND } from "@/lib/exchange";
 import { categorizeUncategorized } from "@/lib/ai/categorize";
+import { loadStoreRules } from "@/lib/store-rules";
 
 export const maxDuration = 60;
 
@@ -127,6 +128,10 @@ export async function GET(req: Request) {
     if (pageRows.length < PAGE) break;
     page++;
   }
+
+  // 手動修正の正解ルールを最優先で反映（履歴より優先 = ユーザー確定が勝つ）
+  const rules = await loadStoreRules(db);
+  for (const [store, cat] of rules) storeCategory.set(store, cat);
 
   const newIds = allIds.filter((id) => !existingIds.has(id)).slice(0, 100);
 

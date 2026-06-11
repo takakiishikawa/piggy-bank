@@ -62,6 +62,12 @@ export async function PATCH(
     .update({ category: newName })
     .eq("category", oldName);
 
+  // 手動修正ルールも追従させる（stale なカテゴリ名を残さない）
+  await db
+    .from("store_category_rules")
+    .update({ category: newName })
+    .eq("category", oldName);
+
   return NextResponse.json({ ok: true });
 }
 
@@ -96,6 +102,9 @@ export async function DELETE(
     .from("transactions")
     .update({ category: FALLBACK_CATEGORY })
     .eq("category", name);
+
+  // 削除されたカテゴリを指すルールは破棄（store は再び AI 分類対象に戻る）
+  await db.from("store_category_rules").delete().eq("category", name);
 
   const { error: delError } = await db
     .from("categories")

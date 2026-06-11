@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthDb } from "@/lib/supabase/auth-db";
+import { saveStoreRules } from "@/lib/store-rules";
 
 export async function POST(req: NextRequest) {
   const result = await getAuthDb();
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
   const updateQuery = db
     .from("transactions")
     .update({ category, reviewed: true })
-    .select("id");
+    .select("id, store");
 
   const { error, data } = store
     ? await updateQuery.eq("store", store)
@@ -41,6 +42,13 @@ export async function POST(req: NextRequest) {
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // 手動修正を正解ルールとして記録 → 次回以降の同期で同じ店舗に自動適用。
+  // store 指定はその店舗、query 指定はマッチした全店舗ぶんのルールを作る。
+  const touchedStores = store
+    ? [store]
+    : (data ?? []).map((r) => r.store as string);
+  await saveStoreRules(db, touchedStores, category);
 
   return NextResponse.json({ updated: data?.length ?? 0 });
 }

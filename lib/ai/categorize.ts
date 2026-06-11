@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createDb } from "@/lib/supabase/db";
 import { AI_CATEGORIZE_BATCH_SIZE } from "@/lib/constants";
+import { loadStoreRules } from "@/lib/store-rules";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -45,6 +46,12 @@ export async function categorizeUncategorized(
     .neq("category", "その他");
 
   const storeMap: Record<string, string> = {};
+
+  // 手動修正の正解ルールを最優先で適用（履歴・AI推測より常に勝つ）。
+  // ルールに載った店舗は AI へ問い合わせず、既存の「その他」行も上書きされる。
+  const rules = await loadStoreRules(db);
+  for (const [store, cat] of rules) storeMap[store] = cat;
+
   for (const tx of classified ?? []) {
     if (tx.store && !storeMap[tx.store]) {
       storeMap[tx.store] = tx.category;

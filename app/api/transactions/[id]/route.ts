@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthDb } from "@/lib/supabase/auth-db";
+import { saveStoreRules } from "@/lib/store-rules";
 
 export async function PATCH(
   req: NextRequest,
@@ -30,6 +31,11 @@ export async function PATCH(
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // 手動修正を正解ルールとして記録 → 次回以降の同期で同じ店舗に自動適用
+  if (data?.store) {
+    await saveStoreRules(db, [data.store], category);
   }
 
   return NextResponse.json(data);

@@ -5,6 +5,7 @@ import { GMAIL_SYNC_BATCH_SIZE } from "@/lib/constants";
 import { listVietcombankMessageIds, fetchEmailBody } from "@/lib/gmail";
 import { parseVietcombankEmail } from "@/lib/parser";
 import { convertToVND } from "@/lib/exchange";
+import { loadStoreRules } from "@/lib/store-rules";
 
 export const maxDuration = 300; // 5分 (Vercel/Next.js route timeout)
 
@@ -102,6 +103,10 @@ export async function GET() {
       if (pageRows.length < PAGE) break;
       page++;
     }
+
+    // 手動修正の正解ルールを最優先で反映（履歴より優先 = ユーザー確定が勝つ）
+    const rules = await loadStoreRules(db);
+    for (const [store, cat] of rules) storeCategory.set(store, cat);
 
     // 3. 新規IDのみ抽出（タイムアウト回避のため最大GMAIL_SYNC_BATCH_SIZE件）
     const allNewIds = allIds.filter((id) => !existingIds.has(id));
