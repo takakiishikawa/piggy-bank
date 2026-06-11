@@ -79,8 +79,10 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const [budgets, ...results] = await Promise.all([
+  const [budgets, categoryRows, ...results] = await Promise.all([
     fetchAllBudgets(db),
+    // カテゴリ一覧は categories テーブルが正（追加/編集/削除がそのまま反映される）
+    db.from("categories").select("name").order("created_at"),
     ...bucketDefs.map(({ start, end }) =>
       db
         .from("transactions")
@@ -91,6 +93,10 @@ export async function GET(req: NextRequest) {
         .limit(2000),
     ),
   ]);
+
+  const managedCategories = ((categoryRows.data ?? []) as { name: string }[]).map(
+    (r) => r.name,
+  );
 
   const currentBudget = budgets.find((b) => b.month === getCurrentMonthKey(now));
   const targetMonthly = currentBudget?.target_monthly ?? 0;
@@ -122,10 +128,23 @@ export async function GET(req: NextRequest) {
       categoryTotals[cat] = (categoryTotals[cat] ?? 0) + amt;
     }
   }
-  const topCategories = Object.entries(categoryTotals)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 10)
-    .map(([cat]) => cat);
+  // チップ用カテゴリ一覧。categories テーブルを基準に、取引に出現した
+  // カテゴリ（テーブル未登録の legacy 等）も取りこぼさず統合する。
+  // 並びは支出額の多い順、支出ゼロ（新規追加など）はテーブル登録順で末尾。
+  const categoryOrder = new Map<string, number>();
+  managedCategories.forEach((c, i) => categoryOrder.set(c, i));
+  const allCategoryNames = new Set<string>([
+    ...managedCategories,
+    ...Object.keys(categoryTotals),
+  ]);
+  const topCategories = [...allCategoryNames].sort((a, b) => {
+    const sa = categoryTotals[a] ?? 0;
+    const sb = categoryTotals[b] ?? 0;
+    if (sb !== sa) return sb - sa;
+    const oa = categoryOrder.get(a) ?? Number.MAX_SAFE_INTEGER;
+    const ob = categoryOrder.get(b) ?? Number.MAX_SAFE_INTEGER;
+    return oa - ob;
+  });
 
   const currentPeriod = periods[periods.length - 1];
   const prevPeriod = periods[periods.length - 2];
