@@ -1,14 +1,28 @@
 import { NextResponse } from "next/server";
 import { getAuthDb } from "@/lib/supabase/auth-db";
-import { type Transaction } from "@/lib/supabase/db";
-import { calcDamMonths } from "@/lib/dam-calc";
-import { DAM_START, FIXED_CATEGORIES } from "@/lib/constants";
-import {
-  buildBudgetMap,
-  fetchAllBudgets,
-  getCurrentMonthKey,
-} from "@/lib/budget";
-import { projectMonthlyTotal, sumFixedSpent } from "@/lib/projection";
+
+// 月360,000円の手取り: 40%貯金 / 60%生活費
+const MONTHLY_INCOME_JPY = 360_000;
+const SAVINGS_TARGET_JPY = 144_000; // 40%
+const LIFE_BUDGET_JPY = 216_000;    // 60%
+
+// 固定為替レート（概算。精度より安定性を優先）
+// open.er-api.com が利用できる場合はそちらを使う
+async function fetchVndPerJpy(): Promise<number> {
+  try {
+    const res = await fetch("https://open.er-api.com/v6/latest/JPY", {
+      next: { revalidate: 3600 },
+    });
+    if (res.ok) {
+      const data = (await res.json()) as { rates?: Record<string, number> };
+      const rate = data.rates?.VND;
+      if (typeof rate === "number" && rate > 0) return rate;
+    }
+  } catch {
+    // フォールバック
+  }
+  return 170; // 概算固定値
+}
 
 export async function GET() {
   const result = await getAuthDb();
@@ -16,168 +30,87 @@ export async function GET() {
   const { db } = result;
 
   const now = new Date();
-
-  const last7End = new Date(now);
-  last7End.setHours(23, 59, 59, 999);
-
-  const last7Start = new Date(now);
-  last7Start.setDate(last7Start.getDate() - 6);
-  last7Start.setHours(0, 0, 0, 0);
-
-  const prev7End = new Date(last7Start);
-  prev7End.setMilliseconds(prev7End.getMilliseconds() - 1);
-
-  const prev7Start = new Date(prev7End);
-  prev7Start.setDate(prev7Start.getDate() - 6);
-  prev7Start.setHours(0, 0, 0, 0);
-
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(
-    now.getFullYear(),
-    now.getMonth() + 1,
-    0,
-    23,
-    59,
-    59,
-    999,
-  );
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  const dayOfMonth = now.getDate();
+  const daysInMonth = monthEnd.getDate();
 
-  const [last7Res, prev7Res, thisMonthRes, recentRes, budgets, allMonthsRes] =
-    await Promise.all([
-      db
-        .from("transactions")
-        .select("amount, category")
-        .gte("date", last7Start.toISOString())
-        .lte("date", last7End.toISOString()),
-      db
-        .from("transactions")
-        .select("amount, category")
-        .gte("date", prev7Start.toISOString())
-        .lte("date", prev7End.toISOString()),
-      db
-        .from("transactions")
-        .select("amount, category")
-        .gte("date", monthStart.toISOString())
-        .lte("date", monthEnd.toISOString()),
-      (() => {
-        const recentStart = new Date(now);
-        recentStart.setDate(recentStart.getDate() - 2);
-        recentStart.setHours(0, 0, 0, 0);
-        return db
-          .from("transactions")
-          .select("id, store, amount, category, date")
-          .gte("date", recentStart.toISOString())
-          .order("date", { ascending: false })
-          .limit(200);
-      })(),
-      fetchAllBudgets(db),
-      db
-        .from("transactions")
-        .select("amount, date, category")
-        .gt("amount", 0)
-        .gte("date", DAM_START.toISOString()),
-    ]);
+  const [catsRes, txRes, vndPerJpy] = await Promise.all([
+    db.from("categories").select("id, name, budget, is_fixed").order("created_at"),
+    db
+      .from("transactions")
+      .select("amount, category")
+      .gte("date", monthStart.toISOString())
+      .lte("date", monthEnd.toISOString()),
+    fetchVndPerJpy(),
+  ]);
 
-  const errors = [
-    last7Res.error,
-    prev7Res.error,
-    thisMonthRes.error,
-    recentRes.error,
-  ].filter(Boolean);
-  if (errors.length > 0) {
-    return NextResponse.json({ error: errors[0]!.message }, { status: 500 });
+  if (catsRes.error) {
+    return NextResponse.json({ error: catsRes.error.message }, { status: 500 });
   }
 
-  const last7Txs = (last7Res.data ?? []) as Pick<
-    Transaction,
-    "amount" | "category"
-  >[];
-  const prev7Txs = (prev7Res.data ?? []) as Pick<
-    Transaction,
-    "amount" | "category"
-  >[];
-  const thisMonthTxs = (thisMonthRes.data ?? []) as Pick<
-    Transaction,
-    "amount" | "category"
-  >[];
-  const recentTxs = (recentRes.data ?? []) as Pick<
-    Transaction,
-    "id" | "store" | "amount" | "category" | "date"
-  >[];
-  const budgetMap = buildBudgetMap(budgets);
-  const currentBudget = budgetMap.get(getCurrentMonthKey(now));
+  const categories = (catsRes.data ?? []) as {
+    id: string;
+    name: string;
+    budget: number;
+    is_fixed: boolean;
+  }[];
 
-  const isVariable = (tx: Pick<Transaction, "category">) =>
-    !(FIXED_CATEGORIES as readonly string[]).includes(tx.category);
-
-  const thisMonthTotal = thisMonthTxs.reduce((s, t) => s + t.amount, 0);
-  const last7Total = last7Txs
-    .filter(isVariable)
-    .reduce((s, t) => s + t.amount, 0);
-  const prev7Total = prev7Txs
-    .filter(isVariable)
-    .reduce((s, t) => s + t.amount, 0);
-
-  const weekDiff =
-    prev7Total > 0
-      ? Math.round(((last7Total - prev7Total) / prev7Total) * 100)
-      : 0;
-
-  const targetMonthly = currentBudget?.target_monthly ?? 0;
-  const fixedCosts = currentBudget?.fixed_costs ?? 0;
-
-  // 当月の予測も /api/weekly, /api/dam と同じ式（lib/projection.ts）に統一
-  const thisMonthByCategory: Record<string, number> = {};
-  for (const tx of thisMonthTxs) {
-    thisMonthByCategory[tx.category] =
-      (thisMonthByCategory[tx.category] ?? 0) + tx.amount;
+  // カテゴリ別当月実績を集計
+  const actualMap: Record<string, number> = {};
+  for (const tx of txRes.data ?? []) {
+    actualMap[tx.category] = (actualMap[tx.category] ?? 0) + tx.amount;
   }
-  const projectedMonthTotal =
-    thisMonthTotal > 0
-      ? projectMonthlyTotal({
-          total: thisMonthTotal,
-          fixedSpent: sumFixedSpent(thisMonthByCategory),
-          fixedBudget: fixedCosts,
-          now,
-        })
-      : null;
 
-  // 共通ユーティリティで累計ダム残高を計算
-  const allMonthTxs = (allMonthsRes.data ?? []) as Pick<
-    Transaction,
-    "amount" | "date" | "category"
-  >[];
-  const damMonths = calcDamMonths({
-    txs: allMonthTxs,
-    budgetMap,
-    now,
-  });
-  const cumulativeBalance = damMonths[damMonths.length - 1]?.cumulative ?? 0;
+  const withActual = categories.map((c) => ({
+    ...c,
+    actual: actualMap[c.name] ?? 0,
+  }));
 
-  const categoryMap: Record<string, number> = {};
-  for (const tx of last7Txs) {
-    categoryMap[tx.category] = (categoryMap[tx.category] ?? 0) + tx.amount;
+  const variable = withActual.filter((c) => !c.is_fixed);
+  const fixed = withActual.filter((c) => c.is_fixed);
+
+  const variableTotalBudget = variable.reduce((s, c) => s + c.budget, 0);
+  const variableTotalActual = variable.reduce((s, c) => s + c.actual, 0);
+  const fixedTotalBudget = fixed.reduce((s, c) => s + c.budget, 0);
+  const fixedTotalActual = fixed.reduce((s, c) => s + c.actual, 0);
+
+  // 貯金インパクト計算
+  // 変動費: 線形予測 (actual / elapsed days * days in month)
+  // 固定費: 実績 > 0 なら実績、なければ予算額を見込みとする
+  let forecastJpy: number | null = null;
+  const hasBudgets = variableTotalBudget > 0 || fixedTotalBudget > 0;
+
+  if (hasBudgets) {
+    let variableForecast = 0;
+    if (dayOfMonth > 0 && variableTotalActual > 0) {
+      variableForecast = Math.round((variableTotalActual / dayOfMonth) * daysInMonth);
+    }
+
+    let fixedForecast = 0;
+    for (const c of fixed) {
+      fixedForecast += c.actual > 0 ? c.actual : c.budget;
+    }
+
+    const totalForecastVnd = variableForecast + fixedForecast;
+    forecastJpy = Math.round(totalForecastVnd / vndPerJpy);
   }
-  const categoryBreakdown = Object.entries(categoryMap)
-    .sort(([, a], [, b]) => b - a)
-    .map(([name, value]) => ({ name, value }));
 
-  const prevCategoryMap: Record<string, number> = {};
-  for (const tx of prev7Txs) {
-    prevCategoryMap[tx.category] =
-      (prevCategoryMap[tx.category] ?? 0) + tx.amount;
-  }
+  const savingsImpactJpy =
+    forecastJpy !== null ? LIFE_BUDGET_JPY - forecastJpy : null;
 
   return NextResponse.json({
-    thisMonthTotal,
-    projectedMonthTotal,
-    thisWeekTotal: last7Total,
-    lastWeekTotal: prev7Total,
-    weekDiff,
-    cumulativeBalance,
-    targetMonthly,
-    categoryBreakdown,
-    prevCategoryBreakdown: prevCategoryMap,
-    recentTransactions: recentTxs,
+    variableCategories: variable,
+    fixedCategories: fixed,
+    variableTotalBudget,
+    variableTotalActual,
+    fixedTotalBudget,
+    fixedTotalActual,
+    dayOfMonth,
+    daysInMonth,
+    forecastJpy,
+    savingsImpactJpy,
+    savingsTargetJpy: SAVINGS_TARGET_JPY,
+    monthlyIncomeJpy: MONTHLY_INCOME_JPY,
   });
 }

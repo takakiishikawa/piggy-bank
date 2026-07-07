@@ -14,7 +14,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   Input,
   Select,
   SelectTrigger,
@@ -273,7 +272,6 @@ export default function TransactionsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkApplying, setBulkApplying] = useState(false);
-  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
 
   const fetchCategories = useCallback(() => {
     fetch("/api/categories")
@@ -638,25 +636,6 @@ export default function TransactionsPage() {
             ))}
           </SelectContent>
         </Select>
-        <span className="flex-1" />
-        <Dialog
-          open={categoryDialogOpen}
-          onOpenChange={setCategoryDialogOpen}
-        >
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm">
-              カテゴリ管理
-            </Button>
-          </DialogTrigger>
-          <CategoryManagerDialog
-            open={categoryDialogOpen}
-            onOpenChange={setCategoryDialogOpen}
-            onChanged={() => {
-              fetchCategories();
-              fetchTransactions();
-            }}
-          />
-        </Dialog>
       </div>
 
       {/* 一括カテゴリ変更バナー */}

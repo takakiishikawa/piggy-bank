@@ -24,8 +24,7 @@ import {
   Sun,
   Moon,
   Lightbulb,
-  Repeat2,
-  Settings,
+  Wallet,
 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
@@ -41,7 +40,7 @@ const navItems = [
   { href: "/", label: "ダッシュボード", icon: LayoutDashboard },
   { href: "/weekly", label: "レポート", icon: BarChart2 },
   { href: "/transactions", label: "トランザクション", icon: List },
-  { href: "/subscriptions", label: "サブスク", icon: Repeat2 },
+  { href: "/budget", label: "予算・カテゴリ", icon: Wallet },
 ];
 
 const supabaseConfigured =
@@ -144,12 +143,6 @@ export function KenyakuGoSidebar() {
                 icon: Lightbulb,
                 onSelect: () => router.push("/concept"),
                 isActive: isActive("/concept"),
-              },
-              {
-                title: "予算",
-                icon: Settings,
-                onSelect: () => router.push("/settings"),
-                isActive: isActive("/settings"),
               },
               {
                 title: isDark ? "ダーク" : "ライト",

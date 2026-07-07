@@ -7,7 +7,7 @@ export async function GET() {
   const { db } = result;
 
   const [catsRes, txRes] = await Promise.all([
-    db.from("categories").select("id, name").order("created_at"),
+    db.from("categories").select("id, name, budget, is_fixed").order("created_at"),
     db.from("transactions").select("category").limit(100000),
   ]);
 
@@ -43,11 +43,13 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
+  const budget = typeof body.budget === "number" ? Math.max(0, Math.round(body.budget)) : 0;
+  const is_fixed = body.is_fixed === true;
 
   const { data, error } = await db
     .from("categories")
-    .insert({ name: trimmed })
-    .select("id, name")
+    .insert({ name: trimmed, budget, is_fixed })
+    .select("id, name, budget, is_fixed")
     .single();
 
   if (error) {

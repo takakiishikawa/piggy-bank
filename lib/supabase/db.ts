@@ -10,6 +10,8 @@ export interface AiComment {
 export interface Category {
   id: string;
   name: string;
+  budget: number;
+  is_fixed: boolean;
   created_at: string;
 }
 

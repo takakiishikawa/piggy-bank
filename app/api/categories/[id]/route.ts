@@ -7,10 +7,13 @@ export const maxDuration = 30;
 const FALLBACK_CATEGORY = "その他";
 
 const patchSchema = z.object({
-  name: z.string().min(1).max(50),
+  name: z.string().min(1).max(50).optional(),
+  budget: z.number().int().min(0).optional(),
+  is_fixed: z.boolean().optional(),
 });
 
-// カテゴリ名の変更。同名の transactions も一括 rename する。
+// カテゴリの名前・予算・固定費フラグを変更する。
+// 名前変更時は同名の transactions / store_category_rules も一括 rename する。
 export async function PATCH(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
@@ -24,7 +27,8 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid body" }, { status: 400 });
   }
-  const newName = parsed.data.name.trim();
+  const { name: newNameRaw, budget, is_fixed } = parsed.data;
+  const newName = newNameRaw?.trim();
 
   const { data: cur, error: fetchError } = await db
     .from("categories")
@@ -35,38 +39,63 @@ export async function PATCH(
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
   const oldName = (cur as { name: string }).name;
-  if (oldName === FALLBACK_CATEGORY) {
-    return NextResponse.json(
-      { error: "「その他」は変更できません" },
-      { status: 400 },
-    );
+
+  // 名前変更がある場合の処理
+  if (newName !== undefined && newName !== oldName) {
+    if (oldName === FALLBACK_CATEGORY) {
+      return NextResponse.json(
+        { error: "「その他」は変更できません" },
+        { status: 400 },
+      );
+    }
+
+    const updatePayload: Record<string, unknown> = { name: newName };
+    if (budget !== undefined) updatePayload.budget = budget;
+    if (is_fixed !== undefined) updatePayload.is_fixed = is_fixed;
+
+    const { error: updError } = await db
+      .from("categories")
+      .update(updatePayload)
+      .eq("id", id);
+    if (updError) {
+      if (updError.code === "23505") {
+        return NextResponse.json(
+          { error: "そのカテゴリ名は既に存在します" },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json({ error: updError.message }, { status: 500 });
+    }
+
+    await db
+      .from("transactions")
+      .update({ category: newName })
+      .eq("category", oldName);
+
+    await db
+      .from("store_category_rules")
+      .update({ category: newName })
+      .eq("category", oldName);
+
+    return NextResponse.json({ ok: true });
   }
-  if (oldName === newName) return NextResponse.json({ ok: true });
+
+  // 名前変更なし（予算・フラグのみ更新）
+  const updatePayload: Record<string, unknown> = {};
+  if (budget !== undefined) updatePayload.budget = budget;
+  if (is_fixed !== undefined) updatePayload.is_fixed = is_fixed;
+
+  if (Object.keys(updatePayload).length === 0) {
+    return NextResponse.json({ ok: true });
+  }
 
   const { error: updError } = await db
     .from("categories")
-    .update({ name: newName })
+    .update(updatePayload)
     .eq("id", id);
   if (updError) {
-    if (updError.code === "23505") {
-      return NextResponse.json(
-        { error: "そのカテゴリ名は既に存在します" },
-        { status: 409 },
-      );
-    }
     return NextResponse.json({ error: updError.message }, { status: 500 });
   }
-
-  await db
-    .from("transactions")
-    .update({ category: newName })
-    .eq("category", oldName);
-
-  // 手動修正ルールも追従させる（stale なカテゴリ名を残さない）
-  await db
-    .from("store_category_rules")
-    .update({ category: newName })
-    .eq("category", oldName);
 
   return NextResponse.json({ ok: true });
 }
