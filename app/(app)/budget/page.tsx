@@ -172,12 +172,6 @@ function CategoryCard({
         <span className="text-xs text-muted-foreground shrink-0">VND</span>
       </div>
 
-      {/* 予算が設定済みなら金額表示 */}
-      {cat.budget > 0 && (
-        <p className="text-xs text-muted-foreground font-num -mt-1">
-          {formatVND(cat.budget)} / 月
-        </p>
-      )}
     </Card>
   );
 }
@@ -276,23 +270,29 @@ function SectionGrid({
   onAdd: (name: string, budget: number, is_fixed: boolean) => Promise<void>;
 }) {
   const isFixed = title === "固定費";
+  const sorted = [...categories].sort((a, b) => b.budget - a.budget);
 
   return (
     <div className="mb-8">
-      <div className="flex items-center gap-3 mb-4">
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        <span className="text-xs text-muted-foreground">
-          {categories.length}カテゴリ
-        </span>
+      <div
+        className="flex items-center justify-between px-4 py-3 rounded-lg mb-4"
+        style={{ backgroundColor: "var(--muted)" }}
+      >
+        <div className="flex items-center gap-2">
+          <h2 className="text-base font-bold text-foreground">{title}</h2>
+          <span className="text-xs text-muted-foreground">
+            {categories.length}カテゴリ
+          </span>
+        </div>
         {totalBudget > 0 && (
-          <span className="text-xs font-num text-muted-foreground ml-auto">
-            合計予算 {formatVND(totalBudget)}
+          <span className="font-num font-semibold text-base text-foreground">
+            {formatVND(totalBudget)}
           </span>
         )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        {categories.map((cat) => (
+        {sorted.map((cat) => (
           <CategoryCard
             key={cat.id}
             cat={cat}
@@ -384,6 +384,7 @@ export default function BudgetPage() {
   const fixed = categories.filter((c) => c.is_fixed);
   const variableBudgetTotal = variable.reduce((s, c) => s + c.budget, 0);
   const fixedBudgetTotal = fixed.reduce((s, c) => s + c.budget, 0);
+  const grandTotal = variableBudgetTotal + fixedBudgetTotal;
 
   if (loading) {
     return (
@@ -400,7 +401,33 @@ export default function BudgetPage() {
     <div>
       <PageHeader title="予算・カテゴリ" />
 
-      <div className="mt-8">
+      {/* 月次合計予算サマリ */}
+      {grandTotal > 0 && (
+        <Card className="mt-6 mb-8 p-6">
+          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-2">
+            月次合計予算
+          </p>
+          <p className="font-num text-4xl font-bold text-foreground leading-none mb-4">
+            {formatVND(grandTotal)}
+          </p>
+          <div className="flex gap-6 text-sm">
+            <div>
+              <span className="text-muted-foreground">変動費</span>
+              <span className="font-num font-semibold text-foreground ml-2">
+                {formatVND(variableBudgetTotal)}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">固定費</span>
+              <span className="font-num font-semibold text-foreground ml-2">
+                {formatVND(fixedBudgetTotal)}
+              </span>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      <div className="mt-2">
         <SectionGrid
           title="変動費"
           categories={variable}
