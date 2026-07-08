@@ -339,7 +339,7 @@ export default function ReportPage() {
         {chartData.length > 0 ? (
           <ChartContainer
             config={chartConfig}
-            className="aspect-auto h-[320px] w-full"
+            className="aspect-auto h-[420px] w-full"
           >
             <AreaChart
               data={chartData}

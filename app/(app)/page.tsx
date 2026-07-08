@@ -142,13 +142,13 @@ function VariableCategoryRow({
 
 function FixedCategoryRow({ cat, onClick }: { cat: CategoryEntry; onClick: () => void }) {
   const over = cat.budget > 0 && cat.actual > cat.budget * 1.05;
-  const match = cat.budget > 0 && !over;
+  const paid = cat.actual > 0 && !over;
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-3 py-2.5 w-full text-left border-b last:border-0 -mx-2 px-2 rounded transition-colors hover:bg-muted/40 cursor-pointer"
+      className="flex items-center gap-3 py-2.5 w-full text-left -mx-2 px-2 rounded transition-colors hover:bg-muted/40 cursor-pointer"
     >
       <CategoryIcon name={cat.name} />
       <span className="text-sm text-foreground truncate flex-1">
@@ -172,7 +172,7 @@ function FixedCategoryRow({ cat, onClick }: { cat: CategoryEntry; onClick: () =>
                   borderColor: "var(--color-danger, #ef4444)",
                   color: "var(--color-danger, #ef4444)",
                 }
-              : match
+              : paid
                 ? {
                     backgroundColor: "var(--color-success-subtle, #dcfce7)",
                     borderColor: "var(--color-success, #22c55e)",
@@ -185,7 +185,7 @@ function FixedCategoryRow({ cat, onClick }: { cat: CategoryEntry; onClick: () =>
                   }
           }
         >
-          {over ? "予算超過" : match ? "一致" : "—"}
+          {over ? "超過" : paid ? "支払済" : "未払い"}
         </span>
       )}
     </button>
@@ -252,7 +252,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="mt-8 space-y-6">
+      <div className="mt-6 space-y-5">
         {/* 未分類アラート */}
         {uncategorizedCount > 0 && (
           <div
@@ -292,15 +292,13 @@ export default function Dashboard() {
               今月の取引データがまだありません。
             </p>
           ) : (
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">今月の着地見込み</p>
-                <p className="font-num text-2xl font-bold text-foreground leading-none">
-                  {formatVND(data.forecastVnd)}
-                </p>
-              </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">今月の着地見込み</p>
+              <p className="font-num text-2xl font-bold text-foreground leading-none">
+                {formatVND(data.forecastVnd)}
+              </p>
               <p
-                className="text-sm font-semibold"
+                className="text-sm font-medium mt-2"
                 style={{
                   color: positive
                     ? "var(--color-success, #22c55e)"
@@ -308,8 +306,8 @@ export default function Dashboard() {
                 }}
               >
                 {positive
-                  ? `予算まで ${formatVND(data.savingsImpactVnd ?? 0)} の余裕`
-                  : `予算を ${formatVND(Math.abs(data.savingsImpactVnd ?? 0))} 超過見込み`}
+                  ? `予算より ${formatVND(data.savingsImpactVnd ?? 0)} 少ない見込み`
+                  : `予算を ${formatVND(Math.abs(data.savingsImpactVnd ?? 0))} 上回る見込み`}
               </p>
             </div>
           )}
@@ -320,19 +318,17 @@ export default function Dashboard() {
           className="overflow-hidden animate-fade-up"
           style={{ animationDelay: "80ms", animationFillMode: "both" }}
         >
-          <div className="flex items-center justify-between px-6 py-4 border-b">
-            <div className="flex items-center gap-3">
-              <h2 className="text-sm font-semibold text-foreground">変動費</h2>
-              {data && data.variableTotalBudget > 0 && (
+          <div className="flex items-center gap-3 px-6 py-4 border-b">
+            <h2 className="text-sm font-semibold text-foreground">変動費</h2>
+            {data && data.variableTotalBudget > 0 && (
+              <>
                 <span className="font-num text-sm text-muted-foreground">
                   {formatVND(data.variableTotalActual)} / {formatVND(data.variableTotalBudget)}
                 </span>
-              )}
-            </div>
-            {data && data.variableTotalBudget > 0 && (
-              <span className="font-num text-xs text-muted-foreground">
-                {Math.round((data.variableTotalActual / data.variableTotalBudget) * 100)}%
-              </span>
+                <span className="font-num text-xs text-muted-foreground">
+                  {Math.round((data.variableTotalActual / data.variableTotalBudget) * 100)}%
+                </span>
+              </>
             )}
           </div>
 
@@ -380,10 +376,20 @@ export default function Dashboard() {
           className="overflow-hidden animate-fade-up"
           style={{ animationDelay: "160ms", animationFillMode: "both" }}
         >
-          <div className="px-6 py-4 border-b">
+          <div className="flex items-center gap-3 px-6 py-4 border-b">
             <h2 className="text-sm font-semibold text-foreground">固定費</h2>
+            {data && data.fixedTotalBudget > 0 && (
+              <>
+                <span className="font-num text-sm text-muted-foreground">
+                  {formatVND(data.fixedTotalActual)} / {formatVND(data.fixedTotalBudget)}
+                </span>
+                <span className="font-num text-xs text-muted-foreground">
+                  {Math.round((data.fixedTotalActual / data.fixedTotalBudget) * 100)}%
+                </span>
+              </>
+            )}
           </div>
-          <div className="px-6 py-2">
+          <div className="px-6 pb-4 pt-2 divide-y">
             {!data ? (
               <div className="space-y-3 py-2">
                 {[1, 2].map((i) => (
