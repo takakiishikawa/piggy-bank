@@ -1,5 +1,7 @@
 export function formatVND(amount: number): string {
-  return amount.toLocaleString("vi-VN") + " ₫";
+  return Math.round(amount)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ".") + " ₫";
 }
 
 export function formatDate(date: string | Date): string {
