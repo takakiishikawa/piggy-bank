@@ -8,21 +8,21 @@ export async function GET() {
 
   const [catsRes, txRes] = await Promise.all([
     db.from("categories").select("id, name, budget, is_fixed").order("created_at"),
-    db.from("transactions").select("category").limit(100000),
+    db.from("transactions").select("category, amount").limit(100000),
   ]);
 
   if (catsRes.error) {
     return NextResponse.json({ error: catsRes.error.message }, { status: 500 });
   }
 
-  const counts: Record<string, number> = {};
+  const totals: Record<string, number> = {};
   for (const t of txRes.data ?? []) {
     if (t.category)
-      counts[t.category] = (counts[t.category] ?? 0) + 1;
+      totals[t.category] = (totals[t.category] ?? 0) + (t.amount ?? 0);
   }
 
   const sorted = (catsRes.data ?? []).slice().sort((a, b) => {
-    const diff = (counts[b.name] ?? 0) - (counts[a.name] ?? 0);
+    const diff = (totals[b.name] ?? 0) - (totals[a.name] ?? 0);
     if (diff !== 0) return diff;
     return a.name.localeCompare(b.name, "ja");
   });

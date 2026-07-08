@@ -29,7 +29,7 @@ function CategoryDot({ name }: { name: string }) {
   );
 }
 
-function CategoryRow({
+function CategoryCard({
   cat,
   onUpdate,
   onDelete,
@@ -72,64 +72,75 @@ function CategoryRow({
   };
 
   return (
-    <div className="flex items-center gap-3 px-5 py-3.5 border-b last:border-0">
-      <CategoryDot name={cat.name} />
-
-      {editingName ? (
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <Input
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") saveName();
-              if (e.key === "Escape") {
+    <Card className="p-4 flex flex-col gap-3">
+      {/* 1行目: ドット + 名前 + 編集/削除 */}
+      <div className="flex items-center gap-2">
+        <CategoryDot name={cat.name} />
+        {editingName ? (
+          <>
+            <Input
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveName();
+                if (e.key === "Escape") {
+                  setEditingName(false);
+                  setNameInput(cat.name);
+                }
+              }}
+              className="h-7 text-sm flex-1"
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={saveName}
+              disabled={saving}
+              className="p-1 rounded hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground"
+            >
+              <Check size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
                 setEditingName(false);
                 setNameInput(cat.name);
-              }
-            }}
-            className="h-7 text-sm flex-1"
-            autoFocus
-          />
-          <button
-            type="button"
-            onClick={saveName}
-            disabled={saving}
-            className="p-1 rounded hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground"
-          >
-            <Check size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setEditingName(false);
-              setNameInput(cat.name);
-            }}
-            className="p-1 rounded hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className="text-sm font-medium text-foreground truncate">
-            {cat.name}
-          </span>
-          <button
-            type="button"
-            onClick={() => setEditingName(true)}
-            className="p-1 rounded hover:bg-muted/60 transition-colors text-muted-foreground opacity-0 group-hover:opacity-100"
-          >
-            <Pencil size={12} />
-          </button>
-        </div>
-      )}
+              }}
+              className="p-1 rounded hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground"
+            >
+              <X size={13} />
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="text-sm font-medium text-foreground truncate flex-1">
+              {cat.name}
+            </span>
+            <button
+              type="button"
+              onClick={() => setEditingName(true)}
+              className="p-1 rounded hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <Pencil size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(cat.id, cat.name)}
+              disabled={saving}
+              className="p-1 rounded hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive shrink-0"
+            >
+              <Trash2 size={13} />
+            </button>
+          </>
+        )}
+      </div>
 
-      <div className="flex items-center gap-2 shrink-0">
+      {/* 2行目: 変動費/固定費トグル + 予算入力 */}
+      <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={toggleFixed}
           disabled={saving}
-          className="text-xs px-2 py-1 rounded border transition-colors"
+          className="text-xs px-2 py-1 rounded border transition-colors shrink-0"
           style={
             cat.is_fixed
               ? {
@@ -146,39 +157,32 @@ function CategoryRow({
         >
           {cat.is_fixed ? "固定費" : "変動費"}
         </button>
-
-        <div className="relative">
-          <Input
-            type="text"
-            inputMode="numeric"
-            value={budgetInput}
-            onChange={(e) => setBudgetInput(e.target.value.replace(/[^0-9]/g, ""))}
-            onBlur={saveBudget}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                (e.target as HTMLInputElement).blur();
-              }
-            }}
-            className="h-7 text-sm text-right w-36 font-num"
-            placeholder="0"
-          />
-        </div>
-        <span className="text-xs text-muted-foreground w-8">VND</span>
-
-        <button
-          type="button"
-          onClick={() => onDelete(cat.id, cat.name)}
-          disabled={saving}
-          className="p-1 rounded hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
-        >
-          <Trash2 size={14} />
-        </button>
+        <Input
+          type="text"
+          inputMode="numeric"
+          value={budgetInput}
+          onChange={(e) => setBudgetInput(e.target.value.replace(/[^0-9]/g, ""))}
+          onBlur={saveBudget}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
+          className="h-7 text-sm text-right flex-1 font-num min-w-0"
+          placeholder="0"
+        />
+        <span className="text-xs text-muted-foreground shrink-0">VND</span>
       </div>
-    </div>
+
+      {/* 予算が設定済みなら金額表示 */}
+      {cat.budget > 0 && (
+        <p className="text-xs text-muted-foreground font-num -mt-1">
+          {formatVND(cat.budget)} / 月
+        </p>
+      )}
+    </Card>
   );
 }
 
-function AddCategoryRow({
+function AddCategoryCard({
   isFixed,
   onAdd,
 }: {
@@ -207,7 +211,7 @@ function AddCategoryRow({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-5 py-3 text-sm text-muted-foreground hover:text-foreground transition-colors w-full"
+        className="flex items-center justify-center gap-2 h-full min-h-[88px] w-full rounded-lg border border-dashed text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
       >
         <Plus size={14} />
         カテゴリを追加
@@ -216,8 +220,7 @@ function AddCategoryRow({
   }
 
   return (
-    <div className="flex items-center gap-3 px-5 py-3.5 border-t">
-      <span className="inline-block w-3 h-3 rounded-full bg-muted shrink-0" />
+    <Card className="p-4 flex flex-col gap-3">
       <Input
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -226,40 +229,38 @@ function AddCategoryRow({
           if (e.key === "Escape") setOpen(false);
         }}
         placeholder="カテゴリ名"
-        className="h-7 text-sm flex-1"
+        className="h-7 text-sm"
         autoFocus
       />
-      <Input
-        type="text"
-        inputMode="numeric"
-        value={budget}
-        onChange={(e) => setBudget(e.target.value.replace(/[^0-9]/g, ""))}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") handleAdd();
-        }}
-        placeholder="予算（VND）"
-        className="h-7 text-sm text-right w-36 font-num"
-      />
-      <span className="text-xs text-muted-foreground w-8">VND</span>
-      <Button size="sm" onClick={handleAdd} disabled={saving || !name.trim()}>
-        追加
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => {
-          setOpen(false);
-          setName("");
-          setBudget("");
-        }}
-      >
-        キャンセル
-      </Button>
-    </div>
+      <div className="flex items-center gap-2">
+        <Input
+          type="text"
+          inputMode="numeric"
+          value={budget}
+          onChange={(e) => setBudget(e.target.value.replace(/[^0-9]/g, ""))}
+          onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
+          placeholder="予算（VND）"
+          className="h-7 text-sm text-right flex-1 font-num"
+        />
+        <span className="text-xs text-muted-foreground shrink-0">VND</span>
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" onClick={handleAdd} disabled={saving || !name.trim()} className="flex-1">
+          追加
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => { setOpen(false); setName(""); setBudget(""); }}
+        >
+          ✕
+        </Button>
+      </div>
+    </Card>
   );
 }
 
-function SectionCard({
+function SectionGrid({
   title,
   categories,
   totalBudget,
@@ -275,42 +276,33 @@ function SectionCard({
   onAdd: (name: string, budget: number, is_fixed: boolean) => Promise<void>;
 }) {
   const isFixed = title === "固定費";
+
   return (
-    <Card className="overflow-hidden mb-6">
-      <div className="flex items-center justify-between px-5 py-4 border-b bg-muted/30">
-        <div className="flex items-center gap-3">
-          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-          <span className="text-xs text-muted-foreground">
-            {categories.length}カテゴリ
-          </span>
-        </div>
+    <div className="mb-8">
+      <div className="flex items-center gap-3 mb-4">
+        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+        <span className="text-xs text-muted-foreground">
+          {categories.length}カテゴリ
+        </span>
         {totalBudget > 0 && (
-          <span className="text-sm font-num text-muted-foreground">
+          <span className="text-xs font-num text-muted-foreground ml-auto">
             合計予算 {formatVND(totalBudget)}
           </span>
         )}
       </div>
 
-      <div className="group">
-        {categories.length === 0 ? (
-          <p className="px-5 py-6 text-sm text-muted-foreground text-center">
-            まだカテゴリがありません
-          </p>
-        ) : (
-          categories.map((cat) => (
-            <div key={cat.id} className="group">
-              <CategoryRow
-                cat={cat}
-                onUpdate={onUpdate}
-                onDelete={onDelete}
-              />
-            </div>
-          ))
-        )}
+      <div className="grid grid-cols-2 gap-3">
+        {categories.map((cat) => (
+          <CategoryCard
+            key={cat.id}
+            cat={cat}
+            onUpdate={onUpdate}
+            onDelete={onDelete}
+          />
+        ))}
+        <AddCategoryCard isFixed={isFixed} onAdd={onAdd} />
       </div>
-
-      <AddCategoryRow isFixed={isFixed} onAdd={onAdd} />
-    </Card>
+    </div>
   );
 }
 
@@ -409,7 +401,7 @@ export default function BudgetPage() {
       <PageHeader title="予算・カテゴリ" />
 
       <div className="mt-8">
-        <SectionCard
+        <SectionGrid
           title="変動費"
           categories={variable}
           totalBudget={variableBudgetTotal}
@@ -418,7 +410,7 @@ export default function BudgetPage() {
           onAdd={handleAdd}
         />
 
-        <SectionCard
+        <SectionGrid
           title="固定費"
           categories={fixed}
           totalBudget={fixedBudgetTotal}
