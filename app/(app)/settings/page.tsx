@@ -5,7 +5,6 @@ import {
   Button,
   Card,
   Input,
-  PageHeader,
   toast,
 } from "@takaki/go-design-system";
 
@@ -45,8 +44,6 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <PageHeader title="予算" />
-
       <div className="mt-8 space-y-5 max-w-xl">
         <Card className="p-7 animate-fade-up">
           <div className="flex items-baseline justify-between mb-6">
@@ -110,3 +107,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+

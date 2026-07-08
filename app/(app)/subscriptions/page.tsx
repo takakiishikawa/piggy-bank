@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  PageHeader,
+
   Skeleton,
   Tabs,
   TabsList,
@@ -226,8 +226,6 @@ export default function SubscriptionsPage() {
 
   return (
     <div>
-      <PageHeader title="サブスク" />
-
       {subscriptions === null ? (
         <div className="mt-8 space-y-3">
           {[1, 2, 3, 4].map((i) => (

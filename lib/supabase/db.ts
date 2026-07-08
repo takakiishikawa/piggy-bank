@@ -22,6 +22,7 @@ export interface Transaction {
   amount: number;
   date: string;
   category: string;
+  reviewed: boolean;
   created_at: string;
 }
 

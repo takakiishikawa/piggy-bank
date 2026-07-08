@@ -6,6 +6,7 @@ import { Trash2, Pencil } from "lucide-react";
 import { toast } from "@takaki/go-design-system";
 import { formatVND, formatDateWithYear } from "@/lib/format";
 import { getCategoryColors } from "@/lib/category-colors";
+import { getCategoryIcon } from "@/lib/category-icons";
 import {
   Button,
   Card,
@@ -20,7 +21,6 @@ import {
   SelectValue,
   SelectContent,
   SelectItem,
-  PageHeader,
   Tag,
 } from "@takaki/go-design-system";
 
@@ -30,6 +30,7 @@ interface Transaction {
   amount: number;
   category: string;
   date: string;
+  reviewed: boolean;
 }
 
 interface Category {
@@ -45,11 +46,13 @@ interface UncategorizedStore {
   hint: string | null;
 }
 
-function CategoryBadge({ category }: { category: string }) {
-  if (category === "その他") return <Tag color="danger">未分類</Tag>;
+function CategoryBadge({ category, reviewed }: { category: string; reviewed: boolean }) {
+  if (category === "その他" && !reviewed) return <Tag color="danger">未分類</Tag>;
   const { bg, border, text } = getCategoryColors(category);
+  const Icon = getCategoryIcon(category);
   return (
     <Tag style={{ backgroundColor: bg, borderColor: border, color: text }}>
+      <Icon size={11} style={{ color: text }} />
       {category}
     </Tag>
   );
@@ -195,7 +198,7 @@ function CategoryManagerDialog({
                   </>
                 ) : (
                   <>
-                    <CategoryBadge category={item.name} />
+                    <CategoryBadge category={item.name} reviewed={true} />
                     <span className="flex-1" />
                     {!isProtected && (
                       <>
@@ -458,7 +461,7 @@ export default function TransactionsPage() {
               }}
               className="cursor-pointer bg-transparent border-0 p-0"
             >
-              <CategoryBadge category={tx.category} />
+              <CategoryBadge category={tx.category} reviewed={tx.reviewed} />
             </button>
           );
         },
@@ -494,33 +497,6 @@ export default function TransactionsPage() {
 
   return (
     <div>
-      <PageHeader
-        title="トランザクション"
-        actions={
-          showReviewButton ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchUncategorizedStores}
-              disabled={reviewLoading}
-              style={
-                uncategorizedCount && uncategorizedCount > 0
-                  ? {
-                      borderColor: "var(--color-warning)",
-                      color: "var(--color-warning)",
-                      backgroundColor: "var(--color-warning-subtle)",
-                    }
-                  : undefined
-              }
-            >
-              {reviewLoading
-                ? "読込中..."
-                : `要確認リスト${uncategorizedCount ? `（${uncategorizedCount}）` : ""}`}
-            </Button>
-          ) : null
-        }
-      />
-
       {/* 要確認ストア */}
       {uncategorizedStores.length > 0 && (
         <Card
@@ -600,7 +576,7 @@ export default function TransactionsPage() {
         </Card>
       )}
 
-      {/* 検索 + カテゴリフィルタ + カテゴリ管理 */}
+      {/* 検索 + カテゴリフィルタ */}
       <div className="flex items-center gap-3 mt-6 mb-4">
         <div className="relative flex-1" style={{ maxWidth: 320 }}>
           <svg
@@ -636,6 +612,27 @@ export default function TransactionsPage() {
             ))}
           </SelectContent>
         </Select>
+        {showReviewButton && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchUncategorizedStores}
+            disabled={reviewLoading}
+            style={
+              uncategorizedCount && uncategorizedCount > 0
+                ? {
+                    borderColor: "var(--color-warning)",
+                    color: "var(--color-warning)",
+                    backgroundColor: "var(--color-warning-subtle)",
+                  }
+                : undefined
+            }
+          >
+            {reviewLoading
+              ? "読込中..."
+              : `要確認リスト${uncategorizedCount ? `（${uncategorizedCount}）` : ""}`}
+          </Button>
+        )}
       </div>
 
       {/* 一括カテゴリ変更バナー */}

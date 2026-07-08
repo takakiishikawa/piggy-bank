@@ -137,6 +137,7 @@ export async function GET() {
           amount: 0,
           date: new Date().toISOString(),
           category: "その他",
+          reviewed: false,
         } satisfies Omit<Transaction, "created_at">);
         continue;
       }
@@ -162,6 +163,7 @@ export async function GET() {
         amount: vndAmount,
         date: parsed.date.toISOString(),
         category: knownCategory ?? "その他",
+        reviewed: !!knownCategory,
       } satisfies Omit<Transaction, "created_at">);
 
       if (err) {

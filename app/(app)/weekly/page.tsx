@@ -18,6 +18,7 @@ import {
 import { Heart } from "lucide-react";
 import { formatVND } from "@/lib/format";
 import { getCategoryColors } from "@/lib/category-colors";
+import { getCategoryIcon } from "@/lib/category-icons";
 import {
   Button,
   Card,
@@ -25,7 +26,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  PageHeader,
   Skeleton,
   Tabs,
   TabsList,
@@ -153,6 +153,7 @@ function CategoryChip({
   onSelect: (value: string) => void;
 }) {
   const colors = value === "all" ? null : getCategoryColors(value);
+  const Icon = value !== "all" ? getCategoryIcon(value) : null;
   const activeStyle: CSSProperties =
     value === "all"
       ? {
@@ -170,7 +171,7 @@ function CategoryChip({
       type="button"
       onClick={() => onSelect(value)}
       aria-pressed={active}
-      className="rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer hover:bg-muted/60"
+      className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer hover:bg-muted/60"
       style={
         active
           ? activeStyle
@@ -181,6 +182,7 @@ function CategoryChip({
             }
       }
     >
+      {Icon && <Icon size={11} />}
       {label}
     </button>
   );
@@ -283,24 +285,9 @@ export default function ReportPage() {
 
   return (
     <div>
-      <PageHeader
-        title="レポート"
-        actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setWishlistOpen(true)}
-          >
-            <Heart size={14} />
-            ウィッシュリスト
-          </Button>
-        }
-      />
-
       <WishlistDialog open={wishlistOpen} onOpenChange={setWishlistOpen} />
 
-
-<div className="mt-6 mb-8">
+      <div className="mt-6 mb-8 flex items-center justify-between gap-4">
         <Tabs
           value={categoryType}
           onValueChange={(v) => {
@@ -314,6 +301,14 @@ export default function ReportPage() {
             <TabsTrigger value="all">すべて</TabsTrigger>
           </TabsList>
         </Tabs>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setWishlistOpen(true)}
+        >
+          <Heart size={14} />
+          ウィッシュリスト
+        </Button>
       </div>
 
       <Card className="p-7 mb-5">

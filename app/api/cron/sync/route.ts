@@ -169,6 +169,7 @@ export async function GET(req: Request) {
       amount: vndAmount,
       date: parsed.date.toISOString(),
       category: knownCategory ?? "その他",
+      reviewed: false,
     } satisfies Omit<Transaction, "created_at">);
 
     if (err) {

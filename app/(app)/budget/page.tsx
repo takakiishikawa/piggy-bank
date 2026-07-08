@@ -5,11 +5,11 @@ import { Pencil, Trash2, Plus, Check, X } from "lucide-react";
 import { toast } from "@takaki/go-design-system";
 import { formatVND } from "@/lib/format";
 import { getCategoryColors } from "@/lib/category-colors";
+import { getCategoryIcon } from "@/lib/category-icons";
 import {
   Button,
   Card,
   Input,
-  PageHeader,
 } from "@takaki/go-design-system";
 
 interface Category {
@@ -19,14 +19,10 @@ interface Category {
   is_fixed: boolean;
 }
 
-function CategoryDot({ name }: { name: string }) {
-  const { bg, border } = getCategoryColors(name);
-  return (
-    <span
-      className="inline-block w-3 h-3 rounded-full shrink-0"
-      style={{ backgroundColor: bg, borderColor: border, border: "1px solid" }}
-    />
-  );
+function CategoryIcon({ name }: { name: string }) {
+  const { text } = getCategoryColors(name);
+  const Icon = getCategoryIcon(name);
+  return <Icon size={15} style={{ color: text }} className="shrink-0" />;
 }
 
 function CategoryCard({
@@ -72,10 +68,10 @@ function CategoryCard({
   };
 
   return (
-    <Card className="p-4 flex flex-col gap-3">
-      {/* 1行目: ドット + 名前 + 編集/削除 */}
+    <Card className="px-4 py-3">
+      {/* 1行レイアウト: ドット + 名前 + フラグ + 予算 + 操作ボタン */}
       <div className="flex items-center gap-2">
-        <CategoryDot name={cat.name} />
+        <CategoryIcon name={cat.name} />
         {editingName ? (
           <>
             <Input
@@ -88,14 +84,14 @@ function CategoryCard({
                   setNameInput(cat.name);
                 }
               }}
-              className="h-7 text-sm flex-1"
+              className="h-7 text-sm flex-1 min-w-0"
               autoFocus
             />
             <button
               type="button"
               onClick={saveName}
               disabled={saving}
-              className="p-1 rounded hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground"
+              className="p-1 rounded hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground shrink-0"
             >
               <Check size={13} />
             </button>
@@ -105,16 +101,49 @@ function CategoryCard({
                 setEditingName(false);
                 setNameInput(cat.name);
               }}
-              className="p-1 rounded hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground"
+              className="p-1 rounded hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground shrink-0"
             >
               <X size={13} />
             </button>
           </>
         ) : (
           <>
-            <span className="text-sm font-medium text-foreground truncate flex-1">
+            <span className="text-sm font-medium text-foreground truncate min-w-0 flex-1">
               {cat.name}
             </span>
+            <button
+              type="button"
+              onClick={toggleFixed}
+              disabled={saving}
+              className="text-xs px-1.5 py-0.5 rounded border transition-colors shrink-0"
+              style={
+                cat.is_fixed
+                  ? {
+                      backgroundColor: "var(--color-primary-subtle, #e8f5e9)",
+                      borderColor: "var(--color-primary)",
+                      color: "var(--color-primary)",
+                    }
+                  : {
+                      backgroundColor: "transparent",
+                      borderColor: "var(--border)",
+                      color: "var(--muted-foreground)",
+                    }
+              }
+            >
+              {cat.is_fixed ? "固" : "変"}
+            </button>
+            <Input
+              type="text"
+              inputMode="numeric"
+              value={budgetInput.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
+              onChange={(e) => setBudgetInput(e.target.value.replace(/[^0-9]/g, ""))}
+              onBlur={saveBudget}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+              className="h-7 text-xs text-right w-28 shrink-0 font-num"
+              placeholder="0"
+            />
             <button
               type="button"
               onClick={() => setEditingName(true)}
@@ -133,45 +162,6 @@ function CategoryCard({
           </>
         )}
       </div>
-
-      {/* 2行目: 変動費/固定費トグル + 予算入力 */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={toggleFixed}
-          disabled={saving}
-          className="text-xs px-2 py-1 rounded border transition-colors shrink-0"
-          style={
-            cat.is_fixed
-              ? {
-                  backgroundColor: "var(--color-primary-subtle, #e8f5e9)",
-                  borderColor: "var(--color-primary)",
-                  color: "var(--color-primary)",
-                }
-              : {
-                  backgroundColor: "transparent",
-                  borderColor: "var(--border)",
-                  color: "var(--muted-foreground)",
-                }
-          }
-        >
-          {cat.is_fixed ? "固定費" : "変動費"}
-        </button>
-        <Input
-          type="text"
-          inputMode="numeric"
-          value={budgetInput.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
-          onChange={(e) => setBudgetInput(e.target.value.replace(/[^0-9]/g, ""))}
-          onBlur={saveBudget}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-          }}
-          className="h-7 text-sm text-right flex-1 font-num min-w-0"
-          placeholder="0"
-        />
-        <span className="text-xs text-muted-foreground shrink-0">VND</span>
-      </div>
-
     </Card>
   );
 }
@@ -389,7 +379,6 @@ export default function BudgetPage() {
   if (loading) {
     return (
       <div>
-        <PageHeader title="予算・カテゴリ" />
         <div className="mt-8 text-sm text-muted-foreground text-center py-12">
           読み込み中...
         </div>
@@ -399,8 +388,6 @@ export default function BudgetPage() {
 
   return (
     <div>
-      <PageHeader title="予算・カテゴリ" />
-
       {/* 月次合計予算サマリ */}
       {grandTotal > 0 && (
         <Card className="mt-6 mb-8 p-6">
