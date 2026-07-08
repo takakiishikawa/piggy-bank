@@ -86,22 +86,3 @@ async function fetchBodyFromGmail(
 
   return body || null;
 }
-
-// 後方互換（既存コードが使っている場合のため残す）
-export async function fetchVietcombankEmails(
-  accessToken: string,
-): Promise<Array<{ id: string; body: string }>> {
-  const auth = new google.auth.OAuth2();
-  auth.setCredentials({ access_token: accessToken });
-  const gmail = google.gmail({ version: "v1", auth });
-
-  const ids = await listVietcombankMessageIds(accessToken);
-  const results: Array<{ id: string; body: string }> = [];
-
-  for (const id of ids) {
-    const body = await fetchBodyFromGmail(gmail, id);
-    if (body) results.push({ id, body });
-  }
-
-  return results;
-}

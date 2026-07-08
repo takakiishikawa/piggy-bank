@@ -1,4 +1,5 @@
 import { createDb } from "@/lib/supabase/db";
+import { FALLBACK_CATEGORY } from "@/lib/constants";
 
 type Db = ReturnType<typeof createDb>;
 
@@ -17,7 +18,7 @@ export async function saveStoreRules(
   ];
   if (uniqueStores.length === 0) return;
 
-  if (!cat || cat === "その他") {
+  if (!cat || cat === FALLBACK_CATEGORY) {
     // 「その他」に戻した = 確定を取り消した → ルールを消して自動適用を止める
     await db.from("store_category_rules").delete().in("store", uniqueStores);
     return;

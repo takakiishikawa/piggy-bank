@@ -67,7 +67,7 @@ export async function PATCH(req: Request) {
     parsed = PatchSchema.parse(await req.json());
   } catch (e) {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "不正なリクエストです" },
+      { error: e instanceof Error ? e.message : "Invalid request" },
       { status: 400 },
     );
   }

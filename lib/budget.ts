@@ -38,12 +38,3 @@ export function buildBudgetMap(
   for (const b of budgets) map.set(b.month, b);
   return map;
 }
-
-// 当月の予算を取り出す（無ければ undefined）
-export function getCurrentBudget(
-  budgets: MonthlyBudget[],
-  now: Date = new Date(),
-): MonthlyBudget | undefined {
-  const key = getCurrentMonthKey(now);
-  return budgets.find((b) => b.month === key);
-}

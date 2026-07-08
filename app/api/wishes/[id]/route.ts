@@ -12,7 +12,7 @@ const PatchSchema = z
     status: StatusEnum.optional(),
   })
   .refine((v) => Object.keys(v).length > 0, {
-    message: "更新項目がありません",
+    message: "No fields to update",
   });
 
 export async function PATCH(
@@ -29,7 +29,7 @@ export async function PATCH(
     parsed = PatchSchema.parse(await req.json());
   } catch (e) {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "不正なリクエストです" },
+      { error: e instanceof Error ? e.message : "Invalid request" },
       { status: 400 },
     );
   }

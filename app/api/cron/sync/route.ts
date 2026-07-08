@@ -9,6 +9,7 @@ import { parseVietcombankEmail } from "@/lib/parser";
 import { convertToVND } from "@/lib/exchange";
 import { categorizeUncategorized } from "@/lib/ai/categorize";
 import { loadStoreRules } from "@/lib/store-rules";
+import { FALLBACK_CATEGORY } from "@/lib/constants";
 
 export const maxDuration = 60;
 
@@ -123,7 +124,7 @@ export async function GET(req: Request) {
       if (row.gmail_id) existingIds.add(row.gmail_id as string);
       const store = (row.store as string)?.trim();
       const cat = row.category as string;
-      if (store && cat && cat !== "その他") storeCategory.set(store, cat);
+      if (store && cat && cat !== FALLBACK_CATEGORY) storeCategory.set(store, cat);
     }
     if (pageRows.length < PAGE) break;
     page++;
@@ -168,7 +169,7 @@ export async function GET(req: Request) {
       store: parsed.store,
       amount: vndAmount,
       date: parsed.date.toISOString(),
-      category: knownCategory ?? "その他",
+      category: knownCategory ?? FALLBACK_CATEGORY,
       reviewed: false,
     } satisfies Omit<Transaction, "created_at">);
 

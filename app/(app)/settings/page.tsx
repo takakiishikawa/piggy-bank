@@ -25,7 +25,10 @@ export default function SettingsPage() {
   }, []);
 
   const monthLabel = month
-    ? `${month.slice(0, 4)}年${parseInt(month.slice(5, 7), 10)}月`
+    ? new Date(
+        parseInt(month.slice(0, 4), 10),
+        parseInt(month.slice(5, 7), 10) - 1,
+      ).toLocaleDateString("en-US", { year: "numeric", month: "long" })
     : "";
 
   const handleSave = async () => {
@@ -38,7 +41,7 @@ export default function SettingsPage() {
         fixedCosts: parseInt(fixedCosts) || 0,
       }),
     });
-    toast.success("予算を保存しました");
+    toast.success("Budget saved");
     setSaving(false);
   };
 
@@ -48,7 +51,7 @@ export default function SettingsPage() {
         <Card className="p-7 animate-fade-up">
           <div className="flex items-baseline justify-between mb-6">
             <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              今月の予算
+              This Month's Budget
             </p>
             {monthLabel && (
               <p className="text-xs font-num text-muted-foreground">
@@ -59,13 +62,13 @@ export default function SettingsPage() {
           <div className="space-y-5">
             <div>
               <label className="block text-sm font-medium mb-2 text-foreground">
-                合計月支出（VND）
+                Total Monthly Spending (VND)
               </label>
               <Input
                 type="number"
                 value={targetMonthly}
                 onChange={(e) => setTargetMonthly(e.target.value)}
-                placeholder="例: 50000000"
+                placeholder="e.g. 50000000"
               />
               {parseInt(targetMonthly) > 0 && (
                 <p
@@ -78,13 +81,13 @@ export default function SettingsPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-2 text-foreground">
-                固定費（VND）
+                Fixed Costs (VND)
               </label>
               <Input
                 type="number"
                 value={fixedCosts}
                 onChange={(e) => setFixedCosts(e.target.value)}
-                placeholder="例: 17000000"
+                placeholder="e.g. 17000000"
               />
               {parseInt(fixedCosts) > 0 && (
                 <p
@@ -96,10 +99,10 @@ export default function SettingsPage() {
               )}
             </div>
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? "保存中..." : "保存する"}
+              {saving ? "Saving..." : "Save"}
             </Button>
             <p className="text-xs text-muted-foreground">
-              ※ 変更は今月（{monthLabel}）にのみ反映されます。過去月の予算は変更できません。月別履歴は「レポート」ページの「月毎の倹約」から確認できます。
+              Note: changes only apply to this month ({monthLabel}). Past months' budgets can't be changed.
             </p>
           </div>
         </Card>

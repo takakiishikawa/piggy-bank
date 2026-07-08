@@ -7,6 +7,7 @@ import { toast } from "@takaki/go-design-system";
 import { formatVND, formatDateWithYear } from "@/lib/format";
 import { getCategoryColors } from "@/lib/category-colors";
 import { getCategoryIcon } from "@/lib/category-icons";
+import { FALLBACK_CATEGORY } from "@/lib/constants";
 import {
   Button,
   Card,
@@ -47,7 +48,7 @@ interface UncategorizedStore {
 }
 
 function CategoryBadge({ category, reviewed }: { category: string; reviewed: boolean }) {
-  if (category === "その他" && !reviewed) return <Tag color="danger">未分類</Tag>;
+  if (category === FALLBACK_CATEGORY && !reviewed) return <Tag color="danger">Uncategorized</Tag>;
   const { bg, border, text } = getCategoryColors(category);
   const Icon = getCategoryIcon(category);
   return (
@@ -95,14 +96,14 @@ function CategoryManagerDialog({
     });
     setBusy(null);
     if (res.status === 409) {
-      toast.error("そのカテゴリは既に存在します");
+      toast.error("That category already exists");
       return;
     }
     if (!res.ok) {
-      toast.error("追加に失敗しました");
+      toast.error("Failed to add");
       return;
     }
-    toast.success(`「${name}」を追加しました`);
+    toast.success(`Added "${name}"`);
     setNewName("");
     load();
     onChanged();
@@ -123,10 +124,10 @@ function CategoryManagerDialog({
     setBusy(null);
     if (!res.ok) {
       const { error } = await res.json().catch(() => ({ error: "" }));
-      toast.error(error || "更新に失敗しました");
+      toast.error(error || "Failed to update");
       return;
     }
-    toast.success(`「${item.name}」→「${name}」に変更しました`);
+    toast.success(`Renamed "${item.name}" to "${name}"`);
     setEditingId(null);
     load();
     onChanged();
@@ -135,7 +136,7 @@ function CategoryManagerDialog({
   const handleDelete = async (item: Category) => {
     if (
       !window.confirm(
-        `「${item.name}」を削除しますか？\nこのカテゴリの取引はすべて「その他」に戻されます。`,
+        `Delete "${item.name}"?\nAll transactions in this category will be moved back to "${FALLBACK_CATEGORY}".`,
       )
     )
       return;
@@ -144,10 +145,10 @@ function CategoryManagerDialog({
     setBusy(null);
     if (!res.ok) {
       const { error } = await res.json().catch(() => ({ error: "" }));
-      toast.error(error || "削除に失敗しました");
+      toast.error(error || "Failed to delete");
       return;
     }
-    toast.success(`「${item.name}」を削除しました`);
+    toast.success(`Deleted "${item.name}"`);
     load();
     onChanged();
   };
@@ -156,11 +157,11 @@ function CategoryManagerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md p-0 overflow-hidden">
         <DialogHeader className="px-6 py-5 border-b">
-          <DialogTitle>カテゴリ管理</DialogTitle>
+          <DialogTitle>Manage Categories</DialogTitle>
         </DialogHeader>
         <div className="max-h-[60vh] overflow-y-auto">
           {items
-            .filter((item) => item.name !== "その他")
+            .filter((item) => item.name !== FALLBACK_CATEGORY)
             .map((item) => {
             const isEditing = editingId === item.id;
             const isProtected = false;
@@ -186,7 +187,7 @@ function CategoryManagerDialog({
                       onClick={() => handleSaveRename(item)}
                       disabled={busy === item.id}
                     >
-                      保存
+                      Save
                     </Button>
                     <Button
                       variant="ghost"
@@ -209,7 +210,7 @@ function CategoryManagerDialog({
                             setEditingId(item.id);
                             setEditName(item.name);
                           }}
-                          aria-label="編集"
+                          aria-label="Edit"
                         >
                           <Pencil size={14} />
                         </Button>
@@ -218,7 +219,7 @@ function CategoryManagerDialog({
                           size="icon"
                           onClick={() => handleDelete(item)}
                           disabled={busy === item.id}
-                          aria-label="削除"
+                          aria-label="Delete"
                           style={{ color: "var(--color-danger)" }}
                         >
                           <Trash2 size={14} />
@@ -238,7 +239,7 @@ function CategoryManagerDialog({
             onKeyDown={(e) => {
               if (e.key === "Enter") handleAdd();
             }}
-            placeholder="新しいカテゴリ名..."
+            placeholder="New category name..."
             className="flex-1 h-9"
           />
           <Button
@@ -246,7 +247,7 @@ function CategoryManagerDialog({
             onClick={handleAdd}
             disabled={!newName.trim() || busy === "__add__"}
           >
-            追加
+            Add
           </Button>
         </div>
       </DialogContent>
@@ -332,7 +333,7 @@ export default function TransactionsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ store, category }),
     }).then((r) => r.json());
-    toast.success(`「${store}」の${updated}件を「${category}」に更新しました`);
+    toast.success(`Updated ${updated} transactions for "${store}" to "${category}"`);
     setApplyingStore(null);
     setUncategorizedStores((prev) => {
       const next = prev.filter((s) => s.store !== store);
@@ -354,7 +355,7 @@ export default function TransactionsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ category: editCategory }),
     });
-    toast.success("カテゴリを更新しました");
+    toast.success("Category updated");
     setSavingId(null);
     setEditingId(null);
     fetchTransactions();
@@ -375,14 +376,14 @@ export default function TransactionsPage() {
       const { updated, error } = await res.json();
       if (error) throw new Error(error);
       toast.success(
-        `「${searchQuery}」を含む${updated}件を「${bulkCategory}」に変更しました`,
+        `Changed ${updated} transactions matching "${searchQuery}" to "${bulkCategory}"`,
       );
       fetchTransactions();
       fetchCategories();
       fetchUncategorizedCount();
     } catch (e) {
       toast.error(
-        `変更失敗: ${e instanceof Error ? e.message : "不明なエラー"}`,
+        `Update failed: ${e instanceof Error ? e.message : "Unknown error"}`,
       );
     } finally {
       setBulkApplying(false);
@@ -404,7 +405,7 @@ export default function TransactionsPage() {
       {
         id: "store",
         accessorKey: "store",
-        header: "名前",
+        header: "Name",
         cell: ({ row }) => (
           <div className="min-w-[280px] max-w-[420px]">
             <span className="text-sm text-foreground truncate block">
@@ -416,7 +417,7 @@ export default function TransactionsPage() {
       {
         id: "category",
         accessorKey: "category",
-        header: "カテゴリ",
+        header: "Category",
         cell: ({ row }) => {
           const tx = row.original;
           const isEditing = editingId === tx.id;
@@ -440,7 +441,7 @@ export default function TransactionsPage() {
                   onClick={() => handleSaveCategory(tx)}
                   disabled={savingId === tx.id}
                 >
-                  {savingId === tx.id ? "…" : "保存"}
+                  {savingId === tx.id ? "…" : "Save"}
                 </Button>
                 <Button
                   variant="ghost"
@@ -469,7 +470,7 @@ export default function TransactionsPage() {
       {
         id: "date",
         accessorKey: "date",
-        header: "日時",
+        header: "Date",
         cell: ({ row }) => (
           <span className="text-sm text-foreground whitespace-nowrap">
             {formatDateWithYear(row.original.date)}
@@ -479,7 +480,7 @@ export default function TransactionsPage() {
       {
         id: "amount",
         accessorKey: "amount",
-        header: () => <div className="text-right pr-4">金額</div>,
+        header: () => <div className="text-right pr-4">Amount</div>,
         cell: ({ row }) => (
           <div className="text-right font-num text-sm text-foreground pr-4 min-w-[180px]">
             {formatVND(row.original.amount)}
@@ -514,7 +515,7 @@ export default function TransactionsPage() {
               className="text-xs font-medium uppercase tracking-widest"
               style={{ color: "var(--color-warning)" }}
             >
-              ⚠ 要確認ストア（{uncategorizedStores.length}件）
+              ⚠ Needs Review ({uncategorizedStores.length})
             </p>
           </div>
           {uncategorizedStores.map((s) => (
@@ -531,7 +532,7 @@ export default function TransactionsPage() {
                   {s.store}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {s.count}件 · {formatVND(s.totalAmount)}
+                  {s.count} tx · {formatVND(s.totalAmount)}
                 </p>
               </div>
               {s.hint && (
@@ -552,7 +553,7 @@ export default function TransactionsPage() {
                 }
               >
                 <SelectTrigger className="w-36">
-                  <SelectValue placeholder="カテゴリ選択" />
+                  <SelectValue placeholder="Choose category" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((cat) => (
@@ -569,7 +570,7 @@ export default function TransactionsPage() {
                   !reviewSelections[s.store] || applyingStore === s.store
                 }
               >
-                {applyingStore === s.store ? "適用中..." : "全件適用"}
+                {applyingStore === s.store ? "Applying..." : "Apply to all"}
               </Button>
             </div>
           ))}
@@ -595,7 +596,7 @@ export default function TransactionsPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="名前で検索"
+            placeholder="Search by name"
             className="pl-9"
           />
         </div>
@@ -604,7 +605,7 @@ export default function TransactionsPage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">カテゴリ</SelectItem>
+            <SelectItem value="all">Category</SelectItem>
             {categories.map((cat) => (
               <SelectItem key={cat} value={cat}>
                 {cat}
@@ -629,8 +630,8 @@ export default function TransactionsPage() {
             }
           >
             {reviewLoading
-              ? "読込中..."
-              : `要確認リスト${uncategorizedCount ? `（${uncategorizedCount}）` : ""}`}
+              ? "Loading..."
+              : `Needs Review${uncategorizedCount ? ` (${uncategorizedCount})` : ""}`}
           </Button>
         )}
       </div>
@@ -645,17 +646,18 @@ export default function TransactionsPage() {
           }}
         >
           <p className="text-sm flex-1 text-muted-foreground">
+            Bulk change {filteredTransactions.length} matching{" "}
             <span className="font-medium text-foreground">
-              「{searchQuery}」
+              "{searchQuery}"
             </span>
-            を含む{filteredTransactions.length}件を一括変更:
+            :
           </p>
           <Select
             value={bulkCategory || undefined}
             onValueChange={setBulkCategory}
           >
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="カテゴリ選択" />
+              <SelectValue placeholder="Choose category" />
             </SelectTrigger>
             <SelectContent>
               {categories.map((cat) => (
@@ -670,15 +672,15 @@ export default function TransactionsPage() {
             onClick={handleBulkApply}
             disabled={!bulkCategory || bulkApplying}
           >
-            {bulkApplying ? "変更中..." : "一括変更"}
+            {bulkApplying ? "Updating..." : "Apply to all"}
           </Button>
         </div>
       )}
 
       {/* 件数 */}
       <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3">
-        {filteredTransactions.length.toLocaleString()}件
-        {searchQuery.trim() ? ` — 「${searchQuery}」で絞り込み中` : ""}
+        {filteredTransactions.length.toLocaleString()} transactions
+        {searchQuery.trim() ? ` — filtered by "${searchQuery}"` : ""}
       </p>
 
       <div className="kg-hide-pagesize">
@@ -690,8 +692,8 @@ export default function TransactionsPage() {
           pageSizeOptions={[100]}
           emptyMessage={
             searchQuery.trim()
-              ? `「${searchQuery}」に一致する取引はありません`
-              : "取引データがありません"
+              ? `No transactions match "${searchQuery}"`
+              : "No transactions yet"
           }
         />
       </div>

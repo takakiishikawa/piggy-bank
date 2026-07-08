@@ -20,7 +20,7 @@ export interface SubscriptionRow {
 }
 
 const LOOKBACK_DAYS = 30;
-const EXCLUDED_CATEGORIES = new Set(["転送", "現金"]);
+const EXCLUDED_CATEGORIES = new Set(["Transfer", "Cash"]);
 
 interface StoreAggregate {
   category: string;

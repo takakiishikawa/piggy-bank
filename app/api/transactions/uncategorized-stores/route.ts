@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getAuthDb } from "@/lib/supabase/auth-db";
+import { FALLBACK_CATEGORY } from "@/lib/constants";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -12,7 +13,7 @@ export async function GET() {
   const { data, error } = await db
     .from("transactions")
     .select("store, amount")
-    .eq("category", "その他")
+    .eq("category", FALLBACK_CATEGORY)
     .eq("reviewed", false)
     .gt("amount", 0)
     .limit(10000);
@@ -61,22 +62,22 @@ export async function GET() {
       messages: [
         {
           role: "user",
-          content: `ベトナム・ホーチミン在住の日本人のクレジットカード明細の店名リストです。
-各店名に対して、カテゴリ・推測理由・明白性を返してください。
+          content: `This is a list of store names from a credit card statement for a Japanese resident of Ho Chi Minh City, Vietnam.
+For each store, return a category, a hint about what it is, and how obvious that guess is.
 
-既存カテゴリ: ${categories.join(", ")}
+Existing categories: ${categories.join(", ")}
 
-店名リスト:
+Store list:
 ${storeList}
 
-ルール:
-- 既存カテゴリが適切であればそれを使い、合わない場合は新しいカテゴリ名（日本語・簡潔）を提案
-- "obvious": true → 店名から業種がほぼ確実に判断できる
-- "obvious": false → 判断が難しい・個人名・略称など
-- "hint": 店が何をしているかの簡潔な推測（日本語・20字以内）
+Rules:
+- Use an existing category if one fits; otherwise propose a new, short English category name
+- "obvious": true -> you can tell the business type from the store name with near certainty
+- "obvious": false -> hard to tell, a personal name, an abbreviation, etc.
+- "hint": a short guess (in English, under 20 characters) at what the store does
 
-以下のJSON配列のみ返してください（必ずobviousフィールドを含めること）:
-[{"store": "店名", "category": "カテゴリ名", "hint": "推測", "obvious": true}]`,
+Return only the following JSON array (always include the obvious field):
+[{"store": "store name", "category": "category name", "hint": "guess", "obvious": true}]`,
         },
       ],
     });
@@ -121,7 +122,7 @@ ${storeList}
         .from("transactions")
         .update({ category, reviewed: true })
         .eq("store", s.store)
-        .eq("category", "その他");
+        .eq("category", FALLBACK_CATEGORY);
     }
   }
 

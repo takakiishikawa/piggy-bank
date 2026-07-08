@@ -33,7 +33,7 @@ export async function classifySubscriptionCandidates(
       const list = batch
         .map(
           (c, i) =>
-            `${i + 1}. ${c.store} | カテゴリ: ${c.category} | 金額: ${c.amount.toLocaleString()} VND`,
+            `${i + 1}. ${c.store} | Category: ${c.category} | Amount: ${c.amount.toLocaleString()} VND`,
         )
         .join("\n");
 
@@ -43,36 +43,36 @@ export async function classifySubscriptionCandidates(
         messages: [
           {
             role: "user",
-            content: `ベトナム・ホーチミン在住の日本人のクレジットカード明細から、店舗が「サブスクリプション（SaaS・定額制ソフトウェア・月額課金型サービス）」かを判定してください。
+            content: `From this credit card statement of a Japanese resident of Ho Chi Minh City, Vietnam, judge whether each store is a "subscription" (SaaS, fixed-price software, or a monthly recurring service).
 
-【sub に該当（確信があるもののみ）】
-Figma, Netflix, Spotify, Adobe, GitHub, ChatGPT/Anthropic/OpenAI, Obsidian, Notion, Dropbox, iCloud, Google One/YouTube Premium, ジム月会費, 携帯通信料, インターネット回線, クラウドストレージ, 動画/音楽配信, 新聞/雑誌購読
+[Counts as sub (only when confident)]
+Figma, Netflix, Spotify, Adobe, GitHub, ChatGPT/Anthropic/OpenAI, Obsidian, Notion, Dropbox, iCloud, Google One/YouTube Premium, gym monthly membership, phone bill, internet line, cloud storage, video/music streaming, newspaper/magazine subscription
 
-【not_sub に該当（明らかに違うもの）】
-- スーパー / 食料品店（Co.op Mart, Vinmart, Bach Hoa Xanh など）
-- 飲食店 / レストラン / カフェ / バー（Gyumaru, Mutsumian, Starbucks など）
-- アパレル / 衣料品店（UNIQLO, Zara など）
-- マッサージ店 / 美容院（基本は都度払い）
-- 家電 / 家具 / 書籍などの単発購入
-- タクシー / 配車サービス（Grab など）
-- 送金 / 振込 / ATM
-- 家賃 / 公共料金（電気・水道・ガス）
+[Counts as not_sub (clearly not a subscription)]
+- Supermarkets / grocery stores (Co.op Mart, Vinmart, Bach Hoa Xanh, etc.)
+- Restaurants / cafes / bars (Gyumaru, Mutsumian, Starbucks, etc.)
+- Apparel / clothing stores (UNIQLO, Zara, etc.)
+- Massage parlors / salons (usually pay-per-visit)
+- One-off purchases of electronics / furniture / books
+- Taxis / ride-hailing services (Grab, etc.)
+- Money transfers / bank transfers / ATM
+- Rent / utilities (electricity, water, gas)
 
-【unknown に該当】
-- ブランド名から判断できない（無名の英数字、ベトナム語の会社名で業態不明）
-- SaaS 系のように見えるが実体が掴めない
+[Counts as unknown]
+- Can't tell from the brand name (unrecognized alphanumeric name, or a Vietnamese company name with an unclear business type)
+- Looks SaaS-like but you can't confirm what it actually is
 
-【ルール】
-- 不明な店舗は必ず unknown にする。誤検知を絶対避ける
-- 同じ店で似た金額が定期的に発生していても、それが「商品の繰り返し購入」「常連通い」であれば not_sub
-- カテゴリが「外食」「自炊」「ファッション」「マッサージ」「交通費」「医療費」のものは not_sub
-- 判定理由は20文字以内で簡潔に
+[Rules]
+- Always mark unclear stores as unknown. Avoid false positives at all costs
+- Even if the same store charges a similar amount regularly, if it's "repeat purchases of goods" or "a regular customer visiting often," mark it not_sub
+- If the category is "Dining Out", "Home Cooking", "Fashion", "Massage", "Transport", or "Medical Expenses", mark it not_sub
+- Keep the reason under 20 characters
 
-【候補】
+[Candidates]
 ${list}
 
-JSON配列のみで返してください（マークダウン・コードブロック不要）:
-[{"store": "店名（入力と完全一致）", "judgment": "sub" | "not_sub" | "unknown", "reason": "20文字以内の理由"}]`,
+Return only a JSON array (no markdown, no code block):
+[{"store": "store name (must match input exactly)", "judgment": "sub" | "not_sub" | "unknown", "reason": "reason, under 20 characters"}]`,
           },
         ],
       });

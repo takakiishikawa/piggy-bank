@@ -130,7 +130,7 @@ function CategoryCard({
                     }
               }
             >
-              {cat.is_fixed ? "固" : "変"}
+              {cat.is_fixed ? "F" : "V"}
             </button>
             <Input
               type="text"
@@ -198,7 +198,7 @@ function AddCategoryCard({
         className="flex items-center justify-center gap-2 h-full min-h-[88px] w-full rounded-lg border border-dashed text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
       >
         <Plus size={14} />
-        カテゴリを追加
+        Add category
       </button>
     );
   }
@@ -212,7 +212,7 @@ function AddCategoryCard({
           if (e.key === "Enter") handleAdd();
           if (e.key === "Escape") setOpen(false);
         }}
-        placeholder="カテゴリ名"
+        placeholder="Category name"
         className="h-7 text-sm"
         autoFocus
       />
@@ -223,14 +223,14 @@ function AddCategoryCard({
           value={budget.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
           onChange={(e) => setBudget(e.target.value.replace(/[^0-9]/g, ""))}
           onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
-          placeholder="予算（VND）"
+          placeholder="Budget (VND)"
           className="h-7 text-sm text-right flex-1 font-num"
         />
         <span className="text-xs text-muted-foreground shrink-0">VND</span>
       </div>
       <div className="flex gap-2">
         <Button size="sm" onClick={handleAdd} disabled={saving || !name.trim()} className="flex-1">
-          追加
+          Add
         </Button>
         <Button
           variant="ghost"
@@ -259,7 +259,7 @@ function SectionGrid({
   onDelete: (id: string, name: string) => Promise<void>;
   onAdd: (name: string, budget: number, is_fixed: boolean) => Promise<void>;
 }) {
-  const isFixed = title === "固定費";
+  const isFixed = title === "Fixed Costs";
   const sorted = [...categories].sort((a, b) => b.budget - a.budget);
 
   return (
@@ -271,7 +271,7 @@ function SectionGrid({
         <div className="flex items-center gap-2">
           <h2 className="text-base font-bold text-foreground">{title}</h2>
           <span className="text-xs text-muted-foreground">
-            {categories.length}カテゴリ
+            {categories.length} {categories.length === 1 ? "category" : "categories"}
           </span>
         </div>
         {totalBudget > 0 && (
@@ -320,11 +320,11 @@ export default function BudgetPage() {
         body: JSON.stringify(patch),
       });
       if (res.status === 409) {
-        toast.error("そのカテゴリ名は既に存在します");
+        toast.error("That category name already exists");
         return;
       }
       if (!res.ok) {
-        toast.error("更新に失敗しました");
+        toast.error("Failed to update");
         return;
       }
       setCategories((prev) =>
@@ -336,16 +336,16 @@ export default function BudgetPage() {
 
   const handleDelete = useCallback(async (id: string, name: string) => {
     const confirmed = window.confirm(
-      `「${name}」を削除します。このカテゴリの取引は「その他」に移動されます。`,
+      `Delete "${name}"? Transactions in this category will be moved to "Other".`,
     );
     if (!confirmed) return;
     const res = await fetch(`/api/categories/${id}`, { method: "DELETE" });
     if (!res.ok) {
-      toast.error("削除に失敗しました");
+      toast.error("Failed to delete");
       return;
     }
     setCategories((prev) => prev.filter((c) => c.id !== id));
-    toast.success(`「${name}」を削除しました`);
+    toast.success(`Deleted "${name}"`);
   }, []);
 
   const handleAdd = useCallback(
@@ -356,16 +356,16 @@ export default function BudgetPage() {
         body: JSON.stringify({ name, budget, is_fixed }),
       });
       if (res.status === 409) {
-        toast.error("そのカテゴリは既に存在します");
+        toast.error("That category already exists");
         return;
       }
       if (!res.ok) {
-        toast.error("追加に失敗しました");
+        toast.error("Failed to add");
         return;
       }
       const newCat = (await res.json()) as Category;
       setCategories((prev) => [...prev, newCat]);
-      toast.success(`「${name}」を追加しました`);
+      toast.success(`Added "${name}"`);
     },
     [],
   );
@@ -380,7 +380,7 @@ export default function BudgetPage() {
     return (
       <div>
         <div className="mt-8 text-sm text-muted-foreground text-center py-12">
-          読み込み中...
+          Loading...
         </div>
       </div>
     );
@@ -392,20 +392,20 @@ export default function BudgetPage() {
       {grandTotal > 0 && (
         <Card className="mt-6 mb-8 p-6">
           <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-2">
-            月次合計予算
+            Total Monthly Budget
           </p>
           <p className="font-num text-4xl font-bold text-foreground leading-none mb-4">
             {formatVND(grandTotal)}
           </p>
           <div className="flex gap-6 text-sm">
             <div>
-              <span className="text-muted-foreground">変動費</span>
+              <span className="text-muted-foreground">Variable</span>
               <span className="font-num font-semibold text-foreground ml-2">
                 {formatVND(variableBudgetTotal)}
               </span>
             </div>
             <div>
-              <span className="text-muted-foreground">固定費</span>
+              <span className="text-muted-foreground">Fixed</span>
               <span className="font-num font-semibold text-foreground ml-2">
                 {formatVND(fixedBudgetTotal)}
               </span>
@@ -416,7 +416,7 @@ export default function BudgetPage() {
 
       <div className="mt-2">
         <SectionGrid
-          title="変動費"
+          title="Variable Costs"
           categories={variable}
           totalBudget={variableBudgetTotal}
           onUpdate={handleUpdate}
@@ -425,7 +425,7 @@ export default function BudgetPage() {
         />
 
         <SectionGrid
-          title="固定費"
+          title="Fixed Costs"
           categories={fixed}
           totalBudget={fixedBudgetTotal}
           onUpdate={handleUpdate}

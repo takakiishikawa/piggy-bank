@@ -63,14 +63,14 @@ function WishCard({
             className="absolute inset-0 flex items-center justify-center text-white text-xs font-semibold tracking-widest uppercase pointer-events-none"
             style={{ backgroundColor: "rgba(0,0,0,0.35)" }}
           >
-            購入済
+            Got it
           </div>
         )}
 
         <button
           type="button"
           onClick={onDelete}
-          aria-label="削除"
+          aria-label="Delete"
           className="absolute top-2 right-2 inline-flex items-center justify-center h-7 w-7 rounded-full text-white shadow-md cursor-pointer transition-all duration-150 opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-black/55 hover:bg-black/80 hover:scale-110 active:bg-black/90 active:scale-95"
         >
           <X size={14} />
@@ -90,8 +90,8 @@ function WishCard({
         <button
           type="button"
           onClick={onToggle}
-          aria-label={isGot ? "欲しいに戻す" : "購入済にする"}
-          title={isGot ? "欲しいに戻す" : "購入済にする"}
+          aria-label={isGot ? "Move back to Want" : "Mark as got"}
+          title={isGot ? "Move back to Want" : "Mark as got"}
           className={
             isGot
               ? "shrink-0 inline-flex items-center justify-center h-8 w-8 rounded-full border cursor-pointer transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-[var(--color-success-subtle)] border-[var(--color-success)] text-[var(--color-success)] hover:bg-[var(--color-success)] hover:text-white hover:scale-110 active:scale-95 active:brightness-90"
@@ -123,7 +123,7 @@ export function WishlistDialog({
       if (!r.ok) throw new Error();
       setWishes((await r.json()) as Wish[]);
     } catch {
-      toast.error("ウィッシュリストの取得に失敗しました");
+      toast.error("Failed to load wishlist");
       setWishes([]);
     }
   }, []);
@@ -156,7 +156,7 @@ export function WishlistDialog({
       });
       if (!res.ok) {
         const { error } = await res.json().catch(() => ({ error: "" }));
-        toast.error(error || "追加に失敗しました");
+        toast.error(error || "Failed to add");
         return;
       }
       const created = (await res.json()) as Wish;
@@ -173,7 +173,7 @@ export function WishlistDialog({
     setWishes((p) => (p ? p.filter((x) => x.id !== w.id) : p));
     const res = await fetch(`/api/wishes/${w.id}`, { method: "DELETE" });
     if (!res.ok) {
-      toast.error("削除に失敗しました");
+      toast.error("Failed to delete");
       setWishes(prev);
     }
   };
@@ -190,7 +190,7 @@ export function WishlistDialog({
       body: JSON.stringify({ status: next }),
     });
     if (!res.ok) {
-      toast.error("更新に失敗しました");
+      toast.error("Failed to update");
       setWishes(prev);
     }
   };
@@ -213,7 +213,7 @@ export function WishlistDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl p-0 overflow-hidden flex flex-col max-h-[85vh]">
         <DialogHeader className="px-7 py-5 border-b">
-          <DialogTitle>ウィッシュリスト</DialogTitle>
+          <DialogTitle>Wishlist</DialogTitle>
         </DialogHeader>
 
         <div className="px-7 pt-5">
@@ -224,7 +224,7 @@ export function WishlistDialog({
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleAdd();
               }}
-              placeholder="欲しいものの名前を入力（例: AirPods Pro）"
+              placeholder="What do you want? (e.g. AirPods Pro)"
               disabled={adding}
               className="flex-1"
             />
@@ -234,7 +234,7 @@ export function WishlistDialog({
               size="sm"
             >
               <Plus size={14} />
-              {adding ? "追加中..." : "追加"}
+              {adding ? "Adding..." : "Add"}
             </Button>
           </div>
         </div>
@@ -243,11 +243,11 @@ export function WishlistDialog({
           <Tabs value={tab} onValueChange={(v) => setTab(v as Status)}>
             <TabsList>
               <TabsTrigger value="want">
-                欲しい
+                Want
                 <TabBadge count={grouped.want.length} />
               </TabsTrigger>
               <TabsTrigger value="got">
-                購入済
+                Got it
                 <TabBadge count={grouped.got.length} />
               </TabsTrigger>
             </TabsList>
@@ -266,12 +266,12 @@ export function WishlistDialog({
               icon={<Heart size={32} />}
               title={
                 tab === "want"
-                  ? "ウィッシュリストは空です"
-                  : "購入済のアイテムはまだありません"
+                  ? "Your wishlist is empty"
+                  : "Nothing marked as got yet"
               }
               description={
                 tab === "want"
-                  ? "上の入力欄に名前を入れて追加しましょう"
+                  ? "Type a name above to add your first item"
                   : undefined
               }
             />

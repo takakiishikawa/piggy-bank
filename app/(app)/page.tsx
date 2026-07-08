@@ -80,7 +80,7 @@ function ProgressBar({
         <div
           className="absolute top-[-3px] bottom-[-3px] w-0.5 rounded-full bg-foreground/40 z-10"
           style={{ left: `${Math.min(100, todayPct)}%` }}
-          title={`合格ライン (${Math.round(todayPct)}%)`}
+          title={`On-track line (${Math.round(todayPct)}%)`}
         />
       )}
       {over && (
@@ -93,7 +93,7 @@ function ProgressBar({
   );
 }
 
-function VariableCategoryRow({
+function VariableCategoryCard({
   cat,
   todayPct,
   onClick,
@@ -109,21 +109,29 @@ function VariableCategoryRow({
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-3 py-2.5 w-full text-left -mx-2 px-2 rounded transition-colors hover:bg-muted/40 cursor-pointer"
+      className="text-left rounded-lg border p-3 transition-colors hover:bg-muted/40 cursor-pointer"
     >
-      <CategoryIcon name={cat.name} />
-      <span className="text-sm text-foreground truncate w-24 shrink-0">
-        {cat.name}
-      </span>
-      <div className="flex-1 min-w-0">
-        <ProgressBar
-          actual={cat.actual}
-          budget={cat.budget}
-          todayPct={todayPct}
-          showToday={false}
-        />
+      <div className="flex items-center gap-2 mb-2">
+        <CategoryIcon name={cat.name} />
+        <span className="text-sm text-foreground truncate flex-1 min-w-0">
+          {cat.name}
+        </span>
+        {pctNum !== null && (
+          <span
+            className="font-num text-xs font-semibold shrink-0"
+            style={{ color: alert ? "var(--color-danger, #ef4444)" : "var(--muted-foreground)" }}
+          >
+            {pctNum}%
+          </span>
+        )}
       </div>
-      <div className="text-right shrink-0 w-40">
+      <ProgressBar
+        actual={cat.actual}
+        budget={cat.budget}
+        todayPct={todayPct}
+        showToday={false}
+      />
+      <div className="mt-1.5">
         <span
           className="font-num text-xs font-medium"
           style={{ color: alert ? "var(--color-danger, #ef4444)" : "var(--color-foreground)" }}
@@ -140,7 +148,7 @@ function VariableCategoryRow({
   );
 }
 
-function FixedCategoryRow({ cat, onClick }: { cat: CategoryEntry; onClick: () => void }) {
+function FixedCategoryCard({ cat, onClick }: { cat: CategoryEntry; onClick: () => void }) {
   const over = cat.budget > 0 && cat.actual > cat.budget * 1.05;
   const paid = cat.actual > 0 && !over;
 
@@ -148,46 +156,50 @@ function FixedCategoryRow({ cat, onClick }: { cat: CategoryEntry; onClick: () =>
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-3 py-2.5 w-full text-left -mx-2 px-2 rounded transition-colors hover:bg-muted/40 cursor-pointer"
+      className="text-left rounded-lg border p-3 transition-colors hover:bg-muted/40 cursor-pointer"
     >
-      <CategoryIcon name={cat.name} />
-      <span className="text-sm text-foreground truncate flex-1">
-        {cat.name}
-      </span>
-      <span className="font-num text-sm text-foreground shrink-0">
-        {formatVND(cat.actual)}
+      <div className="flex items-center gap-2 mb-1.5">
+        <CategoryIcon name={cat.name} />
+        <span className="text-sm text-foreground truncate flex-1 min-w-0">
+          {cat.name}
+        </span>
+        {cat.budget > 0 && (
+          <span
+            className="text-[10px] px-1.5 py-0.5 rounded-full border shrink-0"
+            style={
+              over
+                ? {
+                    backgroundColor: "var(--color-danger-subtle, #fee2e2)",
+                    borderColor: "var(--color-danger, #ef4444)",
+                    color: "var(--color-danger, #ef4444)",
+                  }
+                : paid
+                  ? {
+                      backgroundColor: "var(--color-success-subtle, #dcfce7)",
+                      borderColor: "var(--color-success, #22c55e)",
+                      color: "var(--color-success, #22c55e)",
+                    }
+                  : {
+                      backgroundColor: "transparent",
+                      borderColor: "var(--border)",
+                      color: "var(--muted-foreground)",
+                    }
+            }
+          >
+            {over ? "Over" : paid ? "Paid" : "Unpaid"}
+          </span>
+        )}
+      </div>
+      <div>
+        <span className="font-num text-xs font-medium text-foreground">
+          {formatVND(cat.actual)}
+        </span>
         {cat.budget > 0 && (
           <span className="font-num text-xs text-muted-foreground">
             {" "}/ {formatVND(cat.budget)}
           </span>
         )}
-      </span>
-      {cat.budget > 0 && (
-        <span
-          className="text-xs px-1.5 py-0.5 rounded-full border shrink-0"
-          style={
-            over
-              ? {
-                  backgroundColor: "var(--color-danger-subtle, #fee2e2)",
-                  borderColor: "var(--color-danger, #ef4444)",
-                  color: "var(--color-danger, #ef4444)",
-                }
-              : paid
-                ? {
-                    backgroundColor: "var(--color-success-subtle, #dcfce7)",
-                    borderColor: "var(--color-success, #22c55e)",
-                    color: "var(--color-success, #22c55e)",
-                  }
-                : {
-                    backgroundColor: "transparent",
-                    borderColor: "var(--border)",
-                    color: "var(--muted-foreground)",
-                  }
-          }
-        >
-          {over ? "超過" : paid ? "支払済" : "未払い"}
-        </span>
-      )}
+      </div>
     </button>
   );
 }
@@ -236,6 +248,16 @@ export default function Dashboard() {
     ? Math.round((data.dayOfMonth / data.daysInMonth) * 100)
     : 0;
 
+  const totalBudget = data
+    ? data.variableTotalBudget + data.fixedTotalBudget
+    : 0;
+  const totalActual = data
+    ? data.variableTotalActual + data.fixedTotalActual
+    : 0;
+  const usagePct =
+    data && totalBudget > 0 ? Math.round((totalActual / totalBudget) * 100) : null;
+  const usageAlert = usagePct !== null && usagePct > todayPct;
+
   const hasBudgets = data
     ? data.variableTotalBudget > 0 || data.fixedTotalBudget > 0
     : false;
@@ -264,14 +286,14 @@ export default function Dashboard() {
           >
             <span style={{ color: "var(--color-warning, #eab308)" }}>⚠</span>
             <span className="text-foreground">
-              未確認の取引が {uncategorizedCount} 件あります。
+              You have {uncategorizedCount} unreviewed transactions.
             </span>
             <a
               href="/transactions"
               className="ml-auto text-xs underline shrink-0"
               style={{ color: "var(--color-warning, #eab308)" }}
             >
-              取引一覧で確認
+              Review them
             </a>
           </div>
         )}
@@ -285,18 +307,35 @@ export default function Dashboard() {
             <Skeleton className="h-8 w-64 rounded-lg" />
           ) : !hasBudgets ? (
             <p className="text-sm text-muted-foreground">
-              予算・カテゴリページで各カテゴリの月次予算を設定すると、今月の見通しが表示されます。
+              Set a monthly budget for each category on the Budget page to see this month's forecast.
             </p>
           ) : data.forecastVnd === null ? (
             <p className="text-sm text-muted-foreground">
-              今月の取引データがまだありません。
+              No transactions yet this month.
             </p>
           ) : (
             <div>
-              <p className="text-xs text-muted-foreground mb-1">今月の着地見込み</p>
-              <p className="font-num text-2xl font-bold text-foreground leading-none">
-                {formatVND(data.forecastVnd)}
-              </p>
+              <p className="text-xs text-muted-foreground mb-1">This month's forecast</p>
+              <div className="flex items-center gap-3">
+                <p className="font-num text-4xl font-bold text-foreground leading-none">
+                  {formatVND(data.forecastVnd)}
+                </p>
+                {usagePct !== null && (
+                  <span
+                    className="font-num text-sm font-bold px-2.5 py-1 rounded-full shrink-0"
+                    style={{
+                      backgroundColor: usageAlert
+                        ? "var(--color-danger-subtle, #fee2e2)"
+                        : "var(--color-success-subtle, #dcfce7)",
+                      color: usageAlert
+                        ? "var(--color-danger, #ef4444)"
+                        : "var(--color-success, #22c55e)",
+                    }}
+                  >
+                    {usagePct}% of budget
+                  </span>
+                )}
+              </div>
               <p
                 className="text-sm font-medium mt-2"
                 style={{
@@ -306,8 +345,8 @@ export default function Dashboard() {
                 }}
               >
                 {positive
-                  ? `予算より ${formatVND(data.savingsImpactVnd ?? 0)} 少ない見込み`
-                  : `予算を ${formatVND(Math.abs(data.savingsImpactVnd ?? 0))} 上回る見込み`}
+                  ? `On pace to come in ${formatVND(data.savingsImpactVnd ?? 0)} under budget`
+                  : `On pace to go ${formatVND(Math.abs(data.savingsImpactVnd ?? 0))} over budget`}
               </p>
             </div>
           )}
@@ -319,7 +358,7 @@ export default function Dashboard() {
           style={{ animationDelay: "80ms", animationFillMode: "both" }}
         >
           <div className="flex items-center gap-3 px-6 py-4 border-b">
-            <h2 className="text-sm font-semibold text-foreground">変動費</h2>
+            <h2 className="text-sm font-semibold text-foreground">Variable Costs</h2>
             {data && data.variableTotalBudget > 0 && (
               <>
                 <span className="font-num text-sm text-muted-foreground">
@@ -342,31 +381,33 @@ export default function Dashboard() {
                 showToday={true}
               />
               <p className="text-xs text-muted-foreground mt-1.5">
-                合格ライン {todayPct}%（{data.dayOfMonth}日 / {data.daysInMonth}日）
+                On-track line {todayPct}% (day {data.dayOfMonth} of {data.daysInMonth})
               </p>
             </div>
           )}
 
-          <div className="px-6 pb-4 pt-2 divide-y">
+          <div className="px-6 pb-4 pt-2">
             {!data ? (
-              <div className="space-y-3 py-2">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-8 rounded-lg" />
+              <div className="grid grid-cols-2 gap-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} className="h-20 rounded-lg" />
                 ))}
               </div>
             ) : sortedVariable.length === 0 ? (
               <p className="py-6 text-sm text-center text-muted-foreground">
-                変動費カテゴリがありません。予算・カテゴリから設定してください。
+                No variable cost categories yet. Add some from the Budget page.
               </p>
             ) : (
-              sortedVariable.map((cat) => (
-                <VariableCategoryRow
-                  key={cat.id}
-                  cat={cat}
-                  todayPct={todayPct}
-                  onClick={() => openCategory(cat.name)}
-                />
-              ))
+              <div className="grid grid-cols-2 gap-3">
+                {sortedVariable.map((cat) => (
+                  <VariableCategoryCard
+                    key={cat.id}
+                    cat={cat}
+                    todayPct={todayPct}
+                    onClick={() => openCategory(cat.name)}
+                  />
+                ))}
+              </div>
             )}
           </div>
         </Card>
@@ -377,7 +418,7 @@ export default function Dashboard() {
           style={{ animationDelay: "160ms", animationFillMode: "both" }}
         >
           <div className="flex items-center gap-3 px-6 py-4 border-b">
-            <h2 className="text-sm font-semibold text-foreground">固定費</h2>
+            <h2 className="text-sm font-semibold text-foreground">Fixed Costs</h2>
             {data && data.fixedTotalBudget > 0 && (
               <>
                 <span className="font-num text-sm text-muted-foreground">
@@ -389,25 +430,27 @@ export default function Dashboard() {
               </>
             )}
           </div>
-          <div className="px-6 pb-4 pt-2 divide-y">
+          <div className="px-6 pb-4 pt-2">
             {!data ? (
-              <div className="space-y-3 py-2">
-                {[1, 2].map((i) => (
-                  <Skeleton key={i} className="h-8 rounded-lg" />
+              <div className="grid grid-cols-2 gap-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} className="h-16 rounded-lg" />
                 ))}
               </div>
             ) : sortedFixed.length === 0 ? (
               <p className="py-6 text-sm text-center text-muted-foreground">
-                固定費カテゴリがありません。予算・カテゴリから設定してください。
+                No fixed cost categories yet. Add some from the Budget page.
               </p>
             ) : (
-              sortedFixed.map((cat) => (
-                <FixedCategoryRow
-                  key={cat.id}
-                  cat={cat}
-                  onClick={() => openCategory(cat.name)}
-                />
-              ))
+              <div className="grid grid-cols-2 gap-3">
+                {sortedFixed.map((cat) => (
+                  <FixedCategoryCard
+                    key={cat.id}
+                    cat={cat}
+                    onClick={() => openCategory(cat.name)}
+                  />
+                ))}
+              </div>
             )}
           </div>
         </Card>
@@ -424,7 +467,7 @@ export default function Dashboard() {
           <DialogHeader className="px-7 py-5 border-b">
             <DialogTitle className="flex items-center gap-2">
               {detail?.categoryName}
-              <span className="text-sm font-normal text-muted-foreground">今月</span>
+              <span className="text-sm font-normal text-muted-foreground">This month</span>
             </DialogTitle>
           </DialogHeader>
           <div className="max-h-[60vh] overflow-y-auto px-7 py-5">
@@ -436,7 +479,7 @@ export default function Dashboard() {
               </div>
             ) : detail && detail.txs.length === 0 ? (
               <p className="text-center py-10 text-sm text-muted-foreground">
-                今月この カテゴリの支出はありません
+                No spending in this category this month.
               </p>
             ) : (
               <>
@@ -449,7 +492,7 @@ export default function Dashboard() {
                       <div className="min-w-0">
                         <p className="text-sm text-foreground truncate">{t.store}</p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(t.date).toLocaleDateString("ja-JP", {
+                          {new Date(t.date).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
                           })}
@@ -463,7 +506,7 @@ export default function Dashboard() {
                 </ul>
                 {detail && detail.txs && detail.txs.length > 0 && (
                   <div className="mt-3 pt-3 border-t flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">合計</span>
+                    <span className="text-sm text-muted-foreground">Total</span>
                     <span className="font-num font-semibold text-foreground">
                       {formatVND(detail.txs.reduce((sum, t) => sum + t.amount, 0))}
                     </span>

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthDb } from "@/lib/supabase/auth-db";
+import { FALLBACK_CATEGORY } from "@/lib/constants";
 
 export const maxDuration = 30;
-
-const FALLBACK_CATEGORY = "その他";
 
 const patchSchema = z.object({
   name: z.string().min(1).max(50).optional(),
@@ -44,7 +43,7 @@ export async function PATCH(
   if (newName !== undefined && newName !== oldName) {
     if (oldName === FALLBACK_CATEGORY) {
       return NextResponse.json(
-        { error: "「その他」は変更できません" },
+        { error: `"${FALLBACK_CATEGORY}" cannot be renamed` },
         { status: 400 },
       );
     }
@@ -60,7 +59,7 @@ export async function PATCH(
     if (updError) {
       if (updError.code === "23505") {
         return NextResponse.json(
-          { error: "そのカテゴリ名は既に存在します" },
+          { error: "That category name already exists" },
           { status: 409 },
         );
       }
@@ -122,7 +121,7 @@ export async function DELETE(
   const name = (cur as { name: string }).name;
   if (name === FALLBACK_CATEGORY) {
     return NextResponse.json(
-      { error: "「その他」は削除できません" },
+      { error: `"${FALLBACK_CATEGORY}" cannot be deleted` },
       { status: 400 },
     );
   }

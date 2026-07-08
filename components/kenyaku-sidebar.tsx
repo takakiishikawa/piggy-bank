@@ -20,11 +20,11 @@ import {
 import {
   LayoutDashboard,
   BarChart2,
-  List,
   Sun,
   Moon,
   Lightbulb,
   Wallet,
+  PiggyBank,
 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
@@ -37,10 +37,10 @@ const UserMenu = dynamic(() =>
 );
 
 const navItems = [
-  { href: "/", label: "ダッシュボード", icon: LayoutDashboard },
-  { href: "/weekly", label: "レポート", icon: BarChart2 },
-  { href: "/transactions", label: "トランザクション", icon: List },
-  { href: "/budget", label: "予算・カテゴリ", icon: Wallet },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/weekly", label: "Report", icon: BarChart2 },
+  { href: "/budget", label: "Budget", icon: Wallet },
+  { href: "/simulation", label: "Simulation", icon: PiggyBank },
 ];
 
 const supabaseConfigured =
@@ -139,13 +139,13 @@ export function KenyakuGoSidebar() {
             avatarUrl={avatarUrl}
             items={[
               {
-                title: "コンセプト",
+                title: "Concept",
                 icon: Lightbulb,
                 onSelect: () => router.push("/concept"),
                 isActive: isActive("/concept"),
               },
               {
-                title: isDark ? "ダーク" : "ライト",
+                title: isDark ? "Dark" : "Light",
                 icon: isDark ? Moon : Sun,
                 onSelect: toggleTheme,
               },
@@ -164,7 +164,7 @@ export function KenyakuGoSidebar() {
                 ) : (
                   <Sun className="h-4 w-4 shrink-0" />
                 )}
-                {isDark ? "ダーク" : "ライト"}
+                {isDark ? "Dark" : "Light"}
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
@@ -172,7 +172,7 @@ export function KenyakuGoSidebar() {
                 onClick={handleSignIn}
                 className="cursor-pointer"
               >
-                <span className="text-sm">Googleでログイン</span>
+                <span className="text-sm">Sign in with Google</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

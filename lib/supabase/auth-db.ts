@@ -17,7 +17,7 @@ export async function getAuthDb() {
     data: { session },
   } = await supabase.auth.getSession();
   if (!session) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
   const db = createDb(session.access_token);
   return { db, session };

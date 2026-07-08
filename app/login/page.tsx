@@ -21,7 +21,7 @@ export default function LoginPageRoute() {
     <LoginPage
       productName="KenyakuGo"
       productLogo={<JapaneseYen size={24} style={{ color: "var(--color-primary)" }} />}
-      tagline="ベース支出を抑えて、使う時に使う。"
+      tagline="Keep your base spending low, spend freely when it counts."
       onGoogleSignIn={handleGoogleSignIn}
     />
   );

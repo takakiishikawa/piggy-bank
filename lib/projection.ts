@@ -1,5 +1,5 @@
 // 月の支出予測（projection）の共通ロジック。
-// /api/weekly（レポート）と /api/dam（月毎の倹約）で同じ式を使うために集約。
+// /api/weekly（レポート）と /api/dashboard で同じ式を使うために集約。
 //
 // 考え方:
 //   expectedFixed = max(当月実際に支払った FIXED カテゴリ合計, 予算側 fixed_costs)

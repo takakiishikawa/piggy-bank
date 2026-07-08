@@ -27,7 +27,7 @@ import type { SubscriptionItem } from "@/app/api/subscriptions/route";
 import type { SubscriptionHistoryPoint } from "@/app/api/subscriptions/history/route";
 
 function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString("ja-JP", {
+  return new Date(date).toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -64,7 +64,7 @@ export default function SubscriptionsPage() {
       const data = (await r.json()) as SubscriptionItem[];
       setSubscriptions(data);
     } catch {
-      toast.error("サブスク一覧の取得に失敗しました");
+      toast.error("Failed to load subscriptions");
       setSubscriptions([]);
     }
   }, []);
@@ -91,10 +91,10 @@ export default function SubscriptionsPage() {
             : prev,
         );
         toast.success(
-          isActive ? "サブスクを実行中に戻しました" : "サブスクを終了しました",
+          isActive ? "Marked as active again" : "Subscription ended",
         );
       } catch {
-        toast.error("更新に失敗しました");
+        toast.error("Failed to update");
       } finally {
         setBusyStore(null);
       }
@@ -116,7 +116,7 @@ export default function SubscriptionsPage() {
     const list = subscriptions ?? [];
     // タグ（カテゴリ）昇順 → 同じタグ内は金額降順
     const sortByCategoryThenAmount = (a: SubscriptionItem, b: SubscriptionItem) => {
-      const c = a.category.localeCompare(b.category, "ja");
+      const c = a.category.localeCompare(b.category, "en");
       if (c !== 0) return c;
       return b.amount - a.amount;
     };
@@ -134,7 +134,7 @@ export default function SubscriptionsPage() {
       {
         id: "store",
         accessorKey: "store",
-        header: "名前",
+        header: "Name",
         cell: ({ row }) => (
           <div className="min-w-[280px] max-w-[420px]">
             <span className="text-sm text-foreground truncate block">
@@ -146,13 +146,13 @@ export default function SubscriptionsPage() {
       {
         id: "category",
         accessorKey: "category",
-        header: "カテゴリ",
+        header: "Category",
         cell: ({ row }) => <CategoryBadge category={row.original.category} />,
       },
       {
         id: "lastChargedAt",
         accessorKey: "lastChargedAt",
-        header: "最終課金",
+        header: "Last Charged",
         cell: ({ row }) => (
           <span className="text-sm text-foreground whitespace-nowrap">
             {formatDate(row.original.lastChargedAt)}
@@ -162,17 +162,17 @@ export default function SubscriptionsPage() {
       {
         id: "amount",
         accessorKey: "amount",
-        header: () => <div className="text-right pr-4">金額</div>,
+        header: () => <div className="text-right pr-4">Amount</div>,
         cell: ({ row }) => (
           <div className="text-right font-num text-sm text-foreground pr-4 min-w-[180px]">
             {formatVND(row.original.amount)}
-            <span className="text-xs ml-1 text-muted-foreground">/月</span>
+            <span className="text-xs ml-1 text-muted-foreground">/mo</span>
           </div>
         ),
       },
       {
         id: "actions",
-        header: () => <span className="sr-only">操作</span>,
+        header: () => <span className="sr-only">Actions</span>,
         cell: ({ row }) => {
           const s = row.original;
           return (
@@ -185,7 +185,7 @@ export default function SubscriptionsPage() {
                   disabled={busyStore === s.store}
                   onClick={() => setPendingEnd(s)}
                 >
-                  終了
+                  End
                 </Button>
               ) : (
                 <Button
@@ -194,7 +194,7 @@ export default function SubscriptionsPage() {
                   disabled={busyStore === s.store}
                   onClick={() => updateActive(s.store, true)}
                 >
-                  再開
+                  Resume
                 </Button>
               )}
             </div>
@@ -206,7 +206,7 @@ export default function SubscriptionsPage() {
   );
 
   const chartConfig = useMemo<ChartConfig>(
-    () => ({ total: { label: "月額合計", color: "var(--color-primary)" } }),
+    () => ({ total: { label: "Monthly Total", color: "var(--color-primary)" } }),
     [],
   );
 
@@ -238,11 +238,11 @@ export default function SubscriptionsPage() {
             <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
               <TabsList>
                 <TabsTrigger value="active">
-                  実行中
+                  Active
                   <TabBadge count={active.length} />
                 </TabsTrigger>
                 <TabsTrigger value="ended">
-                  終了
+                  Ended
                   <TabBadge count={ended.length} />
                 </TabsTrigger>
               </TabsList>
@@ -255,7 +255,7 @@ export default function SubscriptionsPage() {
                 className="text-sm font-num font-semibold"
                 style={{ color: "var(--color-primary)" }}
               >
-                月額合計 {formatVND(monthlyTotal)}
+                Monthly total {formatVND(monthlyTotal)}
               </p>
             ) : (
               <span />
@@ -265,12 +265,12 @@ export default function SubscriptionsPage() {
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
                   <TrendingUp size={14} />
-                  推移
+                  Trend
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-3xl p-0 overflow-hidden">
                 <DialogHeader className="px-7 py-5 border-b">
-                  <DialogTitle>サブスク推移（直近12ヶ月）</DialogTitle>
+                  <DialogTitle>Subscription Trend (Last 12 Months)</DialogTitle>
                 </DialogHeader>
                 <div className="p-7">
                   {history === null ? (
@@ -299,8 +299,8 @@ export default function SubscriptionsPage() {
               pageSizeOptions={[100]}
               emptyMessage={
                 tab === "active"
-                  ? "実行中のサブスクはありません"
-                  : "終了したサブスクはありません"
+                  ? "No active subscriptions"
+                  : "No ended subscriptions"
               }
             />
           </div>
@@ -315,14 +315,14 @@ export default function SubscriptionsPage() {
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>サブスクを終了しますか？</DialogTitle>
+            <DialogTitle>End this subscription?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground px-1">
-            「{pendingEnd?.store}」を終了済みに移動します。あとから「再開」で戻せます。
+            "{pendingEnd?.store}" will be moved to Ended. You can bring it back anytime with "Resume".
           </p>
           <div className="flex justify-end gap-2 mt-2">
             <Button variant="outline" onClick={() => setPendingEnd(null)}>
-              キャンセル
+              Cancel
             </Button>
             <Button
               disabled={pendingEnd !== null && busyStore === pendingEnd.store}
@@ -332,7 +332,7 @@ export default function SubscriptionsPage() {
                 if (s) updateActive(s.store, false);
               }}
             >
-              終了する
+              End it
             </Button>
           </div>
         </DialogContent>

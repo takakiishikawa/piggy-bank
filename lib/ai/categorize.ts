@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createDb } from "@/lib/supabase/db";
-import { AI_CATEGORIZE_BATCH_SIZE } from "@/lib/constants";
+import { AI_CATEGORIZE_BATCH_SIZE, FALLBACK_CATEGORY } from "@/lib/constants";
 import { loadStoreRules } from "@/lib/store-rules";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -23,7 +23,7 @@ export async function categorizeUncategorized(
   const { data: uncategorized, error } = await db
     .from("transactions")
     .select("id, store, amount")
-    .eq("category", "その他")
+    .eq("category", FALLBACK_CATEGORY)
     .eq("reviewed", false);
 
   if (error) {
@@ -43,7 +43,7 @@ export async function categorizeUncategorized(
   const { data: classified } = await db
     .from("transactions")
     .select("store, category")
-    .neq("category", "その他");
+    .neq("category", FALLBACK_CATEGORY);
 
   const storeMap: Record<string, string> = {};
 
@@ -68,16 +68,16 @@ export async function categorizeUncategorized(
     if (!store || storeMap[store]) continue;
     if (
       (amount === 9000000 || amount === 8000000) &&
-      existingCatSet.has("家賃")
+      existingCatSet.has("Rent")
     ) {
-      storeMap[store] = "家賃";
+      storeMap[store] = "Rent";
       continue;
     }
     if (
       /chuyen|transfer|remit|remittance/i.test(store) &&
-      existingCatSet.has("転送")
+      existingCatSet.has("Transfer")
     ) {
-      storeMap[store] = "転送";
+      storeMap[store] = "Transfer";
       continue;
     }
     if (/\bmoca(vn)?\b/i.test(store) && existingCatSet.has("Moca")) {
@@ -109,16 +109,16 @@ export async function categorizeUncategorized(
           messages: [
             {
               role: "user",
-              content: `ベトナム・ホーチミン在住の日本人のクレジットカード明細の店名リストです。
-各店名に最も適切なカテゴリを既存カテゴリの中から1つだけ選んでください。
-新規カテゴリは作成しないでください。どれにも当てはまらない場合は必ず「その他」を返してください。
+              content: `This is a list of store names from a credit card statement for a Japanese resident of Ho Chi Minh City, Vietnam.
+For each store, pick exactly one best-matching category from the existing categories.
+Do not create new categories. If nothing matches, you must return "${FALLBACK_CATEGORY}".
 
-既存カテゴリ: ${existingCategories.join(", ")}
-店名リスト:
+Existing categories: ${existingCategories.join(", ")}
+Store list:
 ${storeList}
 
-以下のJSON配列のみ返してください（マークダウン不要）:
-[{"store": "店名", "category": "カテゴリ名"}]`,
+Return only the following JSON array (no markdown):
+[{"store": "store name", "category": "category name"}]`,
             },
           ],
         });
@@ -133,7 +133,7 @@ ${storeList}
           for (const s of suggestions) {
             if (!s.store || !s.category) continue;
             const cat = s.category.trim();
-            map[s.store.trim()] = existingCatSet.has(cat) ? cat : "その他";
+            map[s.store.trim()] = existingCatSet.has(cat) ? cat : FALLBACK_CATEGORY;
           }
         }
       } catch {
@@ -149,7 +149,7 @@ ${storeList}
 
   const catToStores: Record<string, string[]> = {};
   for (const [store, cat] of Object.entries(storeMap)) {
-    if (cat && cat !== "その他" && existingCatSet.has(cat)) {
+    if (cat && cat !== FALLBACK_CATEGORY && existingCatSet.has(cat)) {
       catToStores[cat] = [...(catToStores[cat] ?? []), store];
     }
   }
@@ -160,7 +160,7 @@ ${storeList}
       .from("transactions")
       .update({ category, reviewed: true })
       .in("store", stores)
-      .eq("category", "その他")
+      .eq("category", FALLBACK_CATEGORY)
       .eq("reviewed", false);
 
     if (!updateErr) {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthDb } from "@/lib/supabase/auth-db";
+import { FALLBACK_CATEGORY } from "@/lib/constants";
 
 export async function GET() {
   const result = await getAuthDb();
@@ -9,7 +10,7 @@ export async function GET() {
   const { data, error } = await db
     .from("transactions")
     .select("store")
-    .eq("category", "その他")
+    .eq("category", FALLBACK_CATEGORY)
     .eq("reviewed", false)
     .gt("amount", 0);
 

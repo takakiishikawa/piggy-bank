@@ -7,6 +7,7 @@ import {
   useMemo,
   type CSSProperties,
 } from "react";
+import { useRouter } from "next/navigation";
 import {
   AreaChart,
   Area,
@@ -15,7 +16,7 @@ import {
   CartesianGrid,
   type MouseHandlerDataParam,
 } from "recharts";
-import { Heart } from "lucide-react";
+import { Heart, List } from "lucide-react";
 import { formatVND } from "@/lib/format";
 import { getCategoryColors } from "@/lib/category-colors";
 import { getCategoryIcon } from "@/lib/category-icons";
@@ -94,7 +95,7 @@ function ChartTooltipContent({
       >
         <p className="font-medium text-foreground mb-1.5">{row.label}</p>
         {allCategories.length === 0 ? (
-          <p className="text-muted-foreground">データなし</p>
+          <p className="text-muted-foreground">No data</p>
         ) : (
           <div
             className={cn(
@@ -113,7 +114,7 @@ function ChartTooltipContent({
           </div>
         )}
         <div className="mt-2 pt-2 border-t flex items-center justify-between gap-3">
-          <span className="text-muted-foreground">合計</span>
+          <span className="text-muted-foreground">Total</span>
           <span className="font-num font-semibold text-foreground">
             {formatVND(row.total)}
           </span>
@@ -134,7 +135,7 @@ function ChartTooltipContent({
         </span>
       </div>
       <div className="mt-2 pt-2 border-t flex items-center justify-between gap-3">
-        <span className="text-muted-foreground">合計に占める割合</span>
+        <span className="text-muted-foreground">% of total</span>
         <span className="font-num font-semibold text-foreground">{pct}%</span>
       </div>
     </div>
@@ -189,6 +190,7 @@ function CategoryChip({
 }
 
 export default function ReportPage() {
+  const router = useRouter();
   const [categoryType, setCategoryType] = useState<CategoryType>("variable");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [data, setData] = useState<ReportData | null>(null);
@@ -276,7 +278,7 @@ export default function ReportPage() {
   const chartConfig = useMemo<ChartConfig>(
     () => ({
       value: {
-        label: categoryFilter === "all" ? "合計" : categoryFilter,
+        label: categoryFilter === "all" ? "Total" : categoryFilter,
         color: chartColor,
       },
     }),
@@ -296,30 +298,40 @@ export default function ReportPage() {
           }}
         >
           <TabsList>
-            <TabsTrigger value="variable">変動費</TabsTrigger>
-            <TabsTrigger value="fixed">固定費</TabsTrigger>
-            <TabsTrigger value="all">すべて</TabsTrigger>
+            <TabsTrigger value="variable">Variable</TabsTrigger>
+            <TabsTrigger value="fixed">Fixed</TabsTrigger>
+            <TabsTrigger value="all">All</TabsTrigger>
           </TabsList>
         </Tabs>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setWishlistOpen(true)}
-        >
-          <Heart size={14} />
-          ウィッシュリスト
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push("/transactions")}
+          >
+            <List size={14} />
+            Transactions
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setWishlistOpen(true)}
+          >
+            <Heart size={14} />
+            Wishlist
+          </Button>
+        </div>
       </div>
 
       <Card className="p-7 mb-5">
         <div className="flex items-center justify-between gap-4 mb-6">
           <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            支出推移（過去6ヶ月）
+            Spending Trend (Last 6 Months)
           </p>
           {data && data.topCategories.length > 0 && (
             <div className="flex flex-wrap items-center justify-end gap-2">
               <CategoryChip
-                label="すべて"
+                label="All"
                 value="all"
                 active={categoryFilter === "all"}
                 onSelect={setCategoryFilter}
@@ -384,7 +396,7 @@ export default function ReportPage() {
             {data === null ? (
               <Skeleton className="h-48 w-full rounded" />
             ) : (
-              <p className="text-sm text-muted-foreground">データがありません</p>
+              <p className="text-sm text-muted-foreground">No data</p>
             )}
           </div>
         )}
@@ -417,7 +429,7 @@ export default function ReportPage() {
               </div>
             ) : detail && detail.txs.length === 0 ? (
               <p className="text-center py-10 text-sm text-muted-foreground">
-                この期間の支出はありません
+                No spending in this period.
               </p>
             ) : (
               <>
@@ -432,7 +444,7 @@ export default function ReportPage() {
                           {t.store}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(t.date).toLocaleDateString("ja-JP", {
+                          {new Date(t.date).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
                           })}{" "}
@@ -447,7 +459,7 @@ export default function ReportPage() {
                 </ul>
                 {detail && detail.txs.length > 0 && (
                   <div className="mt-3 pt-3 border-t flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">合計</span>
+                    <span className="text-sm text-muted-foreground">Total</span>
                     <span className="font-num font-semibold text-foreground">
                       {formatVND(
                         detail.txs.reduce((sum, t) => sum + t.amount, 0),

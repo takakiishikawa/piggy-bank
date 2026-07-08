@@ -7,7 +7,7 @@ import type { Wish } from "@/lib/supabase/db";
 export const maxDuration = 30;
 
 const CreateSchema = z.object({
-  name: z.string().trim().min(1, "名前は必須です").max(120),
+  name: z.string().trim().min(1, "Name is required").max(120),
 });
 
 export async function GET() {
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     parsed = CreateSchema.parse(await req.json());
   } catch (e) {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "不正なリクエストです" },
+      { error: e instanceof Error ? e.message : "Invalid request" },
       { status: 400 },
     );
   }

@@ -13,7 +13,7 @@ const notoSansJP = Noto_Sans_JP({
 
 export const metadata: Metadata = {
   title: "KenyakuGo",
-  description: "ベース支出を抑えて、使う時に使う。",
+  description: "Keep your base spending low, spend freely when it counts.",
 };
 
 export default function RootLayout({
@@ -23,7 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="ja"
+      lang="en"
       className={`${notoSansJP.variable} h-full antialiased`}
       suppressHydrationWarning
     >

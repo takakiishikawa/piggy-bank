@@ -4,8 +4,17 @@ export function formatVND(amount: number): string {
     .replace(/\B(?=(\d{3})+(?!\d))/g, ".") + " ₫";
 }
 
+export function formatJPY(amount: number): string {
+  const rounded = Math.round(amount);
+  const sign = rounded < 0 ? "-" : "";
+  const digits = Math.abs(rounded)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${sign}¥${digits}`;
+}
+
 export function formatDate(date: string | Date): string {
-  return new Date(date).toLocaleDateString("ja-JP", {
+  return new Date(date).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     weekday: "short",
@@ -14,7 +23,7 @@ export function formatDate(date: string | Date): string {
   });
 }
 
-const DOW = ["日", "月", "火", "水", "木", "金", "土"] as const;
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
 export function formatDateWithYear(date: string | Date): string {
   const d = new Date(date);

@@ -1,12 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
 // kenyakugo スキーマのテーブル型
-export interface AiComment {
-  period_key: string;
-  comment: string;
-  created_at: string;
-}
-
 export interface Category {
   id: string;
   name: string;
