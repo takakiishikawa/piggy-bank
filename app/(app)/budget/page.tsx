@@ -160,7 +160,7 @@ function CategoryCard({
         <Input
           type="text"
           inputMode="numeric"
-          value={budgetInput}
+          value={budgetInput.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
           onChange={(e) => setBudgetInput(e.target.value.replace(/[^0-9]/g, ""))}
           onBlur={saveBudget}
           onKeyDown={(e) => {
@@ -236,7 +236,7 @@ function AddCategoryCard({
         <Input
           type="text"
           inputMode="numeric"
-          value={budget}
+          value={budget.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
           onChange={(e) => setBudget(e.target.value.replace(/[^0-9]/g, ""))}
           onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
           placeholder="予算（VND）"
