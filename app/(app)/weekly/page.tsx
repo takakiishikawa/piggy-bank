@@ -15,7 +15,7 @@ import {
   CartesianGrid,
   type MouseHandlerDataParam,
 } from "recharts";
-import { Heart, Repeat2 } from "lucide-react";
+import { Heart } from "lucide-react";
 import { formatVND } from "@/lib/format";
 import { getCategoryColors } from "@/lib/category-colors";
 import {
@@ -35,6 +35,7 @@ import {
   cn,
   type ChartConfig,
 } from "@takaki/go-design-system";
+
 import { WishlistDialog } from "@/components/wishlist-dialog";
 
 interface PeriodItem {
@@ -190,7 +191,6 @@ export default function ReportPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [data, setData] = useState<ReportData | null>(null);
   const [wishlistOpen, setWishlistOpen] = useState(false);
-  const [subscriptionOpen, setSubscriptionOpen] = useState(false);
   const [detail, setDetail] = useState<{
     label: string;
     category: string;
@@ -286,42 +286,21 @@ export default function ReportPage() {
       <PageHeader
         title="レポート"
         actions={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSubscriptionOpen(true)}
-            >
-              <Repeat2 size={14} />
-              サブスク
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setWishlistOpen(true)}
-            >
-              <Heart size={14} />
-              ウィッシュリスト
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setWishlistOpen(true)}
+          >
+            <Heart size={14} />
+            ウィッシュリスト
+          </Button>
         }
       />
 
       <WishlistDialog open={wishlistOpen} onOpenChange={setWishlistOpen} />
 
-      {/* サブスク モーダル */}
-      <Dialog open={subscriptionOpen} onOpenChange={setSubscriptionOpen}>
-        <DialogContent className="max-w-2xl p-0 overflow-hidden">
-          <DialogHeader className="px-7 py-5 border-b">
-            <DialogTitle>サブスク</DialogTitle>
-          </DialogHeader>
-          <div className="px-7 py-6">
-            <SubscriptionContent />
-          </div>
-        </DialogContent>
-      </Dialog>
 
-      <div className="mt-6 mb-8">
+<div className="mt-6 mb-8">
         <Tabs
           value={categoryType}
           onValueChange={(v) => {
@@ -490,81 +469,3 @@ export default function ReportPage() {
   );
 }
 
-// サブスク一覧を表示するインラインコンポーネント
-function SubscriptionContent() {
-  const [loading, setLoading] = useState(true);
-  const [subs, setSubs] = useState<
-    {
-      store: string;
-      category: string;
-      amount: number;
-      is_active: boolean;
-    }[]
-  >([]);
-
-  useEffect(() => {
-    fetch("/api/subscriptions")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data) setSubs(data);
-        setLoading(false);
-      });
-  }, []);
-
-  const active = subs.filter((s) => s.is_active);
-  const monthlyTotal = active.reduce((s, sub) => s + sub.amount, 0);
-
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-10 rounded-lg" />
-        ))}
-      </div>
-    );
-  }
-
-  if (subs.length === 0) {
-    return (
-      <p className="text-sm text-center py-8 text-muted-foreground">
-        サブスクリプションはありません
-      </p>
-    );
-  }
-
-  return (
-    <div>
-      {monthlyTotal > 0 && (
-        <div className="flex items-center justify-between mb-4 pb-4 border-b">
-          <span className="text-sm text-muted-foreground">月次合計</span>
-          <span className="font-num font-semibold text-foreground">
-            {formatVND(monthlyTotal)}
-          </span>
-        </div>
-      )}
-      <div className="space-y-1">
-        {subs.map((sub) => (
-          <div
-            key={sub.store}
-            className="flex items-center justify-between py-2 border-b last:border-0"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-foreground truncate">
-                {sub.store}
-              </p>
-              <p className="text-xs text-muted-foreground">{sub.category}</p>
-            </div>
-            <div className="text-right shrink-0 ml-4">
-              <p className="font-num text-sm text-foreground">
-                {formatVND(sub.amount)}
-              </p>
-              {!sub.is_active && (
-                <p className="text-xs text-muted-foreground">終了</p>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
