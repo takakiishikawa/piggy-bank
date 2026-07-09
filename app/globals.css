@@ -4,8 +4,16 @@
 
 @variant dark (&:where(.dark, .dark *));
 
-/* ── KenyakuGo — "Warm Ledger" theme (design 1a) ── */
-:root {
+/* ── KenyakuGo — "Warm Ledger" theme (design 1a) ──
+   NOTE: the go-design-system <DesignTokens> component injects its own
+   stock `:root { ... }` / `.dark { ... }` <style> tags at runtime
+   (client-rendered, in <head>), which land AFTER this stylesheet in the
+   cascade. Since that rule and a plain `:root` here have equal
+   specificity, source order decides — and DesignTokens' stock light-blue
+   theme was winning, silently discarding every color/font override below.
+   `:root:root` / `.dark.dark` bump specificity just enough to always win,
+   regardless of where DesignTokens happens to render. */
+:root:root {
   --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-display: "Space Grotesk", var(--font-body);
   --font-sans: var(--font-body);
@@ -75,7 +83,7 @@
   --sidebar-ring: 175 84% 32%;
 }
 
-.dark {
+.dark.dark {
   --color-primary: #0d9488;
   --color-primary-hover: #14b8a6;
 }
