@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { Noto_Sans_JP } from "next/font/google";
+import { Noto_Sans } from "next/font/google";
 import "./globals.css";
 import { DesignTokens } from "@takaki/go-design-system";
 import { ClientProviders } from "./client-providers";
 
-const notoSansJP = Noto_Sans_JP({
-  weight: ["400", "700"],
+const notoSans = Noto_Sans({
+  weight: ["400", "500", "600", "700"],
   subsets: ["latin"],
   variable: "--font-noto",
   display: "swap",
@@ -24,7 +24,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${notoSansJP.variable} h-full antialiased`}
+      className={`${notoSans.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

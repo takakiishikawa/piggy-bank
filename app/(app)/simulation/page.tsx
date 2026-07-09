@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { AlertTriangle } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { AlertTriangle, Settings } from "lucide-react";
 import { formatJPY } from "@/lib/format";
 import type { SimulationMonth } from "@/lib/simulation";
 import {
@@ -34,20 +34,74 @@ interface SimulationData {
 
 const YEAR_OPTIONS = [2025, 2026, 2027];
 
+function digitsOnly(v: string): string {
+  return v.replace(/[^0-9-]/g, "");
+}
+
+function withCommas(v: string): string {
+  const neg = v.startsWith("-");
+  const digits = v.replace(/-/g, "");
+  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return neg ? `-${grouped}` : grouped;
+}
+
+function MonthAmountInput({
+  value,
+  onSave,
+  placeholder,
+}: {
+  value: number;
+  onSave: (n: number) => void;
+  placeholder?: string;
+}) {
+  const [text, setText] = useState(String(value));
+  const savedValueRef = useRef(value);
+
+  useEffect(() => {
+    setText(String(value));
+    savedValueRef.current = value;
+  }, [value]);
+
+  const commit = () => {
+    const n = parseInt(digitsOnly(text), 10) || 0;
+    if (n !== savedValueRef.current) {
+      savedValueRef.current = n;
+      onSave(n);
+    }
+    setText(String(n));
+  };
+
+  return (
+    <Input
+      type="text"
+      inputMode="numeric"
+      value={withCommas(text)}
+      placeholder={placeholder}
+      onChange={(e) => setText(digitsOnly(e.target.value))}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+      }}
+      onClick={(e) => e.stopPropagation()}
+      className="h-8 text-right font-num text-sm"
+    />
+  );
+}
+
 function MonthRow({
   m,
-  onClick,
+  onUpdate,
 }: {
   m: SimulationMonth;
-  onClick: () => void;
+  onUpdate: (month: string, field: "planned" | "actual", value: number) => void;
 }) {
   const negative = m.hasRecord && m.cumulative < 0;
+  const actualValue = m.actual ?? m.planned;
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       className={cn(
-        "w-full grid grid-cols-4 gap-2 px-6 py-3 border-b last:border-0 text-left transition-colors hover:bg-muted/40 cursor-pointer",
+        "grid grid-cols-4 gap-2 items-center px-6 py-2.5 border-b last:border-0",
         m.isCurrentMonth && "bg-[var(--color-primary-subtle)]",
       )}
     >
@@ -65,12 +119,14 @@ function MonthRow({
         </span>
       ) : (
         <>
-          <span className="text-right font-num text-sm text-foreground">
-            {formatJPY(m.planned)}
-          </span>
-          <span className="text-right font-num text-sm text-foreground">
-            {m.actual !== null ? formatJPY(m.actual) : "—"}
-          </span>
+          <MonthAmountInput
+            value={m.planned}
+            onSave={(n) => onUpdate(m.month, "planned", n)}
+          />
+          <MonthAmountInput
+            value={actualValue}
+            onSave={(n) => onUpdate(m.month, "actual", n)}
+          />
           <span
             className="text-right font-num text-sm font-semibold flex items-center justify-end gap-1"
             style={{ color: negative ? "var(--color-danger, #ef4444)" : undefined }}
@@ -80,94 +136,73 @@ function MonthRow({
           </span>
         </>
       )}
-    </button>
+    </div>
   );
 }
 
-function MonthDetailDialog({
-  month,
-  onClose,
+function IncomeSettingsDialog({
+  open,
+  onOpenChange,
+  defaultMonthlyIncome,
   onSaved,
 }: {
-  month: SimulationMonth | null;
-  onClose: () => void;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  defaultMonthlyIncome: number;
   onSaved: () => void;
 }) {
-  const [planned, setPlanned] = useState("");
-  const [actual, setActual] = useState("");
+  const [text, setText] = useState(String(defaultMonthlyIncome));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!month) return;
-    setPlanned(String(month.planned));
-    setActual(month.actual !== null ? String(month.actual) : "");
-  }, [month]);
+    if (open) setText(String(defaultMonthlyIncome));
+  }, [open, defaultMonthlyIncome]);
 
   const handleSave = async () => {
-    if (!month) return;
     setSaving(true);
-    const plannedNum = parseInt(planned.replace(/[^0-9-]/g, ""), 10) || 0;
-    const actualNum =
-      actual.trim() === ""
-        ? null
-        : parseInt(actual.replace(/[^0-9-]/g, ""), 10) || 0;
-    const res = await fetch(`/api/simulation/months/${month.month}`, {
+    const val = parseInt(digitsOnly(text), 10) || 0;
+    const res = await fetch("/api/simulation", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ planned: plannedNum, actual: actualNum }),
+      body: JSON.stringify({ defaultMonthlyIncome: val }),
     });
     setSaving(false);
     if (!res.ok) {
       toast.error("Failed to save");
       return;
     }
-    toast.success(`Saved ${month.label} ${month.year}`);
+    toast.success("Default income saved");
+    onOpenChange(false);
     onSaved();
   };
 
   return (
-    <Dialog
-      open={month !== null}
-      onOpenChange={(o) => {
-        if (!o) onClose();
-      }}
-    >
-      <DialogContent className="max-w-md">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>
-            {month?.label} {month?.year}
-          </DialogTitle>
+          <DialogTitle>Monthly JP income (default)</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 px-1">
-          <div>
-            <label className="block text-sm font-medium mb-2 text-foreground">
-              Planned savings (JPY)
-            </label>
+        <div className="px-1">
+          <div className="flex items-center gap-2">
             <Input
               type="text"
               inputMode="numeric"
-              value={planned.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
-              onChange={(e) => setPlanned(e.target.value.replace(/[^0-9]/g, ""))}
+              value={withCommas(text)}
+              onChange={(e) => setText(digitsOnly(e.target.value))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSave();
+              }}
+              className="font-num"
+              autoFocus
             />
+            <span className="text-xs text-muted-foreground shrink-0">JPY / mo</span>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-2 text-foreground">
-              Actual savings (JPY)
-            </label>
-            <Input
-              type="text"
-              inputMode="numeric"
-              value={actual.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
-              onChange={(e) => setActual(e.target.value.replace(/[^0-9]/g, ""))}
-              placeholder="Not confirmed yet"
-            />
-            <p className="text-xs text-muted-foreground mt-1.5">
-              Leave this blank until the month wraps up and you know the real number.
-            </p>
-          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Used as the starting plan for any month you haven't set a number for yet.
+          </p>
         </div>
         <div className="flex justify-end gap-2 mt-4">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={saving}>
@@ -182,37 +217,34 @@ function MonthDetailDialog({
 export default function SimulationPage() {
   const [year, setYear] = useState(2026);
   const [data, setData] = useState<SimulationData | null>(null);
-  const [incomeInput, setIncomeInput] = useState("");
-  const [savingIncome, setSavingIncome] = useState(false);
-  const [detailMonth, setDetailMonth] = useState<SimulationMonth | null>(null);
+  const [incomeDialogOpen, setIncomeDialogOpen] = useState(false);
 
   const load = useCallback(async (y: number) => {
-    setData(null);
     const res = await fetch(`/api/simulation?year=${y}`);
     if (!res.ok) return;
     const json: SimulationData = await res.json();
     setData(json);
-    setIncomeInput(String(json.defaultMonthlyIncome));
   }, []);
 
   useEffect(() => {
+    setData(null);
     load(year);
   }, [year, load]);
 
-  const handleSaveIncome = async () => {
-    setSavingIncome(true);
-    const val = parseInt(incomeInput.replace(/[^0-9]/g, ""), 10) || 0;
-    const res = await fetch("/api/simulation", {
+  const handleUpdateMonth = async (
+    month: string,
+    field: "planned" | "actual",
+    value: number,
+  ) => {
+    const res = await fetch(`/api/simulation/months/${month}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ defaultMonthlyIncome: val }),
+      body: JSON.stringify({ [field]: value }),
     });
-    setSavingIncome(false);
     if (!res.ok) {
       toast.error("Failed to save");
       return;
     }
-    toast.success("Default income saved");
     load(year);
   };
 
@@ -238,6 +270,10 @@ export default function SimulationPage() {
             ))}
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" onClick={() => setIncomeDialogOpen(true)}>
+          <Settings size={14} />
+          Default income
+        </Button>
       </div>
 
       <Card className="p-6 mb-6">
@@ -268,7 +304,7 @@ export default function SimulationPage() {
               />
               <p className="text-xs text-muted-foreground mt-1.5">
                 {data.annualTarget === 0
-                  ? "Set a monthly income below to get a target."
+                  ? "Set a default monthly income to get a target."
                   : onPace
                     ? `${progressPct}% there — ${formatJPY(diff)} ahead of plan`
                     : `${progressPct}% there — ${formatJPY(Math.abs(diff))} behind plan`}
@@ -276,28 +312,6 @@ export default function SimulationPage() {
             </div>
           </>
         )}
-      </Card>
-
-      <Card className="p-6 mb-6">
-        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3">
-          Monthly JP income (default)
-        </p>
-        <div className="flex items-center gap-2">
-          <Input
-            type="text"
-            inputMode="numeric"
-            value={incomeInput.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
-            onChange={(e) => setIncomeInput(e.target.value.replace(/[^0-9]/g, ""))}
-            className="max-w-[200px] font-num"
-          />
-          <span className="text-xs text-muted-foreground">JPY / month</span>
-          <Button size="sm" onClick={handleSaveIncome} disabled={savingIncome}>
-            {savingIncome ? "Saving..." : "Save"}
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          Used as the starting plan for any month you haven't set a number for yet.
-        </p>
       </Card>
 
       <Card className="overflow-hidden">
@@ -315,18 +329,16 @@ export default function SimulationPage() {
           </div>
         ) : (
           data.months.map((m) => (
-            <MonthRow key={m.month} m={m} onClick={() => setDetailMonth(m)} />
+            <MonthRow key={m.month} m={m} onUpdate={handleUpdateMonth} />
           ))
         )}
       </Card>
 
-      <MonthDetailDialog
-        month={detailMonth}
-        onClose={() => setDetailMonth(null)}
-        onSaved={() => {
-          setDetailMonth(null);
-          load(year);
-        }}
+      <IncomeSettingsDialog
+        open={incomeDialogOpen}
+        onOpenChange={setIncomeDialogOpen}
+        defaultMonthlyIncome={data?.defaultMonthlyIncome ?? 0}
+        onSaved={() => load(year)}
       />
     </div>
   );

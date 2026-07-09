@@ -6,7 +6,8 @@
 
 /* ── KenyakuGo — kg-* 互換エイリアス ── */
 :root {
-  --font-noto: "Noto Sans JP", sans-serif;
+  --font-noto: "Noto Sans", sans-serif;
+  --font-sans: var(--font-noto);
 
   --kg-text: var(--color-text-primary);
   --kg-text-muted: var(--color-text-subtle);

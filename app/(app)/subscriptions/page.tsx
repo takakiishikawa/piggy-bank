@@ -212,7 +212,7 @@ export default function SubscriptionsPage() {
 
   const TabBadge = ({ count }: { count: number }) => (
     <span
-      className="ml-2 text-[10px] font-num px-1.5 py-0.5 rounded-full"
+      className="ml-2 text-xs font-num px-1.5 py-0.5 rounded-full"
       style={{
         backgroundColor: "var(--kg-surface-2)",
         color: "var(--muted-foreground)",

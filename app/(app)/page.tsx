@@ -165,7 +165,7 @@ function FixedCategoryCard({ cat, onClick }: { cat: CategoryEntry; onClick: () =
         </span>
         {cat.budget > 0 && (
           <span
-            className="text-[10px] px-1.5 py-0.5 rounded-full border shrink-0"
+            className="text-xs px-1.5 py-0.5 rounded-full border shrink-0"
             style={
               over
                 ? {
