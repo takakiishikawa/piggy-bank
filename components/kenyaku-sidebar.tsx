@@ -107,7 +107,10 @@ export function KenyakuGoSidebar() {
   const displayName = fullName || user?.email?.split("@")[0] || "";
 
   return (
-    <Sidebar>
+    <Sidebar
+      style={{ backgroundColor: "var(--kg-sidebar-bg)", borderColor: "var(--kg-sidebar-border)" }}
+      className="border-r"
+    >
       <SidebarHeader>
         <AppSwitcher currentApp="KenyakuGo" apps={GO_APPS} placement="bottom" />
       </SidebarHeader>
@@ -115,17 +118,39 @@ export function KenyakuGoSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {navItems.map(({ href, label, icon: Icon }) => (
-                <SidebarMenuItem key={href}>
-                  <SidebarMenuButton asChild isActive={isActive(href)}>
-                    <Link href={href}>
-                      <Icon className="h-4 w-4 shrink-0" />
-                      {label}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+            <SidebarMenu className="gap-0.5">
+              {navItems.map(({ href, label, icon: Icon }) => {
+                const active = isActive(href);
+                return (
+                  <SidebarMenuItem key={href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={active}
+                      className="h-auto rounded-[9px] py-2.5 px-3 hover:bg-transparent active:bg-transparent"
+                      style={{
+                        backgroundColor: active ? "var(--kg-sidebar-accent-bg)" : "transparent",
+                      }}
+                    >
+                      <Link href={href} className="gap-2.5">
+                        <Icon
+                          size={17}
+                          className="shrink-0"
+                          style={{ color: active ? "var(--color-primary)" : "var(--kg-sidebar-inactive)" }}
+                        />
+                        <span
+                          className="text-sm"
+                          style={{
+                            fontWeight: active ? 600 : 500,
+                            color: active ? "var(--color-primary)" : "var(--kg-sidebar-inactive)",
+                          }}
+                        >
+                          {label}
+                        </span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

@@ -4,11 +4,44 @@
 
 @variant dark (&:where(.dark, .dark *));
 
-/* ── KenyakuGo — kg-* 互換エイリアス ── */
+/* ── KenyakuGo — "Warm Ledger" theme (design 1a) ── */
 :root {
-  --font-noto: "Noto Sans", sans-serif;
-  --font-sans: var(--font-noto);
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: "Space Grotesk", var(--font-body);
+  --font-sans: var(--font-body);
 
+  /* Backgrounds */
+  --color-background: #faf5ee;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #fffdf9;
+  --color-surface-elevated: #ffffff;
+
+  /* Text */
+  --color-text-primary: #2b2620;
+  --color-text-secondary: #8a8172;
+  --color-text-subtle: #b0a692;
+  --color-text-disabled: #cdc4b2;
+
+  /* Borders */
+  --color-border-subtle: #f5efe4;
+  --color-border-default: #efe6d8;
+  --color-border-strong: #ddd0ba;
+
+  /* Primary — deep teal */
+  --color-primary: #0d9488;
+  --color-primary-hover: #0f766e;
+  --color-primary-text: #ffffff;
+  --color-primary-subtle: #cceeea;
+
+  /* Status */
+  --color-success: #4c9a6a;
+  --color-success-subtle: #e3f5e9;
+  --color-warning: #b8720b;
+  --color-warning-subtle: #fbefda;
+  --color-danger: #c0392b;
+  --color-danger-subtle: #fbe8e5;
+
+  /* kg-* 互換エイリアス */
   --kg-text: var(--color-text-primary);
   --kg-text-muted: var(--color-text-subtle);
   --kg-text-secondary: var(--color-text-secondary);
@@ -23,6 +56,28 @@
   --kg-border: var(--color-border-default);
   --kg-border-subtle: var(--color-border-subtle);
   --kg-border-medium: var(--color-border-strong);
+  --kg-track: #f1e9dc; /* progress-bar track / pill background */
+  --kg-sidebar-bg: #22252e;
+  --kg-sidebar-border: #33363f;
+  --kg-sidebar-text: #f5f1ea;
+  --kg-sidebar-text-muted: #c7ccd6;
+  --kg-sidebar-accent-bg: rgba(13, 148, 136, 0.18);
+  --kg-sidebar-inactive: #b8bec9;
+
+  /* Sidebar (HSL — consumed by go-design-system's shadcn sidebar.tsx) */
+  --sidebar-background: 225 15% 16%; /* #22252e */
+  --sidebar-foreground: 220 13% 78%; /* #b8bec9 */
+  --sidebar-primary: 175 84% 32%; /* #0d9488 */
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 189 35% 18%; /* teal-tinted dark, ~18% opacity blend */
+  --sidebar-accent-foreground: 175 84% 32%; /* #0d9488 */
+  --sidebar-border: 225 11% 22%; /* #33363f */
+  --sidebar-ring: 175 84% 32%;
+}
+
+.dark {
+  --color-primary: #0d9488;
+  --color-primary-hover: #14b8a6;
 }
 
 /* ── ユーティリティクラス ── */
@@ -70,6 +125,9 @@
 .font-num {
   font-variant-numeric: tabular-nums;
 }
+.font-display {
+  font-family: var(--font-display);
+}
 
 /* ── Animations ── */
 @keyframes fadeUp {
@@ -109,7 +167,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-noto, "Noto Sans JP", sans-serif);
+    font-family: var(--font-body, "Inter", sans-serif);
     font-size: 14px;
   }
   ::-webkit-scrollbar {

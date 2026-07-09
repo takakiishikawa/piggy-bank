@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { AlertTriangle, Settings } from "lucide-react";
+import { AlertTriangle, ChevronDown, Settings } from "lucide-react";
 import { formatJPY } from "@/lib/format";
 import type { SimulationMonth } from "@/lib/simulation";
 import {
@@ -20,7 +20,6 @@ import {
   SelectItem,
   Skeleton,
   Tag,
-  cn,
   toast,
 } from "@takaki/go-design-system";
 
@@ -33,6 +32,7 @@ interface SimulationData {
 }
 
 const YEAR_OPTIONS = [2025, 2026, 2027];
+const CARD_SHADOW = "0 1px 2px rgba(120,72,10,.04), 0 8px 24px rgba(120,72,10,.05)";
 
 function digitsOnly(v: string): string {
   return v.replace(/[^0-9-]/g, "");
@@ -45,14 +45,12 @@ function withCommas(v: string): string {
   return neg ? `-${grouped}` : grouped;
 }
 
-function MonthAmountInput({
+function PlannedInput({
   value,
   onSave,
-  placeholder,
 }: {
   value: number;
   onSave: (n: number) => void;
-  placeholder?: string;
 }) {
   const [text, setText] = useState(String(value));
   const savedValueRef = useRef(value);
@@ -76,14 +74,14 @@ function MonthAmountInput({
       type="text"
       inputMode="numeric"
       value={withCommas(text)}
-      placeholder={placeholder}
       onChange={(e) => setText(digitsOnly(e.target.value))}
       onBlur={commit}
       onKeyDown={(e) => {
         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
       }}
       onClick={(e) => e.stopPropagation()}
-      className="h-8 text-right font-num text-sm"
+      className="h-9 text-right font-num text-[13.5px] rounded-lg justify-self-end w-[130px]"
+      style={{ borderColor: "var(--color-border-default)", backgroundColor: "var(--color-surface-subtle)" }}
     />
   );
 }
@@ -93,45 +91,53 @@ function MonthRow({
   onUpdate,
 }: {
   m: SimulationMonth;
-  onUpdate: (month: string, field: "planned" | "actual", value: number) => void;
+  onUpdate: (month: string, field: "planned", value: number) => void;
 }) {
   const negative = m.hasRecord && m.cumulative < 0;
   const actualValue = m.actual ?? m.planned;
 
   return (
     <div
-      className={cn(
-        "grid grid-cols-4 gap-2 items-center px-6 py-2.5 border-b last:border-0",
-        m.isCurrentMonth && "bg-[var(--color-primary-subtle)]",
-      )}
+      className="grid items-center px-7 py-3.5 border-b last:border-0"
+      style={{
+        gridTemplateColumns: "1.2fr 1fr 1fr 1fr",
+        gap: 8,
+        borderColor: "var(--color-border-subtle)",
+        backgroundColor: m.isCurrentMonth ? "#EAF6F4" : "transparent",
+      }}
     >
-      <span className="text-sm font-medium text-foreground flex items-center gap-2">
+      <span
+        className="text-[14.5px] font-semibold flex items-center gap-2"
+        style={{ color: m.isCurrentMonth ? "var(--color-primary-hover)" : "var(--color-text-primary)" }}
+      >
         {m.label} {m.year}
         {m.isCurrentMonth && (
-          <Tag style={{ backgroundColor: "var(--color-primary)", color: "#fff" }}>
-            Now
+          <Tag
+            className="text-[10.5px] font-bold px-2 py-0.5"
+            style={{ backgroundColor: "var(--color-primary)", color: "#fff" }}
+          >
+            NOW
           </Tag>
         )}
       </span>
       {!m.hasRecord ? (
-        <span className="col-span-3 text-right text-sm text-muted-foreground">
+        <span className="col-span-3 text-right text-sm" style={{ color: "var(--color-text-secondary)" }}>
           No data
         </span>
       ) : (
         <>
-          <MonthAmountInput
+          <PlannedInput
             value={m.planned}
             onSave={(n) => onUpdate(m.month, "planned", n)}
           />
-          <MonthAmountInput
-            value={actualValue}
-            onSave={(n) => onUpdate(m.month, "actual", n)}
-          />
+          <span className="text-right text-sm font-num" style={{ color: "var(--color-text-secondary)" }}>
+            {formatJPY(actualValue)}
+          </span>
           <span
-            className="text-right font-num text-sm font-semibold flex items-center justify-end gap-1"
-            style={{ color: negative ? "var(--color-danger, #ef4444)" : undefined }}
+            className="text-right font-num text-sm font-bold flex items-center justify-end gap-1.5"
+            style={{ color: negative ? "var(--color-danger)" : "var(--color-text-primary)" }}
           >
-            {negative && <AlertTriangle size={12} />}
+            {negative && <AlertTriangle size={14} style={{ color: "var(--color-danger)" }} />}
             {formatJPY(m.cumulative)}
           </span>
         </>
@@ -195,10 +201,10 @@ function IncomeSettingsDialog({
               className="font-num"
               autoFocus
             />
-            <span className="text-xs text-muted-foreground shrink-0">JPY / mo</span>
+            <span className="text-xs shrink-0" style={{ color: "var(--color-text-secondary)" }}>JPY / mo</span>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Used as the starting plan for any month you haven't set a number for yet.
+          <p className="text-xs mt-2" style={{ color: "var(--color-text-secondary)" }}>
+            Used as the starting plan for any month you haven&apos;t set a number for yet.
           </p>
         </div>
         <div className="flex justify-end gap-2 mt-4">
@@ -233,7 +239,7 @@ export default function SimulationPage() {
 
   const handleUpdateMonth = async (
     month: string,
-    field: "planned" | "actual",
+    field: "planned",
     value: number,
   ) => {
     const res = await fetch(`/api/simulation/months/${month}`, {
@@ -257,10 +263,14 @@ export default function SimulationPage() {
 
   return (
     <div>
-      <div className="mt-6 mb-6 flex items-center justify-between">
+      <div className="mt-8 mb-6 flex items-center justify-between">
         <Select value={String(year)} onValueChange={(v) => setYear(parseInt(v, 10))}>
-          <SelectTrigger className="w-28">
+          <SelectTrigger
+            className="w-fit h-auto rounded-[10px] py-2.5 px-4 text-sm font-semibold gap-2 [&>svg]:hidden"
+            style={{ borderColor: "var(--color-border-default)", color: "var(--color-text-primary)" }}
+          >
             <SelectValue />
+            <ChevronDown size={15} style={{ color: "var(--color-text-subtle)" }} />
           </SelectTrigger>
           <SelectContent>
             {YEAR_OPTIONS.map((y) => (
@@ -270,39 +280,46 @@ export default function SimulationPage() {
             ))}
           </SelectContent>
         </Select>
-        <Button variant="outline" size="sm" onClick={() => setIncomeDialogOpen(true)}>
-          <Settings size={14} />
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-[10px] h-auto py-2.5 px-4 font-semibold"
+          style={{ borderColor: "var(--color-border-default)", color: "var(--color-text-primary)" }}
+          onClick={() => setIncomeDialogOpen(true)}
+        >
+          <Settings size={15} />
           Default income
         </Button>
       </div>
 
-      <Card className="p-6 mb-6">
+      <Card
+        className="p-7 rounded-2xl mb-6"
+        style={{ borderColor: "var(--color-border-default)", boxShadow: CARD_SHADOW }}
+      >
         {!data ? (
           <Skeleton className="h-24 w-full rounded-lg" />
         ) : (
           <>
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.06em] mb-2.5" style={{ color: "var(--color-text-subtle)" }}>
               {data.year} savings target
             </p>
-            <p className="font-num text-4xl font-bold text-foreground leading-none">
+            <p className="font-display text-[48px] font-bold leading-none" style={{ color: "var(--color-text-primary)" }}>
               {formatJPY(data.annualTarget)}
             </p>
-            <div className="mt-5">
-              <div className="flex items-center justify-between text-sm mb-1.5">
-                <span className="text-muted-foreground">Projected year-end</span>
-                <span className="font-num font-semibold text-foreground">
+            <div className="mt-[18px]">
+              <div className="flex items-baseline justify-between mb-2">
+                <span className="text-[13.5px]" style={{ color: "var(--color-text-secondary)" }}>Projected year-end</span>
+                <span className="font-num font-bold text-[15px]" style={{ color: "var(--color-text-primary)" }}>
                   {formatJPY(data.yearEndProjection)}
                 </span>
               </div>
               <Progress
                 value={progressPct}
-                indicatorStyle={{
-                  backgroundColor: onPace
-                    ? "var(--color-success, #22c55e)"
-                    : "var(--color-danger, #ef4444)",
-                }}
+                className="h-2"
+                style={{ backgroundColor: "var(--kg-track)" }}
+                indicatorStyle={{ backgroundColor: "var(--color-primary)" }}
               />
-              <p className="text-xs text-muted-foreground mt-1.5">
+              <p className="text-sm font-medium mt-3" style={{ color: "var(--color-primary-hover)" }}>
                 {data.annualTarget === 0
                   ? "Set a default monthly income to get a target."
                   : onPace
@@ -314,12 +331,18 @@ export default function SimulationPage() {
         )}
       </Card>
 
-      <Card className="overflow-hidden">
-        <div className="grid grid-cols-4 gap-2 px-6 py-3 border-b text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          <span>Month</span>
-          <span className="text-right">Planned</span>
-          <span className="text-right">Actual</span>
-          <span className="text-right">Cumulative</span>
+      <Card
+        className="rounded-2xl overflow-hidden p-0"
+        style={{ borderColor: "var(--color-border-default)", boxShadow: CARD_SHADOW }}
+      >
+        <div
+          className="grid px-7 py-4 border-b"
+          style={{ gridTemplateColumns: "1.2fr 1fr 1fr 1fr", gap: 8, borderColor: "var(--color-border-default)" }}
+        >
+          <span className="text-xs font-semibold uppercase tracking-[0.05em]" style={{ color: "var(--color-text-subtle)" }}>Month</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Planned</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Actual</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Cumulative</span>
         </div>
         {!data ? (
           <div className="p-6 space-y-3">

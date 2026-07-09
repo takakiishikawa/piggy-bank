@@ -5,7 +5,6 @@ import {
   useState,
   useCallback,
   useMemo,
-  type CSSProperties,
 } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -16,7 +15,7 @@ import {
   CartesianGrid,
   type MouseHandlerDataParam,
 } from "recharts";
-import { Heart, List } from "lucide-react";
+import { Heart, List, Sparkles } from "lucide-react";
 import { formatVND } from "@/lib/format";
 import { getCategoryColors } from "@/lib/category-colors";
 import { getCategoryIcon } from "@/lib/category-icons";
@@ -92,10 +91,11 @@ function ChartTooltipContent({
           "rounded-lg border bg-background px-3 py-2 text-xs shadow-sm",
           twoCol ? "min-w-[24rem]" : "min-w-44",
         )}
+        style={{ borderColor: "var(--color-border-default)" }}
       >
-        <p className="font-medium text-foreground mb-1.5">{row.label}</p>
+        <p className="font-medium mb-1.5" style={{ color: "var(--color-text-primary)" }}>{row.label}</p>
         {allCategories.length === 0 ? (
-          <p className="text-muted-foreground">No data</p>
+          <p style={{ color: "var(--color-text-secondary)" }}>No data</p>
         ) : (
           <div
             className={cn(
@@ -105,17 +105,17 @@ function ChartTooltipContent({
           >
             {allCategories.map(([cat, amt]) => (
               <div key={cat} className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground truncate">{cat}</span>
-                <span className="font-num font-medium text-foreground shrink-0">
+                <span className="truncate" style={{ color: "var(--color-text-secondary)" }}>{cat}</span>
+                <span className="font-num font-medium shrink-0" style={{ color: "var(--color-text-primary)" }}>
                   {formatVND(amt)}
                 </span>
               </div>
             ))}
           </div>
         )}
-        <div className="mt-2 pt-2 border-t flex items-center justify-between gap-3">
-          <span className="text-muted-foreground">Total</span>
-          <span className="font-num font-semibold text-foreground">
+        <div className="mt-2 pt-2 border-t flex items-center justify-between gap-3" style={{ borderColor: "var(--color-border-default)" }}>
+          <span style={{ color: "var(--color-text-secondary)" }}>Total</span>
+          <span className="font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>
             {formatVND(row.total)}
           </span>
         </div>
@@ -126,17 +126,20 @@ function ChartTooltipContent({
   const amount = row.byCategory[filter] ?? 0;
   const pct = row.total > 0 ? Math.round((amount / row.total) * 100) : 0;
   return (
-    <div className="rounded-lg border bg-background px-3 py-2 text-xs shadow-sm min-w-44">
-      <p className="font-medium text-foreground mb-1.5">{row.label}</p>
+    <div
+      className="rounded-lg border bg-background px-3 py-2 text-xs shadow-sm min-w-44"
+      style={{ borderColor: "var(--color-border-default)" }}
+    >
+      <p className="font-medium mb-1.5" style={{ color: "var(--color-text-primary)" }}>{row.label}</p>
       <div className="flex items-center justify-between gap-3">
-        <span className="text-muted-foreground truncate">{filter}</span>
-        <span className="font-num font-medium text-foreground shrink-0">
+        <span className="truncate" style={{ color: "var(--color-text-secondary)" }}>{filter}</span>
+        <span className="font-num font-medium shrink-0" style={{ color: "var(--color-text-primary)" }}>
           {formatVND(amount)}
         </span>
       </div>
-      <div className="mt-2 pt-2 border-t flex items-center justify-between gap-3">
-        <span className="text-muted-foreground">% of total</span>
-        <span className="font-num font-semibold text-foreground">{pct}%</span>
+      <div className="mt-2 pt-2 border-t flex items-center justify-between gap-3" style={{ borderColor: "var(--color-border-default)" }}>
+        <span style={{ color: "var(--color-text-secondary)" }}>% of total</span>
+        <span className="font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>{pct}%</span>
       </div>
     </div>
   );
@@ -153,37 +156,20 @@ function CategoryChip({
   active: boolean;
   onSelect: (value: string) => void;
 }) {
-  const colors = value === "all" ? null : getCategoryColors(value);
-  const Icon = value !== "all" ? getCategoryIcon(value) : null;
-  const activeStyle: CSSProperties =
-    value === "all"
-      ? {
-          backgroundColor: "var(--color-primary)",
-          borderColor: "var(--color-primary)",
-          color: "#fff",
-        }
-      : {
-          backgroundColor: colors!.bg,
-          borderColor: colors!.border,
-          color: colors!.text,
-        };
+  const Icon = value !== "all" ? getCategoryIcon(value) : Sparkles;
   return (
     <button
       type="button"
       onClick={() => onSelect(value)}
       aria-pressed={active}
-      className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer hover:bg-muted/60"
+      className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] font-semibold transition-colors cursor-pointer"
       style={
         active
-          ? activeStyle
-          : {
-              backgroundColor: "transparent",
-              borderColor: "var(--border)",
-              color: "var(--muted-foreground)",
-            }
+          ? { backgroundColor: "var(--color-text-primary)", borderColor: "var(--color-text-primary)", color: "#FFFFFF" }
+          : { backgroundColor: "var(--color-surface)", borderColor: "var(--color-border-default)", color: "#5B5346" }
       }
     >
-      {Icon && <Icon size={11} />}
+      <Icon size={13} />
       {label}
     </button>
   );
@@ -272,7 +258,7 @@ export default function ReportPage() {
 
   const chartColor =
     categoryFilter === "all"
-      ? "var(--color-primary)"
+      ? "#0D9488"
       : getCategoryColors(categoryFilter).text;
 
   const chartConfig = useMemo<ChartConfig>(
@@ -289,7 +275,7 @@ export default function ReportPage() {
     <div>
       <WishlistDialog open={wishlistOpen} onOpenChange={setWishlistOpen} />
 
-      <div className="mt-6 mb-8 flex items-center justify-between gap-4">
+      <div className="mt-8 mb-6 flex items-center justify-between gap-4">
         <Tabs
           value={categoryType}
           onValueChange={(v) => {
@@ -297,35 +283,59 @@ export default function ReportPage() {
             setCategoryFilter("all");
           }}
         >
-          <TabsList>
-            <TabsTrigger value="variable">Variable</TabsTrigger>
-            <TabsTrigger value="fixed">Fixed</TabsTrigger>
-            <TabsTrigger value="all">All</TabsTrigger>
+          <TabsList
+            className="p-1 rounded-[11px] h-auto gap-1"
+            style={{ backgroundColor: "var(--kg-track)" }}
+          >
+            {(["variable", "fixed", "all"] as const).map((v) => (
+              <TabsTrigger
+                key={v}
+                value={v}
+                className="rounded-lg px-[18px] py-2 text-sm font-semibold capitalize data-[state=active]:shadow-none"
+                style={
+                  categoryType === v
+                    ? { backgroundColor: "var(--color-primary-subtle)", color: "var(--color-primary-hover)" }
+                    : { backgroundColor: "transparent", color: "var(--color-text-secondary)" }
+                }
+              >
+                {v}
+              </TabsTrigger>
+            ))}
           </TabsList>
         </Tabs>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <Button
             variant="outline"
             size="sm"
+            className="rounded-[10px] h-auto py-2.5 px-4 font-semibold"
+            style={{ borderColor: "var(--color-border-default)", color: "var(--color-text-primary)" }}
             onClick={() => router.push("/transactions")}
           >
-            <List size={14} />
+            <List size={16} />
             Transactions
           </Button>
           <Button
             variant="outline"
             size="sm"
+            className="rounded-[10px] h-auto py-2.5 px-4 font-semibold"
+            style={{ borderColor: "var(--color-border-default)", color: "var(--color-text-primary)" }}
             onClick={() => setWishlistOpen(true)}
           >
-            <Heart size={14} />
+            <Heart size={16} />
             Wishlist
           </Button>
         </div>
       </div>
 
-      <Card className="p-7 mb-5">
-        <div className="flex items-center justify-between gap-4 mb-6">
-          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+      <Card
+        className="p-7 rounded-2xl"
+        style={{
+          borderColor: "var(--color-border-default)",
+          boxShadow: "0 1px 2px rgba(120,72,10,.04), 0 8px 24px rgba(120,72,10,.05)",
+        }}
+      >
+        <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+          <p className="text-xs font-semibold uppercase tracking-[0.06em]" style={{ color: "var(--color-text-subtle)" }}>
             Spending Trend (Last 6 Months)
           </p>
           {data && data.topCategories.length > 0 && (
@@ -360,22 +370,24 @@ export default function ReportPage() {
             >
               <defs>
                 <linearGradient id="reportTotalFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={chartColor} stopOpacity={0.4} />
-                  <stop offset="95%" stopColor={chartColor} stopOpacity={0.05} />
+                  <stop offset="5%" stopColor={chartColor} stopOpacity={0.35} />
+                  <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid vertical={false} />
+              <CartesianGrid vertical={false} stroke="var(--color-border-default)" />
               <XAxis
                 dataKey="label"
                 tickLine={false}
                 axisLine={false}
-                tickMargin={8}
+                tickMargin={10}
+                tick={{ fill: "var(--color-text-subtle)", fontSize: 12.5 }}
               />
               <YAxis
                 tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
+                tick={{ fill: "var(--color-text-subtle)", fontSize: 12.5 }}
               />
               <ChartTooltip
                 cursor={false}
@@ -387,7 +399,7 @@ export default function ReportPage() {
                 type="natural"
                 fill="url(#reportTotalFill)"
                 stroke={chartColor}
-                strokeWidth={2}
+                strokeWidth={3}
               />
             </AreaChart>
           </ChartContainer>
@@ -396,13 +408,12 @@ export default function ReportPage() {
             {data === null ? (
               <Skeleton className="h-48 w-full rounded" />
             ) : (
-              <p className="text-sm text-muted-foreground">No data</p>
+              <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>No data</p>
             )}
           </div>
         )}
       </Card>
 
-      {/* 明細 popup */}
       <Dialog
         open={detail !== null}
         onOpenChange={(o) => {
@@ -410,11 +421,11 @@ export default function ReportPage() {
         }}
       >
         <DialogContent className="max-w-lg p-0 overflow-hidden">
-          <DialogHeader className="px-7 py-5 border-b">
+          <DialogHeader className="px-7 py-5 border-b" style={{ borderColor: "var(--color-border-default)" }}>
             <DialogTitle className="flex items-center gap-2">
               {detail?.label}
               {detail && detail.category !== "all" && (
-                <span className="text-sm font-normal text-muted-foreground">
+                <span className="text-sm font-normal" style={{ color: "var(--color-text-secondary)" }}>
                   {detail.category}
                 </span>
               )}
@@ -428,22 +439,22 @@ export default function ReportPage() {
                 ))}
               </div>
             ) : detail && detail.txs.length === 0 ? (
-              <p className="text-center py-10 text-sm text-muted-foreground">
+              <p className="text-center py-10 text-sm" style={{ color: "var(--color-text-secondary)" }}>
                 No spending in this period.
               </p>
             ) : (
               <>
-                <ul className="divide-y">
+                <ul className="divide-y" style={{ borderColor: "var(--color-border-subtle)" }}>
                   {detail?.txs?.map((t) => (
                     <li
                       key={t.id}
                       className="flex items-center justify-between gap-4 py-2.5"
                     >
                       <div className="min-w-0">
-                        <p className="text-sm text-foreground truncate">
+                        <p className="text-sm truncate" style={{ color: "var(--color-text-primary)" }}>
                           {t.store}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
                           {new Date(t.date).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
@@ -451,16 +462,16 @@ export default function ReportPage() {
                           · {t.category}
                         </p>
                       </div>
-                      <span className="font-num text-sm text-foreground shrink-0">
+                      <span className="font-num text-sm shrink-0" style={{ color: "var(--color-text-primary)" }}>
                         {formatVND(t.amount)}
                       </span>
                     </li>
                   ))}
                 </ul>
                 {detail && detail.txs.length > 0 && (
-                  <div className="mt-3 pt-3 border-t flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Total</span>
-                    <span className="font-num font-semibold text-foreground">
+                  <div className="mt-3 pt-3 border-t flex items-center justify-between" style={{ borderColor: "var(--color-border-default)" }}>
+                    <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>Total</span>
+                    <span className="font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>
                       {formatVND(
                         detail.txs.reduce((sum, t) => sum + t.amount, 0),
                       )}
@@ -475,4 +486,3 @@ export default function ReportPage() {
     </div>
   );
 }
-

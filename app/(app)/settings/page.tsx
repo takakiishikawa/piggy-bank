@@ -48,10 +48,16 @@ export default function SettingsPage() {
   return (
     <div>
       <div className="mt-8 space-y-5 max-w-xl">
-        <Card className="p-7 animate-fade-up">
+        <Card
+          className="p-7 rounded-2xl animate-fade-up"
+          style={{
+            borderColor: "var(--color-border-default)",
+            boxShadow: "0 1px 2px rgba(120,72,10,.04), 0 8px 24px rgba(120,72,10,.05)",
+          }}
+        >
           <div className="flex items-baseline justify-between mb-6">
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              This Month's Budget
+            <p className="text-xs font-semibold uppercase tracking-[0.06em]" style={{ color: "var(--color-text-subtle)" }}>
+              This Month&apos;s Budget
             </p>
             {monthLabel && (
               <p className="text-xs font-num text-muted-foreground">

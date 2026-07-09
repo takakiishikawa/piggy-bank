@@ -1,13 +1,20 @@
 import type { Metadata } from "next";
-import { Noto_Sans } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { DesignTokens } from "@takaki/go-design-system";
 import { ClientProviders } from "./client-providers";
 
-const notoSans = Noto_Sans({
-  weight: ["400", "500", "600", "700"],
+const inter = Inter({
+  weight: ["400", "500", "600", "700", "800"],
   subsets: ["latin"],
-  variable: "--font-noto",
+  variable: "--font-body",
+  display: "swap",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  weight: ["500", "600", "700"],
+  subsets: ["latin"],
+  variable: "--font-display",
   display: "swap",
 });
 
@@ -24,7 +31,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${notoSans.variable} h-full antialiased`}
+      className={`${inter.variable} ${spaceGrotesk.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
@@ -33,7 +40,7 @@ export default function RootLayout({
             __html: `(function(){var s=localStorage.getItem('kg-theme');var d=s||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.classList.add(d);})();`,
           }}
         />
-        <DesignTokens primaryColor="#1A7A4A" primaryColorHover="#145C38" />
+        <DesignTokens primaryColor="#0D9488" primaryColorHover="#0F766E" />
       </head>
       <body className="min-h-full">
         {children}

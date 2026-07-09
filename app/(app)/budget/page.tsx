@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Pencil, Trash2, Plus, Check, X } from "lucide-react";
 import { toast } from "@takaki/go-design-system";
 import { formatVND } from "@/lib/format";
-import { getCategoryColors } from "@/lib/category-colors";
+import { getCategoryColors, getCategoryColorTint } from "@/lib/category-colors";
 import { getCategoryIcon } from "@/lib/category-icons";
 import {
   Button,
@@ -19,10 +19,10 @@ interface Category {
   is_fixed: boolean;
 }
 
-function CategoryIcon({ name }: { name: string }) {
+function CategoryIcon({ name, fixed }: { name: string; fixed?: boolean }) {
   const { text } = getCategoryColors(name);
   const Icon = getCategoryIcon(name);
-  return <Icon size={15} style={{ color: text }} className="shrink-0" />;
+  return <Icon size={14} style={{ color: fixed ? "#6B5D45" : text }} className="shrink-0" />;
 }
 
 function CategoryCard({
@@ -61,108 +61,94 @@ function CategoryCard({
     setSaving(false);
   };
 
-  const toggleFixed = async () => {
-    setSaving(true);
-    await onUpdate(cat.id, { is_fixed: !cat.is_fixed });
-    setSaving(false);
-  };
-
   return (
-    <Card className="px-4 py-3">
-      {/* 1行レイアウト: ドット + 名前 + フラグ + 予算 + 操作ボタン */}
-      <div className="flex items-center gap-2">
-        <CategoryIcon name={cat.name} />
-        {editingName ? (
-          <>
-            <Input
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") saveName();
-                if (e.key === "Escape") {
-                  setEditingName(false);
-                  setNameInput(cat.name);
-                }
-              }}
-              className="h-7 text-sm flex-1 min-w-0"
-              autoFocus
-            />
-            <button
-              type="button"
-              onClick={saveName}
-              disabled={saving}
-              className="p-1 rounded hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground shrink-0"
-            >
-              <Check size={13} />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
+    <div
+      className="flex items-center gap-2.5 rounded-xl border py-3 px-3.5"
+      style={{ borderColor: "var(--color-border-default)", backgroundColor: "var(--color-surface-subtle)" }}
+    >
+      <div
+        className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg"
+        style={{ backgroundColor: cat.is_fixed ? "var(--kg-track)" : getCategoryColorTint(cat.name) }}
+      >
+        <CategoryIcon name={cat.name} fixed={cat.is_fixed} />
+      </div>
+      {editingName ? (
+        <>
+          <Input
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveName();
+              if (e.key === "Escape") {
                 setEditingName(false);
                 setNameInput(cat.name);
-              }}
-              className="p-1 rounded hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground shrink-0"
-            >
-              <X size={13} />
-            </button>
-          </>
-        ) : (
-          <>
-            <span className="text-sm font-medium text-foreground truncate min-w-0 flex-1">
-              {cat.name}
-            </span>
-            <button
-              type="button"
-              onClick={toggleFixed}
-              disabled={saving}
-              className="text-xs px-1.5 py-0.5 rounded border transition-colors shrink-0"
-              style={
-                cat.is_fixed
-                  ? {
-                      backgroundColor: "var(--color-primary-subtle, #e8f5e9)",
-                      borderColor: "var(--color-primary)",
-                      color: "var(--color-primary)",
-                    }
-                  : {
-                      backgroundColor: "transparent",
-                      borderColor: "var(--border)",
-                      color: "var(--muted-foreground)",
-                    }
               }
-            >
-              {cat.is_fixed ? "F" : "V"}
-            </button>
-            <Input
-              type="text"
-              inputMode="numeric"
-              value={budgetInput.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
-              onChange={(e) => setBudgetInput(e.target.value.replace(/[^0-9]/g, ""))}
-              onBlur={saveBudget}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-              }}
-              className="h-7 text-xs text-right w-28 shrink-0 font-num"
-              placeholder="0"
-            />
-            <button
-              type="button"
-              onClick={() => setEditingName(true)}
-              className="p-1 rounded hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground shrink-0"
-            >
-              <Pencil size={13} />
-            </button>
-            <button
-              type="button"
-              onClick={() => onDelete(cat.id, cat.name)}
-              disabled={saving}
-              className="p-1 rounded hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive shrink-0"
-            >
-              <Trash2 size={13} />
-            </button>
-          </>
-        )}
-      </div>
-    </Card>
+            }}
+            className="h-7 text-sm flex-1 min-w-0"
+            autoFocus
+          />
+          <button
+            type="button"
+            onClick={saveName}
+            disabled={saving}
+            className="p-1 rounded hover:bg-black/5 transition-colors shrink-0"
+            style={{ color: "var(--color-text-subtle)" }}
+          >
+            <Check size={13} />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditingName(false);
+              setNameInput(cat.name);
+            }}
+            className="p-1 rounded hover:bg-black/5 transition-colors shrink-0"
+            style={{ color: "var(--color-text-subtle)" }}
+          >
+            <X size={13} />
+          </button>
+        </>
+      ) : (
+        <>
+          <span
+            className="text-[13.5px] font-semibold truncate min-w-0 flex-1"
+            style={{ color: "var(--color-text-primary)" }}
+          >
+            {cat.name}
+          </span>
+          <Input
+            type="text"
+            inputMode="numeric"
+            value={budgetInput.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
+            onChange={(e) => setBudgetInput(e.target.value.replace(/[^0-9]/g, ""))}
+            onBlur={saveBudget}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            }}
+            className="h-8 text-[12.5px] text-right w-28 shrink-0 font-num rounded-lg"
+            style={{ borderColor: "var(--color-border-default)" }}
+            placeholder="0"
+          />
+          <button
+            type="button"
+            onClick={() => setEditingName(true)}
+            className="p-1 rounded hover:bg-black/5 transition-colors shrink-0"
+            style={{ color: "var(--color-text-subtle)" }}
+          >
+            <Pencil size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDelete(cat.id, cat.name)}
+            disabled={saving}
+            className="p-1 rounded hover:bg-black/5 transition-colors shrink-0"
+            style={{ color: "var(--color-text-subtle)" }}
+          >
+            <Trash2 size={14} />
+          </button>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -195,16 +181,17 @@ function AddCategoryCard({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center justify-center gap-2 h-full min-h-[88px] w-full rounded-lg border border-dashed text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+        className="flex items-center justify-center gap-2 h-full min-h-[52px] w-full rounded-[10px] border-[1.5px] border-dashed text-sm font-semibold transition-colors hover:opacity-80"
+        style={{ borderColor: "var(--color-border-default)", color: "var(--color-text-subtle)" }}
       >
-        <Plus size={14} />
+        <Plus size={15} />
         Add category
       </button>
     );
   }
 
   return (
-    <Card className="p-4 flex flex-col gap-3">
+    <Card className="p-4 flex flex-col gap-3" style={{ borderColor: "var(--color-border-default)" }}>
       <Input
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -226,7 +213,7 @@ function AddCategoryCard({
           placeholder="Budget (VND)"
           className="h-7 text-sm text-right flex-1 font-num"
         />
-        <span className="text-xs text-muted-foreground shrink-0">VND</span>
+        <span className="text-xs shrink-0" style={{ color: "var(--color-text-secondary)" }}>VND</span>
       </div>
       <div className="flex gap-2">
         <Button size="sm" onClick={handleAdd} disabled={saving || !name.trim()} className="flex-1">
@@ -263,25 +250,31 @@ function SectionGrid({
   const sorted = [...categories].sort((a, b) => b.budget - a.budget);
 
   return (
-    <div className="mb-8">
+    <Card
+      className="rounded-2xl overflow-hidden mb-6 p-0"
+      style={{
+        borderColor: "var(--color-border-default)",
+        boxShadow: "0 1px 2px rgba(120,72,10,.04), 0 8px 24px rgba(120,72,10,.05)",
+      }}
+    >
       <div
-        className="flex items-center justify-between px-4 py-3 rounded-lg mb-4"
-        style={{ backgroundColor: "var(--muted)" }}
+        className="flex items-center justify-between px-7 py-5 border-b"
+        style={{ borderColor: "var(--color-border-default)" }}
       >
-        <div className="flex items-center gap-2">
-          <h2 className="text-base font-bold text-foreground">{title}</h2>
-          <span className="text-xs text-muted-foreground">
+        <span className="font-display text-[17px] font-semibold" style={{ color: "var(--color-text-primary)" }}>
+          {title}{" "}
+          <span className="text-[13px] font-normal" style={{ color: "var(--color-text-subtle)" }}>
             {categories.length} {categories.length === 1 ? "category" : "categories"}
           </span>
-        </div>
+        </span>
         {totalBudget > 0 && (
-          <span className="font-num font-semibold text-base text-foreground">
+          <span className="font-num font-bold text-[15px]" style={{ color: "var(--color-text-primary)" }}>
             {formatVND(totalBudget)}
           </span>
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 p-5">
         {sorted.map((cat) => (
           <CategoryCard
             key={cat.id}
@@ -292,7 +285,7 @@ function SectionGrid({
         ))}
         <AddCategoryCard isFixed={isFixed} onAdd={onAdd} />
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -379,7 +372,7 @@ export default function BudgetPage() {
   if (loading) {
     return (
       <div>
-        <div className="mt-8 text-sm text-muted-foreground text-center py-12">
+        <div className="mt-8 text-sm text-center py-12" style={{ color: "var(--color-text-secondary)" }}>
           Loading...
         </div>
       </div>
@@ -388,51 +381,54 @@ export default function BudgetPage() {
 
   return (
     <div>
-      {/* 月次合計予算サマリ */}
       {grandTotal > 0 && (
-        <Card className="mt-6 mb-8 p-6">
-          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-2">
+        <Card
+          className="mt-8 mb-6 p-7 rounded-2xl"
+          style={{
+            borderColor: "var(--color-border-default)",
+            boxShadow: "0 1px 2px rgba(120,72,10,.04), 0 8px 24px rgba(120,72,10,.05)",
+          }}
+        >
+          <p className="text-xs font-semibold uppercase tracking-[0.06em] mb-2.5" style={{ color: "var(--color-text-subtle)" }}>
             Total Monthly Budget
           </p>
-          <p className="font-num text-4xl font-bold text-foreground leading-none mb-4">
+          <p className="font-display text-[44px] font-bold leading-none mb-4" style={{ color: "var(--color-text-primary)" }}>
             {formatVND(grandTotal)}
           </p>
-          <div className="flex gap-6 text-sm">
-            <div>
-              <span className="text-muted-foreground">Variable</span>
-              <span className="font-num font-semibold text-foreground ml-2">
+          <div className="flex gap-7 text-sm">
+            <div style={{ color: "var(--color-text-secondary)" }}>
+              Variable{" "}
+              <b className="font-num font-bold" style={{ color: "var(--color-text-primary)" }}>
                 {formatVND(variableBudgetTotal)}
-              </span>
+              </b>
             </div>
-            <div>
-              <span className="text-muted-foreground">Fixed</span>
-              <span className="font-num font-semibold text-foreground ml-2">
+            <div style={{ color: "var(--color-text-secondary)" }}>
+              Fixed{" "}
+              <b className="font-num font-bold" style={{ color: "var(--color-text-primary)" }}>
                 {formatVND(fixedBudgetTotal)}
-              </span>
+              </b>
             </div>
           </div>
         </Card>
       )}
 
-      <div className="mt-2">
-        <SectionGrid
-          title="Variable Costs"
-          categories={variable}
-          totalBudget={variableBudgetTotal}
-          onUpdate={handleUpdate}
-          onDelete={handleDelete}
-          onAdd={handleAdd}
-        />
+      <SectionGrid
+        title="Variable Costs"
+        categories={variable}
+        totalBudget={variableBudgetTotal}
+        onUpdate={handleUpdate}
+        onDelete={handleDelete}
+        onAdd={handleAdd}
+      />
 
-        <SectionGrid
-          title="Fixed Costs"
-          categories={fixed}
-          totalBudget={fixedBudgetTotal}
-          onUpdate={handleUpdate}
-          onDelete={handleDelete}
-          onAdd={handleAdd}
-        />
-      </div>
+      <SectionGrid
+        title="Fixed Costs"
+        categories={fixed}
+        totalBudget={fixedBudgetTotal}
+        onUpdate={handleUpdate}
+        onDelete={handleDelete}
+        onAdd={handleAdd}
+      />
     </div>
   );
 }
