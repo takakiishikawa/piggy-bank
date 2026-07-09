@@ -38,9 +38,9 @@ const UserMenu = dynamic(() =>
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/weekly", label: "Report", icon: BarChart2 },
   { href: "/budget", label: "Budget", icon: Wallet },
   { href: "/simulation", label: "Simulation", icon: PiggyBank },
+  { href: "/weekly", label: "Report", icon: BarChart2 },
 ];
 
 const supabaseConfigured =

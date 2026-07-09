@@ -2,6 +2,7 @@ export interface SavingsMonthRecord {
   month: string; // 'YYYY-MM'
   planned_savings: number;
   actual_savings: number | null;
+  note: string | null;
 }
 
 export interface SimulationMonth {
@@ -11,6 +12,7 @@ export interface SimulationMonth {
   label: string; // 'Jan', 'Feb', ...
   planned: number;
   actual: number | null;
+  note: string | null;
   hasRecord: boolean;
   isCurrentMonth: boolean;
   isFuture: boolean;
@@ -22,6 +24,10 @@ const MONTH_LABELS = [
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
+// First year the app tracks savings — years before this never carry a
+// balance in, and cumulative carry-in for later years chains forward from here.
+export const SIMULATION_EPOCH_YEAR = 2026;
+
 export function monthKey(year: number, monthNum: number): string {
   return `${year}-${String(monthNum).padStart(2, "0")}`;
 }
@@ -31,11 +37,12 @@ export function buildSimulationYear(
   records: SavingsMonthRecord[],
   defaultMonthlyIncome: number,
   now: Date = new Date(),
+  startingCumulative = 0,
 ): SimulationMonth[] {
   const byMonth = new Map(records.map((r) => [r.month, r]));
   const currentKey = monthKey(now.getFullYear(), now.getMonth() + 1);
 
-  let cumulative = 0;
+  let cumulative = startingCumulative;
   const months: SimulationMonth[] = [];
 
   for (let m = 1; m <= 12; m++) {
@@ -76,6 +83,7 @@ export function buildSimulationYear(
       label: MONTH_LABELS[m - 1],
       planned,
       actual,
+      note: record?.note ?? null,
       hasRecord,
       isCurrentMonth,
       isFuture,

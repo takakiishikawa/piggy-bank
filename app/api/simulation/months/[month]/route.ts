@@ -23,17 +23,23 @@ export async function PATCH(
       : body.actual === null
         ? null
         : undefined;
+  const note =
+    typeof body.note === "string"
+      ? body.note.trim() || null
+      : body.note === null
+        ? null
+        : undefined;
 
-  if (planned === undefined && actual === undefined) {
+  if (planned === undefined && actual === undefined && note === undefined) {
     return NextResponse.json(
-      { error: "planned and/or actual is required" },
+      { error: "planned, actual, and/or note is required" },
       { status: 400 },
     );
   }
 
   const { data: existing } = await db
     .from("savings_months")
-    .select("planned_savings, actual_savings")
+    .select("planned_savings, actual_savings, note")
     .eq("month", month)
     .maybeSingle();
 
@@ -41,13 +47,14 @@ export async function PATCH(
     month,
     planned_savings: planned ?? existing?.planned_savings ?? 0,
     actual_savings: actual !== undefined ? actual : (existing?.actual_savings ?? null),
+    note: note !== undefined ? note : (existing?.note ?? null),
     updated_at: new Date().toISOString(),
   };
 
   const { data, error } = await db
     .from("savings_months")
     .upsert(payload)
-    .select("month, planned_savings, actual_savings")
+    .select("month, planned_savings, actual_savings, note")
     .single();
 
   if (error) {
@@ -58,5 +65,6 @@ export async function PATCH(
     month: data.month,
     planned: data.planned_savings,
     actual: data.actual_savings,
+    note: data.note,
   });
 }

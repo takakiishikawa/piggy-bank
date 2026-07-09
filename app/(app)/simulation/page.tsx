@@ -86,19 +86,101 @@ function PlannedInput({
   );
 }
 
+function NoteTag({
+  value,
+  onSave,
+}: {
+  value: string | null;
+  onSave: (v: string | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(value ?? "");
+
+  useEffect(() => {
+    setText(value ?? "");
+  }, [value]);
+
+  const commit = () => {
+    setEditing(false);
+    const trimmed = text.trim();
+    if (trimmed !== (value ?? "")) {
+      onSave(trimmed || null);
+    }
+  };
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          if (e.key === "Escape") {
+            setText(value ?? "");
+            setEditing(false);
+          }
+        }}
+        onClick={(e) => e.stopPropagation()}
+        placeholder="e.g. Japan trip"
+        className="text-[11px] font-semibold px-2 py-0.5 rounded-full outline-none w-28 font-sans"
+        style={{
+          border: "1px solid var(--color-border-default)",
+          backgroundColor: "var(--color-surface)",
+          color: "var(--color-text-primary)",
+        }}
+      />
+    );
+  }
+
+  if (value) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditing(true);
+        }}
+        title={value}
+        className="text-[11px] font-semibold px-2 py-0.5 rounded-full truncate max-w-[120px] shrink-0"
+        style={{ backgroundColor: "var(--color-warning-subtle)", color: "var(--color-warning)" }}
+      >
+        {value}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        setEditing(true);
+      }}
+      className="text-[11px] font-medium px-1.5 py-0.5 rounded-full shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+      style={{ color: "var(--color-text-subtle)" }}
+    >
+      + Note
+    </button>
+  );
+}
+
 function MonthRow({
   m,
   onUpdate,
+  onSaveNote,
 }: {
   m: SimulationMonth;
   onUpdate: (month: string, field: "planned", value: number) => void;
+  onSaveNote: (month: string, note: string | null) => void;
 }) {
   const negative = m.hasRecord && m.cumulative < 0;
   const actualValue = m.actual ?? m.planned;
 
   return (
     <div
-      className="grid items-center px-7 py-3.5 border-b last:border-0"
+      className="group grid items-center px-7 py-3.5 border-b last:border-0"
       style={{
         gridTemplateColumns: "1.2fr 1fr 1fr 1fr",
         gap: 8,
@@ -107,17 +189,20 @@ function MonthRow({
       }}
     >
       <span
-        className="text-[14.5px] font-semibold flex items-center gap-2"
+        className="text-[14.5px] font-semibold flex items-center gap-2 min-w-0"
         style={{ color: m.isCurrentMonth ? "var(--color-primary-hover)" : "var(--color-text-primary)" }}
       >
         {m.label} {m.year}
         {m.isCurrentMonth && (
           <Tag
-            className="text-[10.5px] font-bold px-2 py-0.5"
+            className="text-[10.5px] font-bold px-2 py-0.5 shrink-0"
             style={{ backgroundColor: "var(--color-primary)", color: "#fff" }}
           >
             NOW
           </Tag>
+        )}
+        {m.hasRecord && (
+          <NoteTag value={m.note} onSave={(v) => onSaveNote(m.month, v)} />
         )}
       </span>
       {!m.hasRecord ? (
@@ -254,6 +339,19 @@ export default function SimulationPage() {
     load(year);
   };
 
+  const handleSaveNote = async (month: string, note: string | null) => {
+    const res = await fetch(`/api/simulation/months/${month}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ note }),
+    });
+    if (!res.ok) {
+      toast.error("Failed to save");
+      return;
+    }
+    load(year);
+  };
+
   const progressPct =
     data && data.annualTarget > 0
       ? Math.max(0, Math.min(100, Math.round((data.yearEndProjection / data.annualTarget) * 100)))
@@ -352,7 +450,7 @@ export default function SimulationPage() {
           </div>
         ) : (
           data.months.map((m) => (
-            <MonthRow key={m.month} m={m} onUpdate={handleUpdateMonth} />
+            <MonthRow key={m.month} m={m} onUpdate={handleUpdateMonth} onSaveNote={handleSaveNote} />
           ))
         )}
       </Card>

@@ -124,7 +124,7 @@ function VariableCategoryCard({
       className="text-left rounded-[13px] border p-[18px_20px] transition-colors hover:bg-muted/40 cursor-pointer"
       style={{ borderColor: "var(--color-border-default)", backgroundColor: "var(--color-surface-subtle)" }}
     >
-      <div className="flex items-center justify-between gap-2 mb-3">
+      <div className="flex items-center justify-between gap-2 mb-2.5">
         <div className="flex items-center gap-2.5 min-w-0">
           <div
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px]"
@@ -136,11 +136,19 @@ function VariableCategoryCard({
             {cat.name}
           </span>
         </div>
-        {pctNum !== null && (
-          <span className="font-num text-[13px] font-bold shrink-0" style={{ color: pctColor }}>
-            {pctNum}%
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[13px]" style={{ color: "var(--color-text-secondary)" }}>
+            <span className="font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>
+              {formatVND(cat.actual)}
+            </span>
+            {cat.budget > 0 && <span className="font-num"> / {formatVND(cat.budget)}</span>}
           </span>
-        )}
+          {pctNum !== null && (
+            <span className="font-num text-[13px] font-bold" style={{ color: pctColor }}>
+              {pctNum}%
+            </span>
+          )}
+        </div>
       </div>
       <ProgressBar
         actual={cat.actual}
@@ -149,12 +157,6 @@ function VariableCategoryCard({
         showToday={false}
         fillColor={barColor}
       />
-      <div className="mt-2.5 text-[13px]" style={{ color: "var(--color-text-secondary)" }}>
-        <span className="font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>
-          {formatVND(cat.actual)}
-        </span>
-        {cat.budget > 0 && <span className="font-num"> / {formatVND(cat.budget)}</span>}
-      </div>
     </button>
   );
 }
