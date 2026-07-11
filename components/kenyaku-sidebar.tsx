@@ -135,13 +135,13 @@ export function KenyakuGoSidebar() {
                         <Icon
                           size={17}
                           className="shrink-0"
-                          style={{ color: active ? "var(--color-primary)" : "var(--kg-sidebar-inactive)" }}
+                          style={{ color: active ? "var(--kg-sidebar-active-icon)" : "var(--kg-sidebar-inactive)" }}
                         />
                         <span
                           className="text-sm"
                           style={{
                             fontWeight: active ? 600 : 500,
-                            color: active ? "var(--color-primary)" : "var(--kg-sidebar-inactive)",
+                            color: active ? "var(--kg-sidebar-text)" : "var(--kg-sidebar-inactive)",
                           }}
                         >
                           {label}

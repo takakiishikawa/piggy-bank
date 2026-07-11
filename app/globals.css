@@ -65,22 +65,23 @@
   --kg-border-subtle: var(--color-border-subtle);
   --kg-border-medium: var(--color-border-strong);
   --kg-track: #f1e9dc; /* progress-bar track / pill background */
-  --kg-sidebar-bg: #22252e;
-  --kg-sidebar-border: #33363f;
-  --kg-sidebar-text: #f5f1ea;
-  --kg-sidebar-text-muted: #c7ccd6;
-  --kg-sidebar-accent-bg: rgba(13, 148, 136, 0.18);
-  --kg-sidebar-inactive: #b8bec9;
+  --kg-sidebar-bg: #0f2c29;
+  --kg-sidebar-border: transparent;
+  --kg-sidebar-text: #f2fbf9;
+  --kg-sidebar-text-muted: #9dbfb9;
+  --kg-sidebar-accent-bg: rgba(255, 255, 255, 0.14);
+  --kg-sidebar-inactive: #9dbfb9;
+  --kg-sidebar-active-icon: #5eead4;
 
   /* Sidebar (HSL — consumed by go-design-system's shadcn sidebar.tsx) */
-  --sidebar-background: 225 15% 16%; /* #22252e */
-  --sidebar-foreground: 220 13% 78%; /* #b8bec9 */
-  --sidebar-primary: 175 84% 32%; /* #0d9488 */
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 189 35% 18%; /* teal-tinted dark, ~18% opacity blend */
-  --sidebar-accent-foreground: 175 84% 32%; /* #0d9488 */
-  --sidebar-border: 225 11% 22%; /* #33363f */
-  --sidebar-ring: 175 84% 32%;
+  --sidebar-background: 174 49% 12%; /* #0f2c29 */
+  --sidebar-foreground: 169 21% 68%; /* #9dbfb9 */
+  --sidebar-primary: 171 77% 64%; /* #5eead4 */
+  --sidebar-primary-foreground: 174 49% 12%; /* #0f2c29 */
+  --sidebar-accent: 173 20% 24%; /* #314a47 — white 14% blend hover */
+  --sidebar-accent-foreground: 167 53% 97%; /* #f2fbf9 */
+  --sidebar-border: 175 22% 22%; /* #2c4543 — white 12% blend */
+  --sidebar-ring: 171 77% 64%;
 }
 
 .dark.dark {
