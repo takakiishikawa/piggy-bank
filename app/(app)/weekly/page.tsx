@@ -20,6 +20,7 @@ import { formatVND } from "@/lib/format";
 import { getCategoryColors } from "@/lib/category-colors";
 import { getCategoryIcon } from "@/lib/category-icons";
 import { NoteTag } from "@/components/note-tag";
+import { ExcludeToggle } from "@/components/exclude-toggle";
 import {
   Button,
   Card,
@@ -53,6 +54,7 @@ interface TxItem {
   category: string;
   date: string;
   note: string | null;
+  excluded_from_dashboard: boolean;
 }
 interface ReportData {
   periods: PeriodItem[];
@@ -261,6 +263,27 @@ export default function ReportPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ note }),
+      });
+    },
+    [],
+  );
+
+  const handleToggleExcluded = useCallback(
+    async (id: string, excluded: boolean) => {
+      setDetail((d) =>
+        d && d.txs
+          ? {
+              ...d,
+              txs: d.txs.map((t) =>
+                t.id === id ? { ...t, excluded_from_dashboard: excluded } : t,
+              ),
+            }
+          : d,
+      );
+      await fetch(`/api/transactions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ excludedFromDashboard: excluded }),
       });
     },
     [],
@@ -481,6 +504,10 @@ export default function ReportPage() {
                         </p>
                       </div>
                       <NoteTag value={t.note} onSave={(v) => handleSaveNote(t.id, v)} />
+                      <ExcludeToggle
+                        excluded={t.excluded_from_dashboard}
+                        onToggle={(v) => handleToggleExcluded(t.id, v)}
+                      />
                       <span className="font-num text-sm shrink-0" style={{ color: "var(--color-text-primary)" }}>
                         {formatVND(t.amount)}
                       </span>

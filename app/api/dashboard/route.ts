@@ -18,7 +18,8 @@ export async function GET() {
       .from("transactions")
       .select("amount, category")
       .gte("date", monthStart.toISOString())
-      .lte("date", monthEnd.toISOString()),
+      .lte("date", monthEnd.toISOString())
+      .eq("excluded_from_dashboard", false),
   ]);
 
   if (catsRes.error) {

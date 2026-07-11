@@ -6,6 +6,7 @@ import { formatVND } from "@/lib/format";
 import { getCategoryColors, getCategoryColorTint } from "@/lib/category-colors";
 import { getCategoryIcon } from "@/lib/category-icons";
 import { NoteTag } from "@/components/note-tag";
+import { ExcludeToggle } from "@/components/exclude-toggle";
 import {
   Card,
   Dialog,
@@ -44,6 +45,7 @@ interface TxItem {
   category: string;
   date: string;
   note: string | null;
+  excluded_from_dashboard: boolean;
 }
 
 const CARD_SHADOW = "0 1px 2px rgba(120,72,10,.04), 0 8px 24px rgba(120,72,10,.05)";
@@ -261,6 +263,28 @@ export default function Dashboard() {
       });
     },
     [],
+  );
+
+  const handleToggleExcluded = useCallback(
+    async (id: string, excluded: boolean) => {
+      setDetail((d) =>
+        d && d.txs
+          ? {
+              ...d,
+              txs: d.txs.map((t) =>
+                t.id === id ? { ...t, excluded_from_dashboard: excluded } : t,
+              ),
+            }
+          : d,
+      );
+      await fetch(`/api/transactions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ excludedFromDashboard: excluded }),
+      });
+      fetchDashboard();
+    },
+    [fetchDashboard],
   );
 
   const todayPct = data
@@ -535,6 +559,10 @@ export default function Dashboard() {
                         </p>
                       </div>
                       <NoteTag value={t.note} onSave={(v) => handleSaveNote(t.id, v)} />
+                      <ExcludeToggle
+                        excluded={t.excluded_from_dashboard}
+                        onToggle={(v) => handleToggleExcluded(t.id, v)}
+                      />
                       <span className="font-num text-sm shrink-0" style={{ color: "var(--color-text-primary)" }}>
                         {formatVND(t.amount)}
                       </span>
@@ -545,7 +573,11 @@ export default function Dashboard() {
                   <div className="mt-3 pt-3 border-t flex items-center justify-between" style={{ borderColor: "var(--color-border-default)" }}>
                     <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>Total</span>
                     <span className="font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>
-                      {formatVND(detail.txs.reduce((sum, t) => sum + t.amount, 0))}
+                      {formatVND(
+                        detail.txs
+                          .filter((t) => !t.excluded_from_dashboard)
+                          .reduce((sum, t) => sum + t.amount, 0),
+                      )}
                     </span>
                   </div>
                 )}

@@ -9,6 +9,7 @@ import { getCategoryColors } from "@/lib/category-colors";
 import { getCategoryIcon } from "@/lib/category-icons";
 import { FALLBACK_CATEGORY } from "@/lib/constants";
 import { NoteTag } from "@/components/note-tag";
+import { ExcludeToggle } from "@/components/exclude-toggle";
 import {
   Button,
   Card,
@@ -34,6 +35,7 @@ interface Transaction {
   date: string;
   reviewed: boolean;
   note: string | null;
+  excluded_from_dashboard: boolean;
 }
 
 interface Category {
@@ -374,6 +376,22 @@ export default function TransactionsPage() {
     });
   };
 
+  const handleToggleExcluded = async (id: string, excluded: boolean) => {
+    setTransactions((prev) =>
+      prev.map((tx) =>
+        tx.id === id ? { ...tx, excluded_from_dashboard: excluded } : tx,
+      ),
+    );
+    await fetch(`/api/transactions/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ excludedFromDashboard: excluded }),
+    });
+    toast.success(
+      excluded ? "Excluded from dashboard" : "Included in dashboard again",
+    );
+  };
+
   const handleBulkApply = async () => {
     if (!bulkCategory || !searchQuery.trim()) return;
     setBulkApplying(true);
@@ -484,10 +502,14 @@ export default function TransactionsPage() {
         id: "note",
         header: "Note",
         cell: ({ row }) => (
-          <div className="group min-w-[100px]">
+          <div className="group flex items-center gap-2 min-w-[160px]">
             <NoteTag
               value={row.original.note}
               onSave={(v) => handleSaveNote(row.original.id, v)}
+            />
+            <ExcludeToggle
+              excluded={row.original.excluded_from_dashboard}
+              onToggle={(v) => handleToggleExcluded(row.original.id, v)}
             />
           </div>
         ),

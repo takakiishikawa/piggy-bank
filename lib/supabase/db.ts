@@ -18,6 +18,7 @@ export interface Transaction {
   category: string;
   reviewed: boolean;
   note: string | null;
+  excluded_from_dashboard: boolean;
   created_at: string;
 }
 

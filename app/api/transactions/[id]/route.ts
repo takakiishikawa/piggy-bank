@@ -20,26 +20,37 @@ export async function PATCH(
       : body.note === null
         ? null
         : undefined;
+  const excludedFromDashboard =
+    typeof body.excludedFromDashboard === "boolean"
+      ? body.excludedFromDashboard
+      : undefined;
 
-  if (!category && note === undefined) {
+  if (!category && note === undefined && excludedFromDashboard === undefined) {
     return NextResponse.json(
-      { error: "category and/or note is required" },
+      { error: "category, note, and/or excludedFromDashboard is required" },
       { status: 400 },
     );
   }
 
-  const update: { category?: string; reviewed?: boolean; note?: string | null } = {};
+  const update: {
+    category?: string;
+    reviewed?: boolean;
+    note?: string | null;
+    excluded_from_dashboard?: boolean;
+  } = {};
   if (category) {
     update.category = category;
     update.reviewed = true;
   }
   if (note !== undefined) update.note = note;
+  if (excludedFromDashboard !== undefined)
+    update.excluded_from_dashboard = excludedFromDashboard;
 
   const { data, error } = await db
     .from("transactions")
     .update(update)
     .eq("id", id)
-    .select("id, store, amount, category, date, note")
+    .select("id, store, amount, category, date, note, excluded_from_dashboard")
     .single();
 
   if (error) {
