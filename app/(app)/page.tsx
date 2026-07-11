@@ -5,6 +5,7 @@ import { TrendingDown, TrendingUp } from "lucide-react";
 import { formatVND } from "@/lib/format";
 import { getCategoryColors, getCategoryColorTint } from "@/lib/category-colors";
 import { getCategoryIcon } from "@/lib/category-icons";
+import { NoteTag } from "@/components/note-tag";
 import {
   Card,
   Dialog,
@@ -42,6 +43,7 @@ interface TxItem {
   amount: number;
   category: string;
   date: string;
+  note: string | null;
 }
 
 const CARD_SHADOW = "0 1px 2px rgba(120,72,10,.04), 0 8px 24px rgba(120,72,10,.05)";
@@ -244,6 +246,22 @@ export default function Dashboard() {
       );
     }
   }, []);
+
+  const handleSaveNote = useCallback(
+    async (id: string, note: string | null) => {
+      setDetail((d) =>
+        d && d.txs
+          ? { ...d, txs: d.txs.map((t) => (t.id === id ? { ...t, note } : t)) }
+          : d,
+      );
+      await fetch(`/api/transactions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note }),
+      });
+    },
+    [],
+  );
 
   const todayPct = data
     ? Math.round((data.dayOfMonth / data.daysInMonth) * 100)
@@ -505,7 +523,7 @@ export default function Dashboard() {
                   {detail?.txs?.map((t) => (
                     <li
                       key={t.id}
-                      className="flex items-center justify-between gap-4 py-2.5"
+                      className="group flex items-center justify-between gap-4 py-2.5"
                     >
                       <div className="min-w-0">
                         <p className="text-sm truncate" style={{ color: "var(--color-text-primary)" }}>{t.store}</p>
@@ -516,6 +534,7 @@ export default function Dashboard() {
                           })}
                         </p>
                       </div>
+                      <NoteTag value={t.note} onSave={(v) => handleSaveNote(t.id, v)} />
                       <span className="font-num text-sm shrink-0" style={{ color: "var(--color-text-primary)" }}>
                         {formatVND(t.amount)}
                       </span>

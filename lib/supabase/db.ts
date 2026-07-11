@@ -17,6 +17,7 @@ export interface Transaction {
   date: string;
   category: string;
   reviewed: boolean;
+  note: string | null;
   created_at: string;
 }
 

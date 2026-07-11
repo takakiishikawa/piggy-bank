@@ -14,19 +14,32 @@ export async function PATCH(
   const body = await req.json();
   const category =
     typeof body.category === "string" ? body.category.trim() : null;
+  const note =
+    typeof body.note === "string"
+      ? body.note.trim() || null
+      : body.note === null
+        ? null
+        : undefined;
 
-  if (!category) {
+  if (!category && note === undefined) {
     return NextResponse.json(
-      { error: "category is required" },
+      { error: "category and/or note is required" },
       { status: 400 },
     );
   }
 
+  const update: { category?: string; reviewed?: boolean; note?: string | null } = {};
+  if (category) {
+    update.category = category;
+    update.reviewed = true;
+  }
+  if (note !== undefined) update.note = note;
+
   const { data, error } = await db
     .from("transactions")
-    .update({ category, reviewed: true })
+    .update(update)
     .eq("id", id)
-    .select("id, store, amount, category, date")
+    .select("id, store, amount, category, date, note")
     .single();
 
   if (error) {
@@ -34,7 +47,7 @@ export async function PATCH(
   }
 
   // 手動修正を正解ルールとして記録 → 次回以降の同期で同じ店舗に自動適用
-  if (data?.store) {
+  if (category && data?.store) {
     await saveStoreRules(db, [data.store], category);
   }
 

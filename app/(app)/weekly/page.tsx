@@ -19,6 +19,7 @@ import { Heart, List, Sparkles } from "lucide-react";
 import { formatVND } from "@/lib/format";
 import { getCategoryColors } from "@/lib/category-colors";
 import { getCategoryIcon } from "@/lib/category-icons";
+import { NoteTag } from "@/components/note-tag";
 import {
   Button,
   Card,
@@ -51,6 +52,7 @@ interface TxItem {
   amount: number;
   category: string;
   date: string;
+  note: string | null;
 }
 interface ReportData {
   periods: PeriodItem[];
@@ -246,6 +248,22 @@ export default function ReportPage() {
       }
     },
     [categoryFilter],
+  );
+
+  const handleSaveNote = useCallback(
+    async (id: string, note: string | null) => {
+      setDetail((d) =>
+        d && d.txs
+          ? { ...d, txs: d.txs.map((t) => (t.id === id ? { ...t, note } : t)) }
+          : d,
+      );
+      await fetch(`/api/transactions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note }),
+      });
+    },
+    [],
   );
 
   const handleChartClick = useCallback(
@@ -448,7 +466,7 @@ export default function ReportPage() {
                   {detail?.txs?.map((t) => (
                     <li
                       key={t.id}
-                      className="flex items-center justify-between gap-4 py-2.5"
+                      className="group flex items-center justify-between gap-4 py-2.5"
                     >
                       <div className="min-w-0">
                         <p className="text-sm truncate" style={{ color: "var(--color-text-primary)" }}>
@@ -462,6 +480,7 @@ export default function ReportPage() {
                           · {t.category}
                         </p>
                       </div>
+                      <NoteTag value={t.note} onSave={(v) => handleSaveNote(t.id, v)} />
                       <span className="font-num text-sm shrink-0" style={{ color: "var(--color-text-primary)" }}>
                         {formatVND(t.amount)}
                       </span>

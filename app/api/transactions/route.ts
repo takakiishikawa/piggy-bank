@@ -44,13 +44,13 @@ export async function GET(req: NextRequest) {
 
   type TxRow = Pick<
     Transaction,
-    "id" | "store" | "amount" | "category" | "date" | "reviewed"
+    "id" | "store" | "amount" | "category" | "date" | "reviewed" | "note"
   >;
 
   const buildQuery = (start?: Date, end?: Date) => {
     let q = db
       .from("transactions")
-      .select("id, store, amount, category, date, reviewed")
+      .select("id, store, amount, category, date, reviewed, note")
       .gt("amount", 0)
       .order("date", { ascending: false })
       .limit(1000);

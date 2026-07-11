@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { AlertTriangle, ChevronDown, Settings } from "lucide-react";
 import { formatJPY } from "@/lib/format";
 import type { SimulationMonth } from "@/lib/simulation";
+import { NoteTag } from "@/components/note-tag";
 import {
   Button,
   Card,
@@ -86,86 +87,6 @@ function PlannedInput({
   );
 }
 
-function NoteTag({
-  value,
-  onSave,
-}: {
-  value: string | null;
-  onSave: (v: string | null) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(value ?? "");
-
-  useEffect(() => {
-    setText(value ?? "");
-  }, [value]);
-
-  const commit = () => {
-    setEditing(false);
-    const trimmed = text.trim();
-    if (trimmed !== (value ?? "")) {
-      onSave(trimmed || null);
-    }
-  };
-
-  if (editing) {
-    return (
-      <input
-        autoFocus
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-          if (e.key === "Escape") {
-            setText(value ?? "");
-            setEditing(false);
-          }
-        }}
-        onClick={(e) => e.stopPropagation()}
-        placeholder="e.g. Japan trip"
-        className="text-[11px] font-semibold px-2 py-0.5 rounded-full outline-none w-28 font-sans"
-        style={{
-          border: "1px solid var(--color-border-default)",
-          backgroundColor: "var(--color-surface)",
-          color: "var(--color-text-primary)",
-        }}
-      />
-    );
-  }
-
-  if (value) {
-    return (
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setEditing(true);
-        }}
-        title={value}
-        className="text-[11px] font-semibold px-2 py-0.5 rounded-full truncate max-w-[120px] shrink-0"
-        style={{ backgroundColor: "var(--color-warning-subtle)", color: "var(--color-warning)" }}
-      >
-        {value}
-      </button>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        setEditing(true);
-      }}
-      className="text-[11px] font-medium px-1.5 py-0.5 rounded-full shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-      style={{ color: "var(--color-text-subtle)" }}
-    >
-      + Note
-    </button>
-  );
-}
-
 function MonthRow({
   m,
   onUpdate,
@@ -202,7 +123,11 @@ function MonthRow({
           </Tag>
         )}
         {m.hasRecord && (
-          <NoteTag value={m.note} onSave={(v) => onSaveNote(m.month, v)} />
+          <NoteTag
+            value={m.note}
+            onSave={(v) => onSaveNote(m.month, v)}
+            placeholder="e.g. Japan trip"
+          />
         )}
       </span>
       {!m.hasRecord ? (

@@ -171,7 +171,7 @@ export async function GET(req: Request) {
       date: parsed.date.toISOString(),
       category: knownCategory ?? FALLBACK_CATEGORY,
       reviewed: false,
-    } satisfies Omit<Transaction, "created_at">);
+    } satisfies Omit<Transaction, "created_at" | "note">);
 
     if (err) {
       console.error("[cron/sync] Insert error:", err);

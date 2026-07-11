@@ -8,6 +8,7 @@ import { formatVND, formatDateWithYear } from "@/lib/format";
 import { getCategoryColors } from "@/lib/category-colors";
 import { getCategoryIcon } from "@/lib/category-icons";
 import { FALLBACK_CATEGORY } from "@/lib/constants";
+import { NoteTag } from "@/components/note-tag";
 import {
   Button,
   Card,
@@ -32,6 +33,7 @@ interface Transaction {
   category: string;
   date: string;
   reviewed: boolean;
+  note: string | null;
 }
 
 interface Category {
@@ -361,6 +363,17 @@ export default function TransactionsPage() {
     fetchTransactions();
   };
 
+  const handleSaveNote = async (id: string, note: string | null) => {
+    setTransactions((prev) =>
+      prev.map((tx) => (tx.id === id ? { ...tx, note } : tx)),
+    );
+    await fetch(`/api/transactions/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ note }),
+    });
+  };
+
   const handleBulkApply = async () => {
     if (!bulkCategory || !searchQuery.trim()) return;
     setBulkApplying(true);
@@ -466,6 +479,18 @@ export default function TransactionsPage() {
             </button>
           );
         },
+      },
+      {
+        id: "note",
+        header: "Note",
+        cell: ({ row }) => (
+          <div className="group min-w-[100px]">
+            <NoteTag
+              value={row.original.note}
+              onSave={(v) => handleSaveNote(row.original.id, v)}
+            />
+          </div>
+        ),
       },
       {
         id: "date",
