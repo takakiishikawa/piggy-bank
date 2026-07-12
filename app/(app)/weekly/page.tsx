@@ -325,14 +325,14 @@ export default function ReportPage() {
           }}
         >
           <TabsList
-            className="p-1 rounded-[11px] h-auto gap-1"
+            className="p-1 rounded-[11px] h-auto gap-1 border-b-0"
             style={{ backgroundColor: "var(--kg-track)" }}
           >
             {(["variable", "fixed", "all"] as const).map((v) => (
               <TabsTrigger
                 key={v}
                 value={v}
-                className="rounded-lg px-[18px] py-2 text-sm font-semibold capitalize data-[state=active]:shadow-none"
+                className="rounded-lg px-[18px] py-2 text-sm font-semibold capitalize border-b-0 data-[state=active]:shadow-none"
                 style={
                   categoryType === v
                     ? { backgroundColor: "var(--color-primary-subtle)", color: "var(--color-primary-hover)" }
