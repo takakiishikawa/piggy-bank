@@ -4,11 +4,11 @@ import { Leaf } from "lucide-react";
 export default function ConceptPageRoute() {
   return (
     <ConceptPage
-      productName="KenyakuGo"
+      productName="PiggyBank"
       productLogo={<Leaf size={20} style={{ color: "var(--color-primary)" }} />}
       tagline="Keep your base spending low, spend freely when it counts."
-      coreMessage="KenyakuGo is a household budget tool built around 'value-driven choices,' not white-knuckle saving. It automatically pulls payment emails from Gmail and turns them into a clear picture of your spending. Every month's surplus flows into a 'reservoir,' ready to release when you actually want to spend it."
-      coreValue="Saving money is really about designing freedom. The lower your base spending, the more options you have in life. KenyakuGo goes beyond just logging expenses — it continuously helps you decide where not to spend, and points the way toward financial freedom."
+      coreMessage="PiggyBank is a household budget tool built around 'value-driven choices,' not white-knuckle saving. It automatically pulls payment emails from Gmail and turns them into a clear picture of your spending. Every month's surplus flows into a 'reservoir,' ready to release when you actually want to spend it."
+      coreValue="Saving money is really about designing freedom. The lower your base spending, the more options you have in life. PiggyBank goes beyond just logging expenses — it continuously helps you decide where not to spend, and points the way toward financial freedom."
       scope={{
         solve: [
           "Automatically pulling spending data from Gmail",

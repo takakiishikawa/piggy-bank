@@ -2,7 +2,7 @@
 
 import { LoginPage } from "@takaki/go-design-system";
 import { createClient } from "@/lib/supabase/client";
-import { JapaneseYen } from "lucide-react";
+import { PiggyBank } from "lucide-react";
 
 export default function LoginPageRoute() {
   async function handleGoogleSignIn() {
@@ -19,8 +19,8 @@ export default function LoginPageRoute() {
 
   return (
     <LoginPage
-      productName="KenyakuGo"
-      productLogo={<JapaneseYen size={24} style={{ color: "var(--color-primary)" }} />}
+      productName="PiggyBank"
+      productLogo={<PiggyBank size={24} style={{ color: "var(--color-primary)" }} />}
       tagline="Keep your base spending low, spend freely when it counts."
       onGoogleSignIn={handleGoogleSignIn}
     />

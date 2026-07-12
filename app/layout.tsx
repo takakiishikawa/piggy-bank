@@ -19,7 +19,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "KenyakuGo",
+  title: "PiggyBank",
   description: "Keep your base spending low, spend freely when it counts.",
 };
 
@@ -40,7 +40,7 @@ export default function RootLayout({
             __html: `(function(){var s=localStorage.getItem('kg-theme');var d=s||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.classList.add(d);})();`,
           }}
         />
-        <DesignTokens primaryColor="#0D9488" primaryColorHover="#0F766E" />
+        <DesignTokens primaryColor="#BE5B85" primaryColorHover="#8C3A5E" />
       </head>
       <body className="min-h-full">
         {children}

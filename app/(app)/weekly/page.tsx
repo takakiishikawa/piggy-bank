@@ -299,7 +299,7 @@ export default function ReportPage() {
 
   const chartColor =
     categoryFilter === "all"
-      ? "#0D9488"
+      ? "#BE5B85"
       : getCategoryColors(categoryFilter).text;
 
   const chartConfig = useMemo<ChartConfig>(

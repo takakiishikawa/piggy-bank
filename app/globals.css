@@ -4,7 +4,7 @@
 
 @variant dark (&:where(.dark, .dark *));
 
-/* ── KenyakuGo — "Warm Ledger" theme (design 1a) ──
+/* ── PiggyBank — "Warm Ledger" theme (design 1a), Dusty Rose accent (t3 "3b") ──
    NOTE: the go-design-system <DesignTokens> component injects its own
    stock `:root { ... }` / `.dark { ... }` <style> tags at runtime
    (client-rendered, in <head>), which land AFTER this stylesheet in the
@@ -35,11 +35,11 @@
   --color-border-default: #efe6d8;
   --color-border-strong: #ddd0ba;
 
-  /* Primary — deep teal */
-  --color-primary: #0d9488;
-  --color-primary-hover: #0f766e;
+  /* Primary — dusty rose (PiggyBank rebrand, t3 "3b") */
+  --color-primary: #be5b85;
+  --color-primary-hover: #8c3a5e;
   --color-primary-text: #ffffff;
-  --color-primary-subtle: #cceeea;
+  --color-primary-subtle: #f7e1ea;
 
   /* Status */
   --color-success: #4c9a6a;
@@ -65,28 +65,28 @@
   --kg-border-subtle: var(--color-border-subtle);
   --kg-border-medium: var(--color-border-strong);
   --kg-track: #f1e9dc; /* progress-bar track / pill background */
-  --kg-sidebar-bg: #0f2c29;
+  --kg-sidebar-bg: #20242a;
   --kg-sidebar-border: transparent;
-  --kg-sidebar-text: #f2fbf9;
-  --kg-sidebar-text-muted: #9dbfb9;
-  --kg-sidebar-accent-bg: rgba(255, 255, 255, 0.14);
-  --kg-sidebar-inactive: #9dbfb9;
-  --kg-sidebar-active-icon: #5eead4;
+  --kg-sidebar-text: #ffffff; /* active nav label */
+  --kg-sidebar-text-muted: #c7c2b7; /* footer username */
+  --kg-sidebar-accent-bg: #be5b85; /* solid active-pill fill (was translucent) */
+  --kg-sidebar-inactive: #9b9587;
+  --kg-sidebar-active-icon: #ffffff;
 
   /* Sidebar (HSL — consumed by go-design-system's shadcn sidebar.tsx) */
-  --sidebar-background: 174 49% 12%; /* #0f2c29 */
-  --sidebar-foreground: 169 21% 68%; /* #9dbfb9 */
-  --sidebar-primary: 171 77% 64%; /* #5eead4 */
-  --sidebar-primary-foreground: 174 49% 12%; /* #0f2c29 */
-  --sidebar-accent: 173 20% 24%; /* #314a47 — white 14% blend hover */
-  --sidebar-accent-foreground: 167 53% 97%; /* #f2fbf9 */
-  --sidebar-border: 175 22% 22%; /* #2c4543 — white 12% blend */
-  --sidebar-ring: 171 77% 64%;
+  --sidebar-background: 216 14% 15%; /* #20242a */
+  --sidebar-foreground: 38 36% 94%; /* #f5f1ea */
+  --sidebar-primary: 335 43% 55%; /* #be5b85 */
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 214 7% 26%; /* #3f4348 — white 14% blend hover */
+  --sidebar-accent-foreground: 38 36% 94%; /* #f5f1ea */
+  --sidebar-border: 220 7% 25%; /* #3b3e44 — white 12% blend */
+  --sidebar-ring: 335 43% 55%; /* #be5b85 */
 }
 
 .dark.dark {
-  --color-primary: #0d9488;
-  --color-primary-hover: #14b8a6;
+  --color-primary: #be5b85;
+  --color-primary-hover: #d98cae;
 }
 
 /* ── ユーティリティクラス ── */

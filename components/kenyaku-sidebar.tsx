@@ -25,6 +25,7 @@ import {
   Lightbulb,
   Wallet,
   PiggyBank,
+  Target,
 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
@@ -39,9 +40,19 @@ const UserMenu = dynamic(() =>
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/budget", label: "Budget", icon: Wallet },
-  { href: "/simulation", label: "Simulation", icon: PiggyBank },
+  { href: "/simulation", label: "Simulation", icon: Target },
   { href: "/weekly", label: "Report", icon: BarChart2 },
 ];
+
+// PiggyBank rebrand: GO_APPS (shared across the Go series in
+// @takaki/go-design-system) still lists this product as "KenyakuGo" with the
+// old yen icon/color. Overriding the entry locally keeps the switcher
+// on-brand without forking the shared package.
+const PIGGYBANK_APPS = GO_APPS.map((app) =>
+  app.name === "KenyakuGo"
+    ? { ...app, name: "PiggyBank", icon: PiggyBank, color: "#BE5B85" }
+    : app,
+);
 
 const supabaseConfigured =
   !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -112,7 +123,7 @@ export function KenyakuGoSidebar() {
       className="border-r"
     >
       <SidebarHeader>
-        <AppSwitcher currentApp="KenyakuGo" apps={GO_APPS} placement="bottom" />
+        <AppSwitcher currentApp="PiggyBank" apps={PIGGYBANK_APPS} placement="bottom" />
       </SidebarHeader>
 
       <SidebarContent>
