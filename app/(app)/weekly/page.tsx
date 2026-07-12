@@ -332,11 +332,15 @@ export default function ReportPage() {
               <TabsTrigger
                 key={v}
                 value={v}
-                className="rounded-lg px-[18px] py-2 text-sm font-semibold capitalize border-b-0 data-[state=active]:shadow-none"
+                className="rounded-lg px-[18px] py-2 text-sm font-semibold capitalize border-b-0"
                 style={
                   categoryType === v
-                    ? { backgroundColor: "var(--color-primary-subtle)", color: "var(--color-primary-hover)" }
-                    : { backgroundColor: "transparent", color: "var(--color-text-secondary)" }
+                    ? {
+                        backgroundColor: "var(--color-surface)",
+                        color: "var(--color-text-primary)",
+                        boxShadow: "0 1px 2px rgba(120,72,10,.08)",
+                      }
+                    : { backgroundColor: "transparent", color: "var(--color-text-secondary)", boxShadow: "none" }
                 }
               >
                 {v}
