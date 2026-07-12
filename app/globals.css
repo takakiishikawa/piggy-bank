@@ -138,6 +138,14 @@
   font-family: var(--font-display);
 }
 
+/* AppLayout's top bar (go-design-system) only ever holds the sidebar
+   toggle for this app — no breadcrumbs/search live there — so it's just
+   dead vertical space above every page. Collapse/expand still works via
+   the sidebar's own edge rail (SidebarRail), so hide the empty bar. */
+header:has([data-sidebar="trigger"]) {
+  display: none;
+}
+
 /* ── Animations ── */
 @keyframes fadeUp {
   from {
