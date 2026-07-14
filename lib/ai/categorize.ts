@@ -11,7 +11,7 @@ type CategorizeResult = {
   error?: string;
 };
 
-// kenyakugo スキーマ固定の Supabase クライアント型。
+// piggybank スキーマ固定の Supabase クライアント型。
 // authenticated でも service_role でも同じ schema 指定なので同型。
 type Db = ReturnType<typeof createDb>;
 

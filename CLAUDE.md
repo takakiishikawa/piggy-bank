@@ -1,6 +1,6 @@
 @AGENTS.md
 
-# kenyaku-go — CLAUDE.md
+# piggy-bank — CLAUDE.md
 
 ## プロジェクト概要
 節約・家計管理アプリ。日々の支出を把握し、賢い節約習慣を身につけるためのツール。

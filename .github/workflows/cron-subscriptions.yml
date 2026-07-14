@@ -18,6 +18,6 @@ jobs:
     steps:
       - name: Trigger subscriptions refresh
         run: |
-          curl --fail-with-body -sS \
+          curl --fail-with-body -sS -L \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "https://kenyaku-go.vercel.app/api/cron/subscriptions"
+            "https://piggy-bank-hcmc.vercel.app/api/cron/subscriptions"

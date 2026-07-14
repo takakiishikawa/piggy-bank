@@ -2,10 +2,10 @@
 
 import dynamic from "next/dynamic";
 
-export const KenyakuGoSidebar = dynamic(
+export const PiggyBankSidebar = dynamic(
   () =>
-    import("@/components/kenyaku-sidebar").then((m) => ({
-      default: m.KenyakuGoSidebar,
+    import("@/components/piggybank-sidebar").then((m) => ({
+      default: m.PiggyBankSidebar,
     })),
   { ssr: false },
 );

@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
-// kenyakugo スキーマのテーブル型
+// piggybank スキーマのテーブル型
 export interface Category {
   id: string;
   name: string;
@@ -59,14 +59,14 @@ export interface Subscription {
   updated_at: string;
 }
 
-// kenyakugo スキーマ固定のクライアント
+// piggybank スキーマ固定のクライアント
 // accessToken を渡すと RLS が認証済みユーザーとして評価される
 export function createDb(accessToken?: string) {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      db: { schema: "kenyakugo" },
+      db: { schema: "piggybank" },
       global: accessToken
         ? { headers: { Authorization: `Bearer ${accessToken}` } }
         : undefined,
@@ -81,7 +81,7 @@ export function createDbAdmin() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
-      db: { schema: "kenyakugo" },
+      db: { schema: "piggybank" },
       auth: { autoRefreshToken: false, persistSession: false },
     },
   );

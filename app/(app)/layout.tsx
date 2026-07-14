@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppLayout } from "@takaki/go-design-system";
 import { createClient } from "@/lib/supabase/server";
-import { KenyakuGoSidebar } from "./client-sidebar";
+import { PiggyBankSidebar } from "./client-sidebar";
 
 const supabaseConfigured =
   !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -19,5 +19,5 @@ export default async function AppGroupLayout({
     } = await supabase.auth.getUser();
     if (!user) redirect("/login");
   }
-  return <AppLayout sidebar={<KenyakuGoSidebar />}>{children}</AppLayout>;
+  return <AppLayout sidebar={<PiggyBankSidebar />}>{children}</AppLayout>;
 }
