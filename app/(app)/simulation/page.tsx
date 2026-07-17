@@ -289,7 +289,7 @@ export default function SimulationPage() {
       <div className="mt-8 mb-6 flex items-center justify-between">
         <Select value={String(year)} onValueChange={(v) => setYear(parseInt(v, 10))}>
           <SelectTrigger
-            className="w-fit h-auto rounded-[10px] py-2.5 px-4 text-sm font-semibold gap-2 [&>svg]:hidden"
+            className="w-fit h-auto rounded-[10px] py-2.5 px-4 text-sm font-semibold gap-2 [&>svg]:hidden transition-colors hover:bg-muted/40 active:bg-muted/60"
             style={{ borderColor: "var(--color-border-default)", color: "var(--color-text-primary)" }}
           >
             <SelectValue />
@@ -306,7 +306,7 @@ export default function SimulationPage() {
         <Button
           variant="outline"
           size="sm"
-          className="rounded-[10px] h-auto py-2.5 px-4 font-semibold"
+          className="rounded-[10px] h-auto py-2.5 px-4 font-semibold hover:opacity-80"
           style={{ borderColor: "var(--color-border-default)", color: "var(--color-text-primary)" }}
           onClick={() => setIncomeDialogOpen(true)}
         >

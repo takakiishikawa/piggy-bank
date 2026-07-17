@@ -125,13 +125,13 @@ function VariableCategoryCard({
     <button
       type="button"
       onClick={onClick}
-      className="text-left rounded-[13px] border p-[18px_20px] transition-colors hover:bg-muted/40 cursor-pointer"
+      className="text-left rounded-[13px] border p-[14px_18px] transition-all hover:bg-muted/40 active:scale-[0.98] active:bg-muted/60 cursor-pointer"
       style={{ borderColor: "var(--color-border-default)", backgroundColor: "var(--color-surface-subtle)" }}
     >
-      <div className="flex items-center justify-between gap-2 mb-2.5">
+      <div className="flex items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-2.5 min-w-0">
           <div
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px]"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px]"
             style={{ backgroundColor: getCategoryColorTint(cat.name) }}
           >
             <CategoryIcon name={cat.name} />
@@ -166,45 +166,55 @@ function VariableCategoryCard({
 }
 
 function FixedCategoryCard({ cat, onClick }: { cat: CategoryEntry; onClick: () => void }) {
-  const over = cat.budget > 0 && cat.actual > cat.budget * 1.05;
-  const paid = cat.actual > 0 && !over;
+  const pctNum = cat.budget > 0 ? Math.round((cat.actual / cat.budget) * 100) : null;
+  const over = cat.budget > 0 && cat.actual > cat.budget;
+  const near = pctNum !== null && pctNum >= 80 && !over;
+  const pctColor = over ? "var(--color-danger)" : near ? "var(--color-warning)" : "var(--color-text-secondary)";
+  const barColor = over ? "var(--color-danger)" : "var(--color-text-secondary)";
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-3 text-left rounded-[13px] border py-3.5 px-[18px] transition-colors hover:bg-muted/40 cursor-pointer"
+      className="text-left rounded-[13px] border p-[14px_18px] transition-all hover:bg-muted/40 active:scale-[0.98] active:bg-muted/60 cursor-pointer"
       style={{ borderColor: "var(--color-border-default)", backgroundColor: "var(--color-surface-subtle)" }}
     >
-      <div
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px]"
-        style={{ backgroundColor: "var(--kg-track)" }}
-      >
-        {(() => {
-          const Icon = getCategoryIcon(cat.name);
-          return <Icon size={16} style={{ color: "#6B5D45" }} />;
-        })()}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px]"
+            style={{ backgroundColor: "var(--kg-track)" }}
+          >
+            {(() => {
+              const Icon = getCategoryIcon(cat.name);
+              return <Icon size={15} style={{ color: "#6B5D45" }} />;
+            })()}
+          </div>
+          <span className="text-[14.5px] font-semibold truncate" style={{ color: "var(--color-text-primary)" }}>
+            {cat.name}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[13px]" style={{ color: "var(--color-text-secondary)" }}>
+            <span className="font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>
+              {formatVND(cat.actual)}
+            </span>
+            {cat.budget > 0 && <span className="font-num"> / {formatVND(cat.budget)}</span>}
+          </span>
+          {pctNum !== null && (
+            <span className="font-num text-[13px] font-bold" style={{ color: pctColor }}>
+              {pctNum}%
+            </span>
+          )}
+        </div>
       </div>
-      <span className="text-[14.5px] font-semibold flex-1 min-w-0 truncate" style={{ color: "var(--color-text-primary)" }}>
-        {cat.name}
-      </span>
-      {cat.budget > 0 && (
-        <span
-          className="text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0"
-          style={
-            over
-              ? { backgroundColor: "var(--color-danger-subtle)", color: "var(--color-danger)" }
-              : paid
-                ? { backgroundColor: "var(--color-success-subtle)", color: "var(--color-success)" }
-                : { backgroundColor: "var(--kg-track)", color: "var(--color-text-secondary)" }
-          }
-        >
-          {over ? "Over" : paid ? "Paid" : "Unpaid"}
-        </span>
-      )}
-      <span className="font-num text-sm font-bold shrink-0" style={{ color: "var(--color-text-primary)" }}>
-        {formatVND(cat.actual)}
-      </span>
+      <ProgressBar
+        actual={cat.actual}
+        budget={cat.budget}
+        todayPct={0}
+        showToday={false}
+        fillColor={barColor}
+      />
     </button>
   );
 }
@@ -317,6 +327,10 @@ export default function Dashboard() {
     data && data.variableTotalBudget > 0
       ? Math.round((data.variableTotalActual / data.variableTotalBudget) * 100)
       : 0;
+  const fixedPct =
+    data && data.fixedTotalBudget > 0
+      ? Math.round((data.fixedTotalActual / data.fixedTotalBudget) * 100)
+      : 0;
 
   return (
     <div>
@@ -335,7 +349,7 @@ export default function Dashboard() {
             </span>
             <a
               href="/transactions"
-              className="ml-auto text-xs underline shrink-0"
+              className="ml-auto text-xs underline shrink-0 transition-opacity hover:opacity-70 active:opacity-50"
               style={{ color: "var(--color-warning)" }}
             >
               Review them
@@ -478,16 +492,16 @@ export default function Dashboard() {
             boxShadow: CARD_SHADOW,
           }}
         >
-          <div className="flex items-baseline justify-between mb-[18px]">
+          <div className="flex items-baseline justify-between mb-[18px] flex-wrap gap-2">
             <span className="font-display text-[19px] font-semibold" style={{ color: "var(--color-text-primary)" }}>
               Fixed Costs
             </span>
             {data && data.fixedTotalBudget > 0 && (
               <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
                 <b className="font-num" style={{ color: "var(--color-text-primary)" }}>
-                  {formatVND(data.fixedTotalBudget)}
+                  {formatVND(data.fixedTotalActual)}
                 </b>{" "}
-                / month
+                / {formatVND(data.fixedTotalBudget)} &middot; {fixedPct}%
               </span>
             )}
           </div>

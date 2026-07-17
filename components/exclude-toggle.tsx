@@ -21,7 +21,7 @@ export function ExcludeToggle({
           onToggle(false);
         }}
         title="Excluded from dashboard — click to include again"
-        className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0"
+        className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 transition-all hover:opacity-80 active:scale-95 active:opacity-70 cursor-pointer"
         style={{ backgroundColor: "var(--color-danger-subtle)", color: "var(--color-danger)" }}
       >
         <EyeOff size={11} />
@@ -38,7 +38,7 @@ export function ExcludeToggle({
         onToggle(true);
       }}
       title="Exclude from dashboard calculations"
-      className="text-[11px] font-medium px-1.5 py-0.5 rounded-full shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+      className="text-[11px] font-medium px-1.5 py-0.5 rounded-full shrink-0 opacity-0 transition-all group-hover:opacity-100 hover:bg-muted active:scale-95 cursor-pointer"
       style={{ color: "var(--color-text-subtle)" }}
     >
       Exclude

@@ -166,7 +166,7 @@ function CategoryChip({
       type="button"
       onClick={() => onSelect(value)}
       aria-pressed={active}
-      className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] font-semibold transition-colors cursor-pointer"
+      className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] font-semibold transition-all cursor-pointer hover:opacity-80 active:scale-95 active:opacity-70"
       style={
         active
           ? { backgroundColor: "var(--color-text-primary)", borderColor: "var(--color-text-primary)", color: "#FFFFFF" }
@@ -332,7 +332,7 @@ export default function ReportPage() {
               <TabsTrigger
                 key={v}
                 value={v}
-                className="rounded-lg px-[18px] py-2 text-sm font-semibold capitalize border-b-0"
+                className="rounded-lg px-[18px] py-2 text-sm font-semibold capitalize border-b-0 transition-all hover:opacity-70 active:scale-[0.96] active:opacity-60"
                 style={
                   categoryType === v
                     ? {
@@ -352,7 +352,7 @@ export default function ReportPage() {
           <Button
             variant="outline"
             size="sm"
-            className="rounded-[10px] h-auto py-2.5 px-4 font-semibold"
+            className="rounded-[10px] h-auto py-2.5 px-4 font-semibold hover:opacity-80"
             style={{ borderColor: "var(--color-border-default)", color: "var(--color-text-primary)" }}
             onClick={() => router.push("/transactions")}
           >
@@ -362,7 +362,7 @@ export default function ReportPage() {
           <Button
             variant="outline"
             size="sm"
-            className="rounded-[10px] h-auto py-2.5 px-4 font-semibold"
+            className="rounded-[10px] h-auto py-2.5 px-4 font-semibold hover:opacity-80"
             style={{ borderColor: "var(--color-border-default)", color: "var(--color-text-primary)" }}
             onClick={() => setWishlistOpen(true)}
           >

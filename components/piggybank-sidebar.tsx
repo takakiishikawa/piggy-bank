@@ -16,24 +16,24 @@ import {
   SidebarMenuItem,
   SidebarRail,
   GO_APPS,
+  cn,
+  Avatar,
+  AvatarImage,
+  AvatarFallback,
 } from "@takaki/go-design-system";
 import {
   LayoutDashboard,
   BarChart2,
   Sun,
   Moon,
-  Lightbulb,
   Wallet,
   Target,
+  LogOut,
 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
 const AppSwitcher = dynamic(() =>
   import("@takaki/go-design-system").then((m) => ({ default: m.AppSwitcher })),
-);
-
-const UserMenu = dynamic(() =>
-  import("@takaki/go-design-system").then((m) => ({ default: m.UserMenu })),
 );
 
 const navItems = [
@@ -126,10 +126,11 @@ export function PiggyBankSidebar() {
                     <SidebarMenuButton
                       asChild
                       isActive={active}
-                      className="h-auto rounded-[9px] py-2.5 px-3 hover:bg-transparent active:bg-transparent"
-                      style={{
-                        backgroundColor: active ? "var(--kg-sidebar-accent-bg)" : "transparent",
-                      }}
+                      className={cn(
+                        "h-auto rounded-[9px] py-2.5 px-3 transition-all active:scale-[0.97]",
+                        active && "hover:brightness-95 active:brightness-90",
+                      )}
+                      style={active ? { backgroundColor: "var(--kg-sidebar-accent-bg)" } : undefined}
                     >
                       <Link href={href} className="gap-2.5">
                         <Icon
@@ -158,25 +159,39 @@ export function PiggyBankSidebar() {
 
       <SidebarFooter>
         {user ? (
-          <UserMenu
-            displayName={displayName || "—"}
-            email={user.email ?? undefined}
-            avatarUrl={avatarUrl}
-            items={[
-              {
-                title: "Concept",
-                icon: Lightbulb,
-                onSelect: () => router.push("/concept"),
-                isActive: isActive("/concept"),
-              },
-              {
-                title: isDark ? "Dark" : "Light",
-                icon: isDark ? Moon : Sun,
-                onSelect: toggleTheme,
-              },
-            ]}
-            signOut={{ onSelect: handleSignOut }}
-          />
+          <div className="flex items-center gap-2.5 px-2 py-2">
+            <Avatar className="h-8 w-8 shrink-0">
+              {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
+              <AvatarFallback className="text-xs font-semibold">
+                {(displayName || "?").charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <p
+                className="text-sm font-semibold truncate"
+                style={{ color: "var(--kg-sidebar-text)" }}
+              >
+                {displayName || "—"}
+              </p>
+              {user.email && (
+                <p
+                  className="text-xs truncate"
+                  style={{ color: "var(--kg-sidebar-inactive)" }}
+                >
+                  {user.email}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              title="Sign out"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] transition-all hover:bg-muted/60 active:scale-90 active:bg-muted cursor-pointer"
+              style={{ color: "var(--kg-sidebar-inactive)" }}
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
         ) : (
           <SidebarMenu>
             <SidebarMenuItem>

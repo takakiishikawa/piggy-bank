@@ -456,7 +456,7 @@ export default function TransactionsPage() {
             return (
               <div className="flex items-center gap-2">
                 <Select value={editCategory} onValueChange={setEditCategory}>
-                  <SelectTrigger className="w-32 h-8">
+                  <SelectTrigger className="w-32 h-8 transition-colors hover:bg-muted/40 active:bg-muted/60">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -491,7 +491,7 @@ export default function TransactionsPage() {
                 setEditingId(tx.id);
                 setEditCategory(tx.category);
               }}
-              className="cursor-pointer bg-transparent border-0 p-0"
+              className="cursor-pointer bg-transparent border-0 p-0 rounded-full transition-transform hover:opacity-80 hover:scale-105 active:scale-95"
             >
               <CategoryBadge category={tx.category} reviewed={tx.reviewed} />
             </button>
@@ -599,7 +599,7 @@ export default function TransactionsPage() {
                   setReviewSelections((prev) => ({ ...prev, [s.store]: val }))
                 }
               >
-                <SelectTrigger className="w-36">
+                <SelectTrigger className="w-36 transition-colors hover:bg-muted/40 active:bg-muted/60">
                   <SelectValue placeholder="Choose category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -648,7 +648,7 @@ export default function TransactionsPage() {
           />
         </div>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-44 transition-colors hover:bg-muted/40 active:bg-muted/60">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -703,7 +703,7 @@ export default function TransactionsPage() {
             value={bulkCategory || undefined}
             onValueChange={setBulkCategory}
           >
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-40 transition-colors hover:bg-muted/40 active:bg-muted/60">
               <SelectValue placeholder="Choose category" />
             </SelectTrigger>
             <SelectContent>

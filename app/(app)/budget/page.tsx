@@ -91,7 +91,7 @@ function CategoryCard({
             type="button"
             onClick={saveName}
             disabled={saving}
-            className="p-1 rounded hover:bg-black/5 transition-colors shrink-0"
+            className="p-1 rounded transition-all hover:bg-muted active:scale-90 active:bg-muted/70 disabled:pointer-events-none disabled:opacity-50 shrink-0"
             style={{ color: "var(--color-text-subtle)" }}
           >
             <Check size={13} />
@@ -102,7 +102,7 @@ function CategoryCard({
               setEditingName(false);
               setNameInput(cat.name);
             }}
-            className="p-1 rounded hover:bg-black/5 transition-colors shrink-0"
+            className="p-1 rounded transition-all hover:bg-muted active:scale-90 active:bg-muted/70 disabled:pointer-events-none disabled:opacity-50 shrink-0"
             style={{ color: "var(--color-text-subtle)" }}
           >
             <X size={13} />
@@ -132,7 +132,7 @@ function CategoryCard({
           <button
             type="button"
             onClick={() => setEditingName(true)}
-            className="p-1 rounded hover:bg-black/5 transition-colors shrink-0"
+            className="p-1 rounded transition-all hover:bg-muted active:scale-90 active:bg-muted/70 disabled:pointer-events-none disabled:opacity-50 shrink-0"
             style={{ color: "var(--color-text-subtle)" }}
           >
             <Pencil size={14} />
@@ -141,7 +141,7 @@ function CategoryCard({
             type="button"
             onClick={() => onDelete(cat.id, cat.name)}
             disabled={saving}
-            className="p-1 rounded hover:bg-black/5 transition-colors shrink-0"
+            className="p-1 rounded transition-all hover:bg-muted active:scale-90 active:bg-muted/70 disabled:pointer-events-none disabled:opacity-50 shrink-0"
             style={{ color: "var(--color-text-subtle)" }}
           >
             <Trash2 size={14} />
@@ -181,7 +181,7 @@ function AddCategoryCard({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center justify-center gap-2 h-full min-h-[52px] w-full rounded-[10px] border-[1.5px] border-dashed text-sm font-semibold transition-colors hover:opacity-80"
+        className="flex items-center justify-center gap-2 h-full min-h-[52px] w-full rounded-[10px] border-[1.5px] border-dashed text-sm font-semibold transition-all hover:opacity-80 hover:bg-muted/30 active:scale-[0.98] active:opacity-70"
         style={{ borderColor: "var(--color-border-default)", color: "var(--color-text-subtle)" }}
       >
         <Plus size={15} />

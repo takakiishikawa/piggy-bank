@@ -44,7 +44,7 @@ export function NoteTag({
         }}
         onClick={(e) => e.stopPropagation()}
         placeholder={placeholder}
-        className="text-[11px] font-semibold px-2 py-0.5 rounded-full outline-none w-36 font-sans"
+        className="text-[11px] font-semibold px-2 py-0.5 rounded-full outline-none w-36 font-sans transition-shadow focus:border-[var(--color-primary)] focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-primary)_20%,transparent)]"
         style={{
           border: "1px solid var(--color-border-default)",
           backgroundColor: "var(--color-surface)",
@@ -63,7 +63,7 @@ export function NoteTag({
           setEditing(true);
         }}
         title={value}
-        className="text-[11px] font-semibold px-2 py-0.5 rounded-full truncate max-w-[140px] shrink-0"
+        className="text-[11px] font-semibold px-2 py-0.5 rounded-full truncate max-w-[140px] shrink-0 transition-all hover:opacity-80 active:scale-95 active:opacity-70 cursor-pointer"
         style={{ backgroundColor: "var(--color-warning-subtle)", color: "var(--color-warning)" }}
       >
         {value}
@@ -78,7 +78,7 @@ export function NoteTag({
         e.stopPropagation();
         setEditing(true);
       }}
-      className="text-[11px] font-medium px-1.5 py-0.5 rounded-full shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+      className="text-[11px] font-medium px-1.5 py-0.5 rounded-full shrink-0 opacity-0 transition-all group-hover:opacity-100 hover:bg-muted active:scale-95 cursor-pointer"
       style={{ color: "var(--color-text-subtle)" }}
     >
       + Note
