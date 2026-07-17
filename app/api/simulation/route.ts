@@ -6,6 +6,7 @@ import {
   annualIncome,
   annualExpense,
   annualRemaining,
+  annualSpecialExpenseVnd,
   yearEndProjection,
   SIMULATION_EPOCH_YEAR,
   type SavingsMonthRecord,
@@ -97,6 +98,7 @@ export async function GET(req: NextRequest) {
     annualIncome: annualIncome(months),
     annualExpense: annualExpense(months),
     annualRemaining: annualRemaining(months),
+    annualSpecialExpenseVnd: annualSpecialExpenseVnd(months),
     yearEndProjection: yearEndProjection(months),
   });
 }

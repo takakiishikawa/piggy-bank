@@ -146,3 +146,17 @@ export function annualRemaining(months: SimulationMonth[]): number {
 export function yearEndProjection(months: SimulationMonth[]): number {
   return months[months.length - 1]?.cumulative ?? 0;
 }
+
+// VND special expenses (flagged directly from VN transactions) are shown
+// for reference — summed separately in their own currency since they're
+// excluded from the JPY expense/remaining/cumulative math above.
+export function annualSpecialExpenseVnd(months: SimulationMonth[]): number {
+  return months.reduce(
+    (sum, m) =>
+      sum +
+      m.specialExpenses
+        .filter((e) => e.currency === "VND")
+        .reduce((s, e) => s + e.amount, 0),
+    0,
+  );
+}

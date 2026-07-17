@@ -31,6 +31,7 @@ interface SimulationData {
   annualIncome: number;
   annualExpense: number;
   annualRemaining: number;
+  annualSpecialExpenseVnd: number;
   yearEndProjection: number;
 }
 
@@ -59,6 +60,9 @@ function MonthRow({
   onSaveNote: (month: string, note: string | null) => void;
 }) {
   const negative = m.hasRecord && m.cumulative < 0;
+  const specialExpenseVnd = m.specialExpenses
+    .filter((e) => e.currency === "VND")
+    .reduce((s, e) => s + e.amount, 0);
 
   return (
     <div
@@ -109,9 +113,9 @@ function MonthRow({
             type="button"
             onClick={() => onOpenEntries(m.month, "expense")}
             className="text-right text-sm font-num transition-opacity hover:opacity-70 cursor-pointer"
-            style={{ color: m.expense > 0 ? "var(--color-danger)" : "var(--color-text-secondary)" }}
+            style={{ color: specialExpenseVnd > 0 ? "var(--color-danger)" : "var(--color-text-secondary)" }}
           >
-            {formatJPY(m.expense)}
+            {specialExpenseVnd > 0 ? formatVND(specialExpenseVnd) : "—"}
           </button>
           <span className="text-right text-sm font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>
             {formatJPY(m.remaining)}
@@ -260,6 +264,7 @@ function SpecialEntriesDialog({
   };
 
   const title = kind === "income" ? "Special income" : "Special expense";
+  const isExpense = kind === "expense";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -268,6 +273,11 @@ function SpecialEntriesDialog({
           <DialogTitle>{title} — {month}</DialogTitle>
         </DialogHeader>
         <div className="px-1 space-y-3">
+          {isExpense && (
+            <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+              Set automatically when you mark a transaction as &quot;Special expense&quot; in Transactions. To remove one, unmark it there.
+            </p>
+          )}
           {entries.length === 0 ? (
             <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
               No entries yet.
@@ -288,65 +298,71 @@ function SpecialEntriesDialog({
                     <span className="font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>
                       {e.currency === "VND" ? formatVND(e.amount) : formatJPY(e.amount)}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(e.id)}
-                      className="text-xs font-medium cursor-pointer hover:opacity-70"
-                      style={{ color: "var(--color-danger)" }}
-                    >
-                      Remove
-                    </button>
+                    {!isExpense && (
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(e.id)}
+                        className="text-xs font-medium cursor-pointer hover:opacity-70"
+                        style={{ color: "var(--color-danger)" }}
+                      >
+                        Remove
+                      </button>
+                    )}
                   </span>
                 </li>
               ))}
             </ul>
           )}
-          <div
-            className="flex items-center gap-2 pt-3"
-            style={{ borderTop: "1px solid var(--color-border-subtle)" }}
-          >
-            <Input
-              placeholder="Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="flex-1"
-            />
-            <Input
-              type="text"
-              inputMode="numeric"
-              placeholder="Amount"
-              value={withCommas(amountText)}
-              onChange={(e) => setAmountText(digitsOnly(e.target.value))}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleAdd();
-              }}
-              className="w-24 font-num"
-            />
-            <div className="flex rounded-lg overflow-hidden shrink-0" style={{ border: "1px solid var(--color-border-default)" }}>
-              {(["JPY", "VND"] as const).map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setCurrency(c)}
-                  className="px-2 h-9 text-xs font-semibold cursor-pointer transition-colors"
-                  style={{
-                    backgroundColor: currency === c ? "var(--color-primary)" : "transparent",
-                    color: currency === c ? "#fff" : "var(--color-text-secondary)",
-                  }}
-                >
-                  {c}
-                </button>
-              ))}
+          {!isExpense && (
+            <div
+              className="flex items-center gap-2 pt-3"
+              style={{ borderTop: "1px solid var(--color-border-subtle)" }}
+            >
+              <Input
+                placeholder="Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="flex-1"
+              />
+              <Input
+                type="text"
+                inputMode="numeric"
+                placeholder="Amount"
+                value={withCommas(amountText)}
+                onChange={(e) => setAmountText(digitsOnly(e.target.value))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAdd();
+                }}
+                className="w-24 font-num"
+              />
+              <div className="flex rounded-lg overflow-hidden shrink-0" style={{ border: "1px solid var(--color-border-default)" }}>
+                {(["JPY", "VND"] as const).map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setCurrency(c)}
+                    className="px-2 h-9 text-xs font-semibold cursor-pointer transition-colors"
+                    style={{
+                      backgroundColor: currency === c ? "var(--color-primary)" : "transparent",
+                      color: currency === c ? "#fff" : "var(--color-text-secondary)",
+                    }}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          <Button onClick={handleAdd} disabled={saving || !name.trim()}>
-            Add
-          </Button>
+          {!isExpense && (
+            <Button onClick={handleAdd} disabled={saving || !name.trim()}>
+              Add
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -447,9 +463,9 @@ export default function SimulationPage() {
                 </p>
               </div>
               <div>
-                <p className="text-[12.5px] mb-1" style={{ color: "var(--color-text-secondary)" }}>Expense</p>
+                <p className="text-[12.5px] mb-1" style={{ color: "var(--color-text-secondary)" }}>Special expense</p>
                 <p className="font-num font-bold text-[16px]" style={{ color: "var(--color-danger)" }}>
-                  {formatJPY(data.annualExpense)}
+                  {formatVND(data.annualSpecialExpenseVnd)}
                 </p>
               </div>
               <div>
@@ -486,7 +502,7 @@ export default function SimulationPage() {
         >
           <span className="text-xs font-semibold uppercase tracking-[0.05em]" style={{ color: "var(--color-text-subtle)" }}>Month</span>
           <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Income</span>
-          <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Expense</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Special expense</span>
           <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Remaining</span>
           <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Cumulative</span>
         </div>
