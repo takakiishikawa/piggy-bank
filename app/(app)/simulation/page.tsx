@@ -37,7 +37,7 @@ interface SimulationData {
 
 const YEAR_OPTIONS = [2025, 2026, 2027];
 const CARD_SHADOW = "0 1px 2px rgba(120,72,10,.04), 0 8px 24px rgba(120,72,10,.05)";
-const GRID_COLS = "1.1fr 0.9fr 0.9fr 0.9fr 1fr";
+const GRID_COLS = "1.05fr 0.85fr 0.85fr 0.85fr 0.85fr 0.95fr";
 
 function digitsOnly(v: string): string {
   return v.replace(/[^0-9-]/g, "");
@@ -96,18 +96,21 @@ function MonthRow({
         )}
       </span>
       {!m.hasRecord ? (
-        <span className="col-span-4 text-right text-sm" style={{ color: "var(--color-text-secondary)" }}>
+        <span className="col-span-5 text-right text-sm" style={{ color: "var(--color-text-secondary)" }}>
           No data
         </span>
       ) : (
         <>
+          <span className="text-right text-sm font-num" style={{ color: "var(--color-text-secondary)" }}>
+            {formatJPY(m.regularIncome)}
+          </span>
           <button
             type="button"
             onClick={() => onOpenEntries(m.month, "income")}
             className="text-right text-sm font-num transition-opacity hover:opacity-70 cursor-pointer"
             style={{ color: "var(--color-success)" }}
           >
-            {formatJPY(m.income)}
+            {formatJPY(m.income - m.regularIncome)}
           </button>
           <button
             type="button"
@@ -502,7 +505,8 @@ export default function SimulationPage() {
         >
           <span className="text-xs font-semibold uppercase tracking-[0.05em]" style={{ color: "var(--color-text-subtle)" }}>Month</span>
           <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Income</span>
-          <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Special expense</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Special income</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Expense</span>
           <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Remaining</span>
           <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Cumulative</span>
         </div>
