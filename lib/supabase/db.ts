@@ -19,6 +19,7 @@ export interface Transaction {
   reviewed: boolean;
   note: string | null;
   excluded_from_dashboard: boolean;
+  special_entry_id: string | null;
   created_at: string;
 }
 

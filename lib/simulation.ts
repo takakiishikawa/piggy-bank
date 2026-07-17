@@ -10,6 +10,7 @@ export interface SpecialEntry {
   kind: "income" | "expense";
   name: string;
   amount: number;
+  currency: "JPY" | "VND";
 }
 
 export interface SimulationMonth {
@@ -90,8 +91,16 @@ export function buildSimulationYear(
       regularIncome = defaultMonthlyIncome;
     }
 
-    const specialIncomeTotal = specialIncomes.reduce((s, e) => s + e.amount, 0);
-    const specialExpenseTotal = specialExpenses.reduce((s, e) => s + e.amount, 0);
+    // Only JPY-denominated entries count toward the JPY totals below — VND
+    // entries (flagged from VN transactions) are kept in the lists for
+    // display but excluded from this math, since summing across currencies
+    // without a conversion rate would misstate the total.
+    const specialIncomeTotal = specialIncomes
+      .filter((e) => e.currency === "JPY")
+      .reduce((s, e) => s + e.amount, 0);
+    const specialExpenseTotal = specialExpenses
+      .filter((e) => e.currency === "JPY")
+      .reduce((s, e) => s + e.amount, 0);
     const income = regularIncome + specialIncomeTotal;
     const expense = specialExpenseTotal;
     const remaining = income - expense;

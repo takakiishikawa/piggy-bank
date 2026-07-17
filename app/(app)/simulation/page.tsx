@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { AlertTriangle, ChevronDown, Settings } from "lucide-react";
-import { formatJPY } from "@/lib/format";
+import { formatJPY, formatVND } from "@/lib/format";
 import type { SimulationMonth, SpecialEntry } from "@/lib/simulation";
 import { NoteTag } from "@/components/note-tag";
 import {
@@ -220,12 +220,14 @@ function SpecialEntriesDialog({
 }) {
   const [name, setName] = useState("");
   const [amountText, setAmountText] = useState("");
+  const [currency, setCurrency] = useState<"JPY" | "VND">("JPY");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
       setName("");
       setAmountText("");
+      setCurrency("JPY");
     }
   }, [open]);
 
@@ -236,7 +238,7 @@ function SpecialEntriesDialog({
     const res = await fetch("/api/simulation/special-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ month, kind, name: name.trim(), amount }),
+      body: JSON.stringify({ month, kind, name: name.trim(), amount, currency }),
     });
     setSaving(false);
     if (!res.ok) {
@@ -274,10 +276,17 @@ function SpecialEntriesDialog({
             <ul className="space-y-2">
               {entries.map((e) => (
                 <li key={e.id} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="truncate" style={{ color: "var(--color-text-primary)" }}>{e.name}</span>
+                  <span className="min-w-0">
+                    <span className="truncate block" style={{ color: "var(--color-text-primary)" }}>{e.name}</span>
+                    {e.currency === "VND" && (
+                      <span className="text-[11px]" style={{ color: "var(--color-text-subtle)" }}>
+                        Not included in JPY totals
+                      </span>
+                    )}
+                  </span>
                   <span className="flex items-center gap-3 shrink-0">
                     <span className="font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>
-                      {formatJPY(e.amount)}
+                      {e.currency === "VND" ? formatVND(e.amount) : formatJPY(e.amount)}
                     </span>
                     <button
                       type="button"
@@ -311,8 +320,24 @@ function SpecialEntriesDialog({
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleAdd();
               }}
-              className="w-28 font-num"
+              className="w-24 font-num"
             />
+            <div className="flex rounded-lg overflow-hidden shrink-0" style={{ border: "1px solid var(--color-border-default)" }}>
+              {(["JPY", "VND"] as const).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCurrency(c)}
+                  className="px-2 h-9 text-xs font-semibold cursor-pointer transition-colors"
+                  style={{
+                    backgroundColor: currency === c ? "var(--color-primary)" : "transparent",
+                    color: currency === c ? "#fff" : "var(--color-text-secondary)",
+                  }}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         <div className="flex justify-end gap-2 mt-4">

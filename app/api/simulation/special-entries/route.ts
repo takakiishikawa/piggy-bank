@@ -8,6 +8,7 @@ const CreateSchema = z.object({
   kind: z.enum(["income", "expense"]),
   name: z.string().trim().min(1, "Name is required").max(120),
   amount: z.number(),
+  currency: z.enum(["JPY", "VND"]).default("JPY"),
 });
 
 export async function POST(req: Request) {
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
   const { data, error } = await db
     .from("special_entries")
     .insert(parsed)
-    .select("id, month, kind, name, amount")
+    .select("id, month, kind, name, amount, currency")
     .single();
 
   if (error) {

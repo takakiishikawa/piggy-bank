@@ -52,13 +52,14 @@ export async function GET(req: NextRequest) {
     | "reviewed"
     | "note"
     | "excluded_from_dashboard"
+    | "special_entry_id"
   >;
 
   const buildQuery = (start?: Date, end?: Date) => {
     let q = db
       .from("transactions")
       .select(
-        "id, store, amount, category, date, reviewed, note, excluded_from_dashboard",
+        "id, store, amount, category, date, reviewed, note, excluded_from_dashboard, special_entry_id",
       )
       .gt("amount", 0)
       .order("date", { ascending: false })

@@ -9,7 +9,7 @@ import { getCategoryColors } from "@/lib/category-colors";
 import { getCategoryIcon } from "@/lib/category-icons";
 import { FALLBACK_CATEGORY } from "@/lib/constants";
 import { NoteTag } from "@/components/note-tag";
-import { ExcludeToggle } from "@/components/exclude-toggle";
+import { SpecialExpenseToggle } from "@/components/special-expense-toggle";
 import {
   Button,
   Card,
@@ -36,6 +36,7 @@ interface Transaction {
   reviewed: boolean;
   note: string | null;
   excluded_from_dashboard: boolean;
+  special_entry_id: string | null;
 }
 
 interface Category {
@@ -376,19 +377,30 @@ export default function TransactionsPage() {
     });
   };
 
-  const handleToggleExcluded = async (id: string, excluded: boolean) => {
-    setTransactions((prev) =>
-      prev.map((tx) =>
-        tx.id === id ? { ...tx, excluded_from_dashboard: excluded } : tx,
-      ),
-    );
-    await fetch(`/api/transactions/${id}`, {
+  const handleToggleSpecialExpense = async (id: string, next: boolean) => {
+    const res = await fetch(`/api/transactions/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ excludedFromDashboard: excluded }),
+      body: JSON.stringify({ specialExpense: next }),
     });
+    if (!res.ok) {
+      toast.error("Failed to save");
+      return;
+    }
+    const updated = await res.json();
+    setTransactions((prev) =>
+      prev.map((tx) =>
+        tx.id === id
+          ? {
+              ...tx,
+              excluded_from_dashboard: updated.excluded_from_dashboard,
+              special_entry_id: updated.special_entry_id,
+            }
+          : tx,
+      ),
+    );
     toast.success(
-      excluded ? "Excluded from dashboard" : "Included in dashboard again",
+      next ? "Marked as special expense" : "Unmarked as special expense",
     );
   };
 
@@ -507,9 +519,9 @@ export default function TransactionsPage() {
               value={row.original.note}
               onSave={(v) => handleSaveNote(row.original.id, v)}
             />
-            <ExcludeToggle
-              excluded={row.original.excluded_from_dashboard}
-              onToggle={(v) => handleToggleExcluded(row.original.id, v)}
+            <SpecialExpenseToggle
+              active={row.original.special_entry_id !== null}
+              onToggle={(v) => handleToggleSpecialExpense(row.original.id, v)}
             />
           </div>
         ),
