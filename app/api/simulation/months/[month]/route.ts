@@ -26,15 +26,8 @@ export async function PATCH(
     return NextResponse.json({ error: "note is required" }, { status: 400 });
   }
 
-  const { data: existing } = await db
-    .from("savings_months")
-    .select("planned_savings")
-    .eq("month", month)
-    .maybeSingle();
-
   const payload = {
     month,
-    planned_savings: existing?.planned_savings ?? 0,
     note,
     updated_at: new Date().toISOString(),
   };

@@ -70,16 +70,34 @@ export async function PATCH(
         return NextResponse.json({ error: insertError.message }, { status: 500 });
       }
 
-      await db
+      const { error: linkError } = await db
         .from("transactions")
         .update({ excluded_from_dashboard: true, special_entry_id: entry.id })
         .eq("id", id);
+
+      if (linkError) {
+        // Don't leave an orphaned special_entries row if linking it back fails.
+        await db.from("special_entries").delete().eq("id", entry.id);
+        return NextResponse.json({ error: linkError.message }, { status: 500 });
+      }
     } else if (!specialExpense && tx.special_entry_id) {
-      await db.from("special_entries").delete().eq("id", tx.special_entry_id);
-      await db
+      const { error: deleteError } = await db
+        .from("special_entries")
+        .delete()
+        .eq("id", tx.special_entry_id);
+
+      if (deleteError) {
+        return NextResponse.json({ error: deleteError.message }, { status: 500 });
+      }
+
+      const { error: unlinkError } = await db
         .from("transactions")
         .update({ excluded_from_dashboard: false, special_entry_id: null })
         .eq("id", id);
+
+      if (unlinkError) {
+        return NextResponse.json({ error: unlinkError.message }, { status: 500 });
+      }
     }
   }
 

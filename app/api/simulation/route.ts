@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthDb } from "@/lib/supabase/auth-db";
 import { createDb } from "@/lib/supabase/db";
+import { getJpyToVndRate } from "@/lib/exchange-rate";
 import {
   buildSimulationYear,
   annualIncome,
   annualExpense,
   annualRemaining,
-  annualSpecialExpenseVnd,
   yearEndProjection,
   SIMULATION_EPOCH_YEAR,
   type SavingsMonthRecord,
@@ -23,7 +23,7 @@ async function fetchYearRecords(
 ): Promise<SavingsMonthRecord[]> {
   const { data } = await db
     .from("savings_months")
-    .select("month, planned_savings, note")
+    .select("month, note")
     .gte("month", `${year}-01`)
     .lte("month", `${year}-12`);
   return (data ?? []) as SavingsMonthRecord[];
@@ -47,6 +47,7 @@ async function getStartingCumulative(
   db: Db,
   year: number,
   defaultMonthlyIncome: number,
+  vndPerJpy: number,
   now: Date,
 ): Promise<number> {
   let cumulative = 0;
@@ -55,7 +56,7 @@ async function getStartingCumulative(
       fetchYearRecords(db, y),
       fetchYearSpecialEntries(db, y),
     ]);
-    const months = buildSimulationYear(y, records, defaultMonthlyIncome, entries, now, cumulative);
+    const months = buildSimulationYear(y, records, defaultMonthlyIncome, entries, vndPerJpy, now, cumulative);
     cumulative = yearEndProjection(months);
   }
   return cumulative;
@@ -70,7 +71,7 @@ export async function GET(req: NextRequest) {
   const year = yearParam ? parseInt(yearParam, 10) : new Date().getFullYear();
   const now = new Date();
 
-  const [{ data: income }, records, specialEntries] = await Promise.all([
+  const [{ data: income }, records, specialEntries, vndPerJpy] = await Promise.all([
     db
       .from("income_sources")
       .select("default_monthly_income")
@@ -78,15 +79,17 @@ export async function GET(req: NextRequest) {
       .maybeSingle(),
     fetchYearRecords(db, year),
     fetchYearSpecialEntries(db, year),
+    getJpyToVndRate(),
   ]);
 
   const defaultMonthlyIncome = income?.default_monthly_income ?? 0;
-  const startingCumulative = await getStartingCumulative(db, year, defaultMonthlyIncome, now);
+  const startingCumulative = await getStartingCumulative(db, year, defaultMonthlyIncome, vndPerJpy, now);
   const months = buildSimulationYear(
     year,
     records,
     defaultMonthlyIncome,
     specialEntries,
+    vndPerJpy,
     now,
     startingCumulative,
   );
@@ -94,11 +97,11 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     year,
     defaultMonthlyIncome,
+    vndPerJpy,
     months,
     annualIncome: annualIncome(months),
     annualExpense: annualExpense(months),
     annualRemaining: annualRemaining(months),
-    annualSpecialExpenseVnd: annualSpecialExpenseVnd(months),
     yearEndProjection: yearEndProjection(months),
   });
 }

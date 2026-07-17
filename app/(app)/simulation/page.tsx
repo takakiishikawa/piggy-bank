@@ -27,13 +27,15 @@ import {
 interface SimulationData {
   year: number;
   defaultMonthlyIncome: number;
+  vndPerJpy: number;
   months: SimulationMonth[];
   annualIncome: number;
   annualExpense: number;
   annualRemaining: number;
-  annualSpecialExpenseVnd: number;
   yearEndProjection: number;
 }
+
+type DisplayCurrency = "JPY" | "VND";
 
 const YEAR_OPTIONS = [2025, 2026, 2027];
 const CARD_SHADOW = "0 1px 2px rgba(120,72,10,.04), 0 8px 24px rgba(120,72,10,.05)";
@@ -50,19 +52,52 @@ function withCommas(v: string): string {
   return neg ? `-${grouped}` : grouped;
 }
 
+// Every amount in this page is stored/computed in JPY — this renders it in
+// whichever currency the switch is set to, converting with the day's rate.
+function makeFormatAmount(displayCurrency: DisplayCurrency, vndPerJpy: number) {
+  return (jpyAmount: number) =>
+    displayCurrency === "JPY" ? formatJPY(jpyAmount) : formatVND(jpyAmount * vndPerJpy);
+}
+
+function CurrencySwitch({
+  value,
+  onChange,
+}: {
+  value: DisplayCurrency;
+  onChange: (v: DisplayCurrency) => void;
+}) {
+  return (
+    <div className="flex rounded-[10px] overflow-hidden shrink-0" style={{ border: "1px solid var(--color-border-default)" }}>
+      {(["JPY", "VND"] as const).map((c) => (
+        <button
+          key={c}
+          type="button"
+          onClick={() => onChange(c)}
+          className="px-3 h-[38px] text-sm font-semibold cursor-pointer transition-colors"
+          style={{
+            backgroundColor: value === c ? "var(--color-primary)" : "transparent",
+            color: value === c ? "#fff" : "var(--color-text-secondary)",
+          }}
+        >
+          {c === "JPY" ? "¥ JPY" : "₫ VND"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function MonthRow({
   m,
+  formatAmount,
   onOpenEntries,
   onSaveNote,
 }: {
   m: SimulationMonth;
+  formatAmount: (jpyAmount: number) => string;
   onOpenEntries: (month: string, kind: "income" | "expense") => void;
   onSaveNote: (month: string, note: string | null) => void;
 }) {
   const negative = m.hasRecord && m.cumulative < 0;
-  const specialExpenseVnd = m.specialExpenses
-    .filter((e) => e.currency === "VND")
-    .reduce((s, e) => s + e.amount, 0);
 
   return (
     <div
@@ -102,7 +137,7 @@ function MonthRow({
       ) : (
         <>
           <span className="text-right text-sm font-num" style={{ color: "var(--color-text-secondary)" }}>
-            {formatJPY(m.regularIncome)}
+            {formatAmount(m.regularIncome)}
           </span>
           <button
             type="button"
@@ -110,25 +145,25 @@ function MonthRow({
             className="text-right text-sm font-num transition-opacity hover:opacity-70 cursor-pointer"
             style={{ color: "var(--color-success)" }}
           >
-            {formatJPY(m.income - m.regularIncome)}
+            {formatAmount(m.income - m.regularIncome)}
           </button>
           <button
             type="button"
             onClick={() => onOpenEntries(m.month, "expense")}
             className="text-right text-sm font-num transition-opacity hover:opacity-70 cursor-pointer"
-            style={{ color: specialExpenseVnd > 0 ? "var(--color-danger)" : "var(--color-text-secondary)" }}
+            style={{ color: m.expense > 0 ? "var(--color-danger)" : "var(--color-text-secondary)" }}
           >
-            {specialExpenseVnd > 0 ? formatVND(specialExpenseVnd) : "—"}
+            {m.expense > 0 ? formatAmount(m.expense) : "—"}
           </button>
           <span className="text-right text-sm font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>
-            {formatJPY(m.remaining)}
+            {formatAmount(m.remaining)}
           </span>
           <span
             className="text-right font-num text-sm font-bold flex items-center justify-end gap-1.5"
             style={{ color: negative ? "var(--color-danger)" : "var(--color-text-primary)" }}
           >
             {negative && <AlertTriangle size={14} style={{ color: "var(--color-danger)" }} />}
-            {formatJPY(m.cumulative)}
+            {formatAmount(m.cumulative)}
           </span>
         </>
       )}
@@ -216,6 +251,8 @@ function SpecialEntriesDialog({
   month,
   kind,
   entries,
+  formatAmount,
+  vndPerJpy,
   onChanged,
 }: {
   open: boolean;
@@ -223,6 +260,8 @@ function SpecialEntriesDialog({
   month: string;
   kind: "income" | "expense";
   entries: SpecialEntry[];
+  formatAmount: (jpyAmount: number) => string;
+  vndPerJpy: number;
   onChanged: () => void;
 }) {
   const [name, setName] = useState("");
@@ -287,33 +326,34 @@ function SpecialEntriesDialog({
             </p>
           ) : (
             <ul className="space-y-2">
-              {entries.map((e) => (
-                <li key={e.id} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="min-w-0">
-                    <span className="truncate block" style={{ color: "var(--color-text-primary)" }}>{e.name}</span>
-                    {e.currency === "VND" && (
+              {entries.map((e) => {
+                const entryJpy = e.currency === "VND" ? e.amount / vndPerJpy : e.amount;
+                return (
+                  <li key={e.id} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="min-w-0">
+                      <span className="truncate block" style={{ color: "var(--color-text-primary)" }}>{e.name}</span>
                       <span className="text-[11px]" style={{ color: "var(--color-text-subtle)" }}>
-                        Not included in JPY totals
+                        Entered as {e.currency === "VND" ? formatVND(e.amount) : formatJPY(e.amount)}
                       </span>
-                    )}
-                  </span>
-                  <span className="flex items-center gap-3 shrink-0">
-                    <span className="font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>
-                      {e.currency === "VND" ? formatVND(e.amount) : formatJPY(e.amount)}
                     </span>
-                    {!isExpense && (
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(e.id)}
-                        className="text-xs font-medium cursor-pointer hover:opacity-70"
-                        style={{ color: "var(--color-danger)" }}
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </span>
-                </li>
-              ))}
+                    <span className="flex items-center gap-3 shrink-0">
+                      <span className="font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>
+                        {formatAmount(entryJpy)}
+                      </span>
+                      {!isExpense && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(e.id)}
+                          className="text-xs font-medium cursor-pointer hover:opacity-70"
+                          style={{ color: "var(--color-danger)" }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           )}
           {!isExpense && (
@@ -375,6 +415,7 @@ function SpecialEntriesDialog({
 export default function SimulationPage() {
   const [year, setYear] = useState(2026);
   const [data, setData] = useState<SimulationData | null>(null);
+  const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("JPY");
   const [incomeDialogOpen, setIncomeDialogOpen] = useState(false);
   const [entriesDialog, setEntriesDialog] = useState<{ month: string; kind: "income" | "expense" } | null>(null);
 
@@ -403,6 +444,9 @@ export default function SimulationPage() {
     load(year);
   };
 
+  const vndPerJpy = data?.vndPerJpy ?? 1;
+  const formatAmount = makeFormatAmount(displayCurrency, vndPerJpy);
+
   const savingsRatePct =
     data && data.annualIncome > 0
       ? Math.max(0, Math.min(100, Math.round((data.annualRemaining / data.annualIncome) * 100)))
@@ -415,23 +459,26 @@ export default function SimulationPage() {
 
   return (
     <div>
-      <div className="mt-8 mb-6 flex items-center justify-between">
-        <Select value={String(year)} onValueChange={(v) => setYear(parseInt(v, 10))}>
-          <SelectTrigger
-            className="w-fit h-auto rounded-[10px] py-2.5 px-4 text-sm font-semibold gap-2 [&>svg]:hidden transition-colors hover:bg-muted/40 active:bg-muted/60"
-            style={{ borderColor: "var(--color-border-default)", color: "var(--color-text-primary)" }}
-          >
-            <SelectValue />
-            <ChevronDown size={15} style={{ color: "var(--color-text-subtle)" }} />
-          </SelectTrigger>
-          <SelectContent>
-            {YEAR_OPTIONS.map((y) => (
-              <SelectItem key={y} value={String(y)}>
-                {y}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="mt-8 mb-6 flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <Select value={String(year)} onValueChange={(v) => setYear(parseInt(v, 10))}>
+            <SelectTrigger
+              className="w-fit h-auto rounded-[10px] py-2.5 px-4 text-sm font-semibold gap-2 [&>svg]:hidden transition-colors hover:bg-muted/40 active:bg-muted/60"
+              style={{ borderColor: "var(--color-border-default)", color: "var(--color-text-primary)" }}
+            >
+              <SelectValue />
+              <ChevronDown size={15} style={{ color: "var(--color-text-subtle)" }} />
+            </SelectTrigger>
+            <SelectContent>
+              {YEAR_OPTIONS.map((y) => (
+                <SelectItem key={y} value={String(y)}>
+                  {y}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <CurrencySwitch value={displayCurrency} onChange={setDisplayCurrency} />
+        </div>
         <Button
           variant="outline"
           size="sm"
@@ -456,25 +503,25 @@ export default function SimulationPage() {
               {data.year} cumulative balance
             </p>
             <p className="font-display text-[48px] font-bold leading-none" style={{ color: "var(--color-text-primary)" }}>
-              {formatJPY(data.yearEndProjection)}
+              {formatAmount(data.yearEndProjection)}
             </p>
             <div className="mt-[18px] grid grid-cols-3 gap-4">
               <div>
                 <p className="text-[12.5px] mb-1" style={{ color: "var(--color-text-secondary)" }}>Income</p>
                 <p className="font-num font-bold text-[16px]" style={{ color: "var(--color-success)" }}>
-                  {formatJPY(data.annualIncome)}
+                  {formatAmount(data.annualIncome)}
                 </p>
               </div>
               <div>
-                <p className="text-[12.5px] mb-1" style={{ color: "var(--color-text-secondary)" }}>Special expense</p>
+                <p className="text-[12.5px] mb-1" style={{ color: "var(--color-text-secondary)" }}>Expense</p>
                 <p className="font-num font-bold text-[16px]" style={{ color: "var(--color-danger)" }}>
-                  {formatVND(data.annualSpecialExpenseVnd)}
+                  {formatAmount(data.annualExpense)}
                 </p>
               </div>
               <div>
                 <p className="text-[12.5px] mb-1" style={{ color: "var(--color-text-secondary)" }}>Remaining</p>
                 <p className="font-num font-bold text-[16px]" style={{ color: "var(--color-text-primary)" }}>
-                  {formatJPY(data.annualRemaining)}
+                  {formatAmount(data.annualRemaining)}
                 </p>
               </div>
             </div>
@@ -521,6 +568,7 @@ export default function SimulationPage() {
             <MonthRow
               key={m.month}
               m={m}
+              formatAmount={formatAmount}
               onOpenEntries={(month, kind) => setEntriesDialog({ month, kind })}
               onSaveNote={handleSaveNote}
             />
@@ -544,6 +592,8 @@ export default function SimulationPage() {
           month={entriesDialog.month}
           kind={entriesDialog.kind}
           entries={editingEntries}
+          formatAmount={formatAmount}
+          vndPerJpy={vndPerJpy}
           onChanged={() => load(year)}
         />
       )}

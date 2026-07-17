@@ -1,6 +1,5 @@
 export interface SavingsMonthRecord {
   month: string; // 'YYYY-MM'
-  planned_savings: number;
   note: string | null;
 }
 
@@ -21,9 +20,9 @@ export interface SimulationMonth {
   regularIncome: number;
   specialIncomes: SpecialEntry[];
   specialExpenses: SpecialEntry[];
-  income: number; // regularIncome + sum(specialIncomes)
-  expense: number; // sum(specialExpenses)
-  remaining: number; // income - expense
+  income: number; // regularIncome + sum(specialIncomes), JPY
+  expense: number; // sum(specialExpenses), JPY
+  remaining: number; // income - expense, JPY
   note: string | null;
   hasRecord: boolean;
   isCurrentMonth: boolean;
@@ -44,11 +43,18 @@ export function monthKey(year: number, monthNum: number): string {
   return `${year}-${String(monthNum).padStart(2, "0")}`;
 }
 
+// Converts an entry's own amount into JPY using the given day's rate, so
+// JPY and VND entries can be summed together correctly.
+function toJpy(amount: number, currency: "JPY" | "VND", vndPerJpy: number): number {
+  return currency === "VND" ? amount / vndPerJpy : amount;
+}
+
 export function buildSimulationYear(
   year: number,
   records: SavingsMonthRecord[],
   defaultMonthlyIncome: number,
   specialEntries: SpecialEntry[],
+  vndPerJpy: number,
   now: Date = new Date(),
   startingCumulative = 0,
 ): SimulationMonth[] {
@@ -82,25 +88,22 @@ export function buildSimulationYear(
     const hasRecord =
       !!record || specialIncomes.length > 0 || specialExpenses.length > 0 || !isPast;
 
-    let regularIncome: number;
-    if (record) {
-      regularIncome = record.planned_savings;
-    } else if (isPast) {
-      regularIncome = 0;
-    } else {
-      regularIncome = defaultMonthlyIncome;
-    }
+    // Regular income always mirrors the current "Regular monthly income"
+    // setting for any tracked month — it's a single figure, not something
+    // set per month.
+    const regularIncome = hasRecord ? defaultMonthlyIncome : 0;
 
-    // Only JPY-denominated entries count toward the JPY totals below — VND
-    // entries (flagged from VN transactions) are kept in the lists for
-    // display but excluded from this math, since summing across currencies
-    // without a conversion rate would misstate the total.
-    const specialIncomeTotal = specialIncomes
-      .filter((e) => e.currency === "JPY")
-      .reduce((s, e) => s + e.amount, 0);
-    const specialExpenseTotal = specialExpenses
-      .filter((e) => e.currency === "JPY")
-      .reduce((s, e) => s + e.amount, 0);
+    // Every entry converts into JPY using the day's rate before summing, so
+    // VND special expenses (flagged from VN transactions) actually reduce
+    // the JPY total instead of being silently excluded from it.
+    const specialIncomeTotal = specialIncomes.reduce(
+      (s, e) => s + toJpy(e.amount, e.currency, vndPerJpy),
+      0,
+    );
+    const specialExpenseTotal = specialExpenses.reduce(
+      (s, e) => s + toJpy(e.amount, e.currency, vndPerJpy),
+      0,
+    );
     const income = regularIncome + specialIncomeTotal;
     const expense = specialExpenseTotal;
     const remaining = income - expense;
@@ -145,18 +148,4 @@ export function annualRemaining(months: SimulationMonth[]): number {
 
 export function yearEndProjection(months: SimulationMonth[]): number {
   return months[months.length - 1]?.cumulative ?? 0;
-}
-
-// VND special expenses (flagged directly from VN transactions) are shown
-// for reference — summed separately in their own currency since they're
-// excluded from the JPY expense/remaining/cumulative math above.
-export function annualSpecialExpenseVnd(months: SimulationMonth[]): number {
-  return months.reduce(
-    (sum, m) =>
-      sum +
-      m.specialExpenses
-        .filter((e) => e.currency === "VND")
-        .reduce((s, e) => s + e.amount, 0),
-    0,
-  );
 }
