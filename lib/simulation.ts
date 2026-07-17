@@ -1,8 +1,15 @@
 export interface SavingsMonthRecord {
   month: string; // 'YYYY-MM'
   planned_savings: number;
-  actual_savings: number | null;
   note: string | null;
+}
+
+export interface SpecialEntry {
+  id: string;
+  month: string; // 'YYYY-MM'
+  kind: "income" | "expense";
+  name: string;
+  amount: number;
 }
 
 export interface SimulationMonth {
@@ -10,8 +17,12 @@ export interface SimulationMonth {
   year: number;
   monthNum: number; // 1-12
   label: string; // 'Jan', 'Feb', ...
-  planned: number;
-  actual: number | null;
+  regularIncome: number;
+  specialIncomes: SpecialEntry[];
+  specialExpenses: SpecialEntry[];
+  income: number; // regularIncome + sum(specialIncomes)
+  expense: number; // sum(specialExpenses)
+  remaining: number; // income - expense
   note: string | null;
   hasRecord: boolean;
   isCurrentMonth: boolean;
@@ -36,10 +47,20 @@ export function buildSimulationYear(
   year: number,
   records: SavingsMonthRecord[],
   defaultMonthlyIncome: number,
+  specialEntries: SpecialEntry[],
   now: Date = new Date(),
   startingCumulative = 0,
 ): SimulationMonth[] {
   const byMonth = new Map(records.map((r) => [r.month, r]));
+  const incomesByMonth = new Map<string, SpecialEntry[]>();
+  const expensesByMonth = new Map<string, SpecialEntry[]>();
+  for (const e of specialEntries) {
+    const map = e.kind === "income" ? incomesByMonth : expensesByMonth;
+    const arr = map.get(e.month);
+    if (arr) arr.push(e);
+    else map.set(e.month, [e]);
+  }
+
   const currentKey = monthKey(now.getFullYear(), now.getMonth() + 1);
 
   let cumulative = startingCumulative;
@@ -48,32 +69,35 @@ export function buildSimulationYear(
   for (let m = 1; m <= 12; m++) {
     const key = monthKey(year, m);
     const record = byMonth.get(key);
+    const specialIncomes = incomesByMonth.get(key) ?? [];
+    const specialExpenses = expensesByMonth.get(key) ?? [];
     const isFuture = key > currentKey;
     const isCurrentMonth = key === currentKey;
     const isPast = key < currentKey;
 
-    let hasRecord: boolean;
-    let planned: number;
-    let actual: number | null;
+    // A month counts once it's been explicitly tracked (a note or a special
+    // entry was added), or it's the current/future month (seeded from the
+    // default income). Untouched past months are "No data" and excluded.
+    const hasRecord =
+      !!record || specialIncomes.length > 0 || specialExpenses.length > 0 || !isPast;
 
+    let regularIncome: number;
     if (record) {
-      hasRecord = true;
-      planned = record.planned_savings;
-      actual = record.actual_savings;
+      regularIncome = record.planned_savings;
     } else if (isPast) {
-      // Never tracked before this feature existed — no plan to speak of.
-      hasRecord = false;
-      planned = 0;
-      actual = null;
+      regularIncome = 0;
     } else {
-      // Current/future month with no override yet: seed from default income.
-      hasRecord = true;
-      planned = defaultMonthlyIncome;
-      actual = null;
+      regularIncome = defaultMonthlyIncome;
     }
 
+    const specialIncomeTotal = specialIncomes.reduce((s, e) => s + e.amount, 0);
+    const specialExpenseTotal = specialExpenses.reduce((s, e) => s + e.amount, 0);
+    const income = regularIncome + specialIncomeTotal;
+    const expense = specialExpenseTotal;
+    const remaining = income - expense;
+
     if (hasRecord) {
-      cumulative += actual ?? planned;
+      cumulative += remaining;
     }
 
     months.push({
@@ -81,8 +105,12 @@ export function buildSimulationYear(
       year,
       monthNum: m,
       label: MONTH_LABELS[m - 1],
-      planned,
-      actual,
+      regularIncome,
+      specialIncomes,
+      specialExpenses,
+      income,
+      expense,
+      remaining,
       note: record?.note ?? null,
       hasRecord,
       isCurrentMonth,
@@ -94,8 +122,16 @@ export function buildSimulationYear(
   return months;
 }
 
-export function annualTarget(months: SimulationMonth[]): number {
-  return months.reduce((sum, m) => sum + (m.hasRecord ? m.planned : 0), 0);
+export function annualIncome(months: SimulationMonth[]): number {
+  return months.reduce((sum, m) => sum + (m.hasRecord ? m.income : 0), 0);
+}
+
+export function annualExpense(months: SimulationMonth[]): number {
+  return months.reduce((sum, m) => sum + (m.hasRecord ? m.expense : 0), 0);
+}
+
+export function annualRemaining(months: SimulationMonth[]): number {
+  return months.reduce((sum, m) => sum + (m.hasRecord ? m.remaining : 0), 0);
 }
 
 export function yearEndProjection(months: SimulationMonth[]): number {

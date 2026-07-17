@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { AlertTriangle, ChevronDown, Settings } from "lucide-react";
 import { formatJPY } from "@/lib/format";
-import type { SimulationMonth } from "@/lib/simulation";
+import type { SimulationMonth, SpecialEntry } from "@/lib/simulation";
 import { NoteTag } from "@/components/note-tag";
 import {
   Button,
@@ -28,12 +28,15 @@ interface SimulationData {
   year: number;
   defaultMonthlyIncome: number;
   months: SimulationMonth[];
-  annualTarget: number;
+  annualIncome: number;
+  annualExpense: number;
+  annualRemaining: number;
   yearEndProjection: number;
 }
 
 const YEAR_OPTIONS = [2025, 2026, 2027];
 const CARD_SHADOW = "0 1px 2px rgba(120,72,10,.04), 0 8px 24px rgba(120,72,10,.05)";
+const GRID_COLS = "1.1fr 0.9fr 0.9fr 0.9fr 1fr";
 
 function digitsOnly(v: string): string {
   return v.replace(/[^0-9-]/g, "");
@@ -46,64 +49,22 @@ function withCommas(v: string): string {
   return neg ? `-${grouped}` : grouped;
 }
 
-function PlannedInput({
-  value,
-  onSave,
-}: {
-  value: number;
-  onSave: (n: number) => void;
-}) {
-  const [text, setText] = useState(String(value));
-  const savedValueRef = useRef(value);
-
-  useEffect(() => {
-    setText(String(value));
-    savedValueRef.current = value;
-  }, [value]);
-
-  const commit = () => {
-    const n = parseInt(digitsOnly(text), 10) || 0;
-    if (n !== savedValueRef.current) {
-      savedValueRef.current = n;
-      onSave(n);
-    }
-    setText(String(n));
-  };
-
-  return (
-    <Input
-      type="text"
-      inputMode="numeric"
-      value={withCommas(text)}
-      onChange={(e) => setText(digitsOnly(e.target.value))}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-      }}
-      onClick={(e) => e.stopPropagation()}
-      className="h-9 text-right font-num text-[13.5px] rounded-lg justify-self-end w-[130px]"
-      style={{ borderColor: "var(--color-border-default)", backgroundColor: "var(--color-surface-subtle)" }}
-    />
-  );
-}
-
 function MonthRow({
   m,
-  onUpdate,
+  onOpenEntries,
   onSaveNote,
 }: {
   m: SimulationMonth;
-  onUpdate: (month: string, field: "planned", value: number) => void;
+  onOpenEntries: (month: string, kind: "income" | "expense") => void;
   onSaveNote: (month: string, note: string | null) => void;
 }) {
   const negative = m.hasRecord && m.cumulative < 0;
-  const actualValue = m.actual ?? m.planned;
 
   return (
     <div
       className="group grid items-center px-7 py-3.5 border-b last:border-0"
       style={{
-        gridTemplateColumns: "1.2fr 1fr 1fr 1fr",
+        gridTemplateColumns: GRID_COLS,
         gap: 8,
         borderColor: "var(--color-border-subtle)",
         backgroundColor: m.isCurrentMonth ? "#EAF6F4" : "transparent",
@@ -131,17 +92,29 @@ function MonthRow({
         )}
       </span>
       {!m.hasRecord ? (
-        <span className="col-span-3 text-right text-sm" style={{ color: "var(--color-text-secondary)" }}>
+        <span className="col-span-4 text-right text-sm" style={{ color: "var(--color-text-secondary)" }}>
           No data
         </span>
       ) : (
         <>
-          <PlannedInput
-            value={m.planned}
-            onSave={(n) => onUpdate(m.month, "planned", n)}
-          />
-          <span className="text-right text-sm font-num" style={{ color: "var(--color-text-secondary)" }}>
-            {formatJPY(actualValue)}
+          <button
+            type="button"
+            onClick={() => onOpenEntries(m.month, "income")}
+            className="text-right text-sm font-num transition-opacity hover:opacity-70 cursor-pointer"
+            style={{ color: "var(--color-success)" }}
+          >
+            {formatJPY(m.income)}
+          </button>
+          <button
+            type="button"
+            onClick={() => onOpenEntries(m.month, "expense")}
+            className="text-right text-sm font-num transition-opacity hover:opacity-70 cursor-pointer"
+            style={{ color: m.expense > 0 ? "var(--color-danger)" : "var(--color-text-secondary)" }}
+          >
+            {formatJPY(m.expense)}
+          </button>
+          <span className="text-right text-sm font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>
+            {formatJPY(m.remaining)}
           </span>
           <span
             className="text-right font-num text-sm font-bold flex items-center justify-end gap-1.5"
@@ -196,7 +169,7 @@ function IncomeSettingsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Monthly JP income (default)</DialogTitle>
+          <DialogTitle>Regular monthly income</DialogTitle>
         </DialogHeader>
         <div className="px-1">
           <div className="flex items-center gap-2">
@@ -214,7 +187,7 @@ function IncomeSettingsDialog({
             <span className="text-xs shrink-0" style={{ color: "var(--color-text-secondary)" }}>JPY / mo</span>
           </div>
           <p className="text-xs mt-2" style={{ color: "var(--color-text-secondary)" }}>
-            Used as the starting plan for any month you haven&apos;t set a number for yet.
+            Used as the recurring income for the current/future months. Add special income for one-off amounts.
           </p>
         </div>
         <div className="flex justify-end gap-2 mt-4">
@@ -230,10 +203,136 @@ function IncomeSettingsDialog({
   );
 }
 
+function SpecialEntriesDialog({
+  open,
+  onOpenChange,
+  month,
+  kind,
+  entries,
+  onChanged,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  month: string;
+  kind: "income" | "expense";
+  entries: SpecialEntry[];
+  onChanged: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [amountText, setAmountText] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setName("");
+      setAmountText("");
+    }
+  }, [open]);
+
+  const handleAdd = async () => {
+    const amount = parseInt(digitsOnly(amountText), 10) || 0;
+    if (!name.trim() || amount === 0) return;
+    setSaving(true);
+    const res = await fetch("/api/simulation/special-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ month, kind, name: name.trim(), amount }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      toast.error("Failed to save");
+      return;
+    }
+    setName("");
+    setAmountText("");
+    onChanged();
+  };
+
+  const handleDelete = async (id: string) => {
+    const res = await fetch(`/api/simulation/special-entries/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      toast.error("Failed to delete");
+      return;
+    }
+    onChanged();
+  };
+
+  const title = kind === "income" ? "Special income" : "Special expense";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{title} — {month}</DialogTitle>
+        </DialogHeader>
+        <div className="px-1 space-y-3">
+          {entries.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+              No entries yet.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {entries.map((e) => (
+                <li key={e.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="truncate" style={{ color: "var(--color-text-primary)" }}>{e.name}</span>
+                  <span className="flex items-center gap-3 shrink-0">
+                    <span className="font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>
+                      {formatJPY(e.amount)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(e.id)}
+                      className="text-xs font-medium cursor-pointer hover:opacity-70"
+                      style={{ color: "var(--color-danger)" }}
+                    >
+                      Remove
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div
+            className="flex items-center gap-2 pt-3"
+            style={{ borderTop: "1px solid var(--color-border-subtle)" }}
+          >
+            <Input
+              placeholder="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="flex-1"
+            />
+            <Input
+              type="text"
+              inputMode="numeric"
+              placeholder="Amount"
+              value={withCommas(amountText)}
+              onChange={(e) => setAmountText(digitsOnly(e.target.value))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleAdd();
+              }}
+              className="w-28 font-num"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+          <Button onClick={handleAdd} disabled={saving || !name.trim()}>
+            Add
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function SimulationPage() {
   const [year, setYear] = useState(2026);
   const [data, setData] = useState<SimulationData | null>(null);
   const [incomeDialogOpen, setIncomeDialogOpen] = useState(false);
+  const [entriesDialog, setEntriesDialog] = useState<{ month: string; kind: "income" | "expense" } | null>(null);
 
   const load = useCallback(async (y: number) => {
     const res = await fetch(`/api/simulation?year=${y}`);
@@ -246,23 +345,6 @@ export default function SimulationPage() {
     setData(null);
     load(year);
   }, [year, load]);
-
-  const handleUpdateMonth = async (
-    month: string,
-    field: "planned",
-    value: number,
-  ) => {
-    const res = await fetch(`/api/simulation/months/${month}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [field]: value }),
-    });
-    if (!res.ok) {
-      toast.error("Failed to save");
-      return;
-    }
-    load(year);
-  };
 
   const handleSaveNote = async (month: string, note: string | null) => {
     const res = await fetch(`/api/simulation/months/${month}`, {
@@ -277,12 +359,15 @@ export default function SimulationPage() {
     load(year);
   };
 
-  const progressPct =
-    data && data.annualTarget > 0
-      ? Math.max(0, Math.min(100, Math.round((data.yearEndProjection / data.annualTarget) * 100)))
+  const savingsRatePct =
+    data && data.annualIncome > 0
+      ? Math.max(0, Math.min(100, Math.round((data.annualRemaining / data.annualIncome) * 100)))
       : 0;
-  const diff = data ? data.yearEndProjection - data.annualTarget : 0;
-  const onPace = diff >= 0;
+
+  const editingMonth = data?.months.find((m) => m.month === entriesDialog?.month);
+  const editingEntries = entriesDialog
+    ? (entriesDialog.kind === "income" ? editingMonth?.specialIncomes : editingMonth?.specialExpenses) ?? []
+    : [];
 
   return (
     <div>
@@ -311,7 +396,7 @@ export default function SimulationPage() {
           onClick={() => setIncomeDialogOpen(true)}
         >
           <Settings size={15} />
-          Default income
+          Regular income
         </Button>
       </div>
 
@@ -324,32 +409,44 @@ export default function SimulationPage() {
         ) : (
           <>
             <p className="text-xs font-semibold uppercase tracking-[0.06em] mb-2.5" style={{ color: "var(--color-text-subtle)" }}>
-              {data.year} savings target
+              {data.year} cumulative balance
             </p>
             <p className="font-display text-[48px] font-bold leading-none" style={{ color: "var(--color-text-primary)" }}>
-              {formatJPY(data.annualTarget)}
+              {formatJPY(data.yearEndProjection)}
             </p>
-            <div className="mt-[18px]">
-              <div className="flex items-baseline justify-between mb-2">
-                <span className="text-[13.5px]" style={{ color: "var(--color-text-secondary)" }}>Projected year-end</span>
-                <span className="font-num font-bold text-[15px]" style={{ color: "var(--color-text-primary)" }}>
-                  {formatJPY(data.yearEndProjection)}
-                </span>
+            <div className="mt-[18px] grid grid-cols-3 gap-4">
+              <div>
+                <p className="text-[12.5px] mb-1" style={{ color: "var(--color-text-secondary)" }}>Income</p>
+                <p className="font-num font-bold text-[16px]" style={{ color: "var(--color-success)" }}>
+                  {formatJPY(data.annualIncome)}
+                </p>
               </div>
-              <Progress
-                value={progressPct}
-                className="h-2"
-                style={{ backgroundColor: "var(--kg-track)" }}
-                indicatorStyle={{ backgroundColor: "var(--color-primary)" }}
-              />
-              <p className="text-sm font-medium mt-3" style={{ color: "var(--color-primary-hover)" }}>
-                {data.annualTarget === 0
-                  ? "Set a default monthly income to get a target."
-                  : onPace
-                    ? `${progressPct}% there — ${formatJPY(diff)} ahead of plan`
-                    : `${progressPct}% there — ${formatJPY(Math.abs(diff))} behind plan`}
-              </p>
+              <div>
+                <p className="text-[12.5px] mb-1" style={{ color: "var(--color-text-secondary)" }}>Expense</p>
+                <p className="font-num font-bold text-[16px]" style={{ color: "var(--color-danger)" }}>
+                  {formatJPY(data.annualExpense)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[12.5px] mb-1" style={{ color: "var(--color-text-secondary)" }}>Remaining</p>
+                <p className="font-num font-bold text-[16px]" style={{ color: "var(--color-text-primary)" }}>
+                  {formatJPY(data.annualRemaining)}
+                </p>
+              </div>
             </div>
+            {data.annualIncome > 0 && (
+              <div className="mt-[18px]">
+                <Progress
+                  value={savingsRatePct}
+                  className="h-2"
+                  style={{ backgroundColor: "var(--kg-track)" }}
+                  indicatorStyle={{ backgroundColor: "var(--color-primary)" }}
+                />
+                <p className="text-sm font-medium mt-3" style={{ color: "var(--color-primary-hover)" }}>
+                  Saving {savingsRatePct}% of income so far this year
+                </p>
+              </div>
+            )}
           </>
         )}
       </Card>
@@ -360,11 +457,12 @@ export default function SimulationPage() {
       >
         <div
           className="grid px-7 py-4 border-b"
-          style={{ gridTemplateColumns: "1.2fr 1fr 1fr 1fr", gap: 8, borderColor: "var(--color-border-default)" }}
+          style={{ gridTemplateColumns: GRID_COLS, gap: 8, borderColor: "var(--color-border-default)" }}
         >
           <span className="text-xs font-semibold uppercase tracking-[0.05em]" style={{ color: "var(--color-text-subtle)" }}>Month</span>
-          <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Planned</span>
-          <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Actual</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Income</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Expense</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Remaining</span>
           <span className="text-xs font-semibold uppercase tracking-[0.05em] text-right" style={{ color: "var(--color-text-subtle)" }}>Cumulative</span>
         </div>
         {!data ? (
@@ -375,7 +473,12 @@ export default function SimulationPage() {
           </div>
         ) : (
           data.months.map((m) => (
-            <MonthRow key={m.month} m={m} onUpdate={handleUpdateMonth} onSaveNote={handleSaveNote} />
+            <MonthRow
+              key={m.month}
+              m={m}
+              onOpenEntries={(month, kind) => setEntriesDialog({ month, kind })}
+              onSaveNote={handleSaveNote}
+            />
           ))
         )}
       </Card>
@@ -386,6 +489,19 @@ export default function SimulationPage() {
         defaultMonthlyIncome={data?.defaultMonthlyIncome ?? 0}
         onSaved={() => load(year)}
       />
+
+      {entriesDialog && (
+        <SpecialEntriesDialog
+          open={entriesDialog !== null}
+          onOpenChange={(v) => {
+            if (!v) setEntriesDialog(null);
+          }}
+          month={entriesDialog.month}
+          kind={entriesDialog.kind}
+          entries={editingEntries}
+          onChanged={() => load(year)}
+        />
+      )}
     </div>
   );
 }

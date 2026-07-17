@@ -3,10 +3,13 @@ import { getAuthDb } from "@/lib/supabase/auth-db";
 import { createDb } from "@/lib/supabase/db";
 import {
   buildSimulationYear,
-  annualTarget,
+  annualIncome,
+  annualExpense,
+  annualRemaining,
   yearEndProjection,
   SIMULATION_EPOCH_YEAR,
   type SavingsMonthRecord,
+  type SpecialEntry,
 } from "@/lib/simulation";
 
 const JP_SOURCE = "jp";
@@ -19,10 +22,22 @@ async function fetchYearRecords(
 ): Promise<SavingsMonthRecord[]> {
   const { data } = await db
     .from("savings_months")
-    .select("month, planned_savings, actual_savings, note")
+    .select("month, planned_savings, note")
     .gte("month", `${year}-01`)
     .lte("month", `${year}-12`);
   return (data ?? []) as SavingsMonthRecord[];
+}
+
+async function fetchYearSpecialEntries(
+  db: Db,
+  year: number,
+): Promise<SpecialEntry[]> {
+  const { data } = await db
+    .from("special_entries")
+    .select("id, month, kind, name, amount")
+    .gte("month", `${year}-01`)
+    .lte("month", `${year}-12`);
+  return (data ?? []) as SpecialEntry[];
 }
 
 // Chains each year's ending cumulative into the next, starting from
@@ -35,8 +50,11 @@ async function getStartingCumulative(
 ): Promise<number> {
   let cumulative = 0;
   for (let y = SIMULATION_EPOCH_YEAR; y < year; y++) {
-    const records = await fetchYearRecords(db, y);
-    const months = buildSimulationYear(y, records, defaultMonthlyIncome, now, cumulative);
+    const [records, entries] = await Promise.all([
+      fetchYearRecords(db, y),
+      fetchYearSpecialEntries(db, y),
+    ]);
+    const months = buildSimulationYear(y, records, defaultMonthlyIncome, entries, now, cumulative);
     cumulative = yearEndProjection(months);
   }
   return cumulative;
@@ -51,13 +69,14 @@ export async function GET(req: NextRequest) {
   const year = yearParam ? parseInt(yearParam, 10) : new Date().getFullYear();
   const now = new Date();
 
-  const [{ data: income }, records] = await Promise.all([
+  const [{ data: income }, records, specialEntries] = await Promise.all([
     db
       .from("income_sources")
       .select("default_monthly_income")
       .eq("source", JP_SOURCE)
       .maybeSingle(),
     fetchYearRecords(db, year),
+    fetchYearSpecialEntries(db, year),
   ]);
 
   const defaultMonthlyIncome = income?.default_monthly_income ?? 0;
@@ -66,6 +85,7 @@ export async function GET(req: NextRequest) {
     year,
     records,
     defaultMonthlyIncome,
+    specialEntries,
     now,
     startingCumulative,
   );
@@ -74,7 +94,9 @@ export async function GET(req: NextRequest) {
     year,
     defaultMonthlyIncome,
     months,
-    annualTarget: annualTarget(months),
+    annualIncome: annualIncome(months),
+    annualExpense: annualExpense(months),
+    annualRemaining: annualRemaining(months),
     yearEndProjection: yearEndProjection(months),
   });
 }

@@ -15,14 +15,6 @@ export async function PATCH(
   }
 
   const body = await req.json();
-  const planned =
-    typeof body.planned === "number" ? body.planned : undefined;
-  const actual =
-    typeof body.actual === "number"
-      ? body.actual
-      : body.actual === null
-        ? null
-        : undefined;
   const note =
     typeof body.note === "string"
       ? body.note.trim() || null
@@ -30,31 +22,27 @@ export async function PATCH(
         ? null
         : undefined;
 
-  if (planned === undefined && actual === undefined && note === undefined) {
-    return NextResponse.json(
-      { error: "planned, actual, and/or note is required" },
-      { status: 400 },
-    );
+  if (note === undefined) {
+    return NextResponse.json({ error: "note is required" }, { status: 400 });
   }
 
   const { data: existing } = await db
     .from("savings_months")
-    .select("planned_savings, actual_savings, note")
+    .select("planned_savings")
     .eq("month", month)
     .maybeSingle();
 
   const payload = {
     month,
-    planned_savings: planned ?? existing?.planned_savings ?? 0,
-    actual_savings: actual !== undefined ? actual : (existing?.actual_savings ?? null),
-    note: note !== undefined ? note : (existing?.note ?? null),
+    planned_savings: existing?.planned_savings ?? 0,
+    note,
     updated_at: new Date().toISOString(),
   };
 
   const { data, error } = await db
     .from("savings_months")
     .upsert(payload)
-    .select("month, planned_savings, actual_savings, note")
+    .select("month, note")
     .single();
 
   if (error) {
@@ -63,8 +51,6 @@ export async function PATCH(
 
   return NextResponse.json({
     month: data.month,
-    planned: data.planned_savings,
-    actual: data.actual_savings,
     note: data.note,
   });
 }
