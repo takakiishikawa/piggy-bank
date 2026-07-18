@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { AlertTriangle, ChevronDown } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronLeft, StickyNote, Plus, Pencil, Trash2 } from "lucide-react";
 import { formatJPY, formatVND } from "@/lib/format";
 import type { SimulationMonth, SpecialEntry } from "@/lib/simulation";
 import { NoteTag } from "@/components/note-tag";
@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  Textarea,
   Progress,
   Select,
   SelectTrigger,
@@ -388,11 +389,339 @@ function SpecialEntriesDialog({
   );
 }
 
+interface Thread {
+  id: string;
+  title: string;
+  createdAt: string;
+  noteCount: number;
+}
+
+interface Note {
+  id: string;
+  thread_id: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}
+
+function formatNoteTime(iso: string): string {
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function ThreadsDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  const [threads, setThreads] = useState<Thread[] | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [notes, setNotes] = useState<Note[] | null>(null);
+  const [newThreadTitle, setNewThreadTitle] = useState("");
+  const [newNoteBody, setNewNoteBody] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingBody, setEditingBody] = useState("");
+
+  const loadThreads = useCallback(async () => {
+    const res = await fetch("/api/simulation/threads");
+    if (!res.ok) return;
+    setThreads(await res.json());
+  }, []);
+
+  const loadNotes = useCallback(async (threadId: string) => {
+    const res = await fetch(`/api/simulation/threads/${threadId}/notes`);
+    if (!res.ok) return;
+    setNotes(await res.json());
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      setSelectedId(null);
+      setNotes(null);
+      setNewThreadTitle("");
+      loadThreads();
+    }
+  }, [open, loadThreads]);
+
+  const selectedThread = threads?.find((t) => t.id === selectedId) ?? null;
+
+  const openThread = (id: string) => {
+    setSelectedId(id);
+    setNotes(null);
+    setNewNoteBody("");
+    loadNotes(id);
+  };
+
+  const handleCreateThread = async () => {
+    if (!newThreadTitle.trim()) return;
+    const res = await fetch("/api/simulation/threads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: newThreadTitle.trim() }),
+    });
+    if (!res.ok) {
+      toast.error("Failed to create thread");
+      return;
+    }
+    setNewThreadTitle("");
+    loadThreads();
+  };
+
+  const handleDeleteThread = async (id: string) => {
+    const res = await fetch(`/api/simulation/threads/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      toast.error("Failed to delete thread");
+      return;
+    }
+    if (selectedId === id) setSelectedId(null);
+    loadThreads();
+  };
+
+  const handleAddNote = async () => {
+    if (!selectedId || !newNoteBody.trim()) return;
+    const res = await fetch(`/api/simulation/threads/${selectedId}/notes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: newNoteBody.trim() }),
+    });
+    if (!res.ok) {
+      toast.error("Failed to save note");
+      return;
+    }
+    setNewNoteBody("");
+    loadNotes(selectedId);
+    loadThreads();
+  };
+
+  const startEdit = (note: Note) => {
+    setEditingNoteId(note.id);
+    setEditingBody(note.body);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingNoteId || !editingBody.trim() || !selectedId) return;
+    const res = await fetch(`/api/simulation/notes/${editingNoteId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: editingBody.trim() }),
+    });
+    if (!res.ok) {
+      toast.error("Failed to save note");
+      return;
+    }
+    setEditingNoteId(null);
+    loadNotes(selectedId);
+  };
+
+  const handleDeleteNote = async (id: string) => {
+    if (!selectedId) return;
+    const res = await fetch(`/api/simulation/notes/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      toast.error("Failed to delete note");
+      return;
+    }
+    loadNotes(selectedId);
+    loadThreads();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {selectedThread && (
+              <button
+                type="button"
+                onClick={() => setSelectedId(null)}
+                className="cursor-pointer hover:opacity-70"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
+                <ChevronLeft size={18} />
+              </button>
+            )}
+            {selectedThread ? selectedThread.title : "Threads"}
+          </DialogTitle>
+        </DialogHeader>
+
+        {!selectedThread ? (
+          <div className="px-1 space-y-3">
+            {!threads ? (
+              <Skeleton className="h-24 w-full rounded-lg" />
+            ) : threads.length === 0 ? (
+              <p className="text-sm py-4 text-center" style={{ color: "var(--color-text-secondary)" }}>
+                No threads yet — create one below.
+              </p>
+            ) : (
+              <ul className="space-y-1.5 max-h-[50vh] overflow-y-auto">
+                {threads.map((t) => (
+                  <li key={t.id}>
+                    <button
+                      type="button"
+                      onClick={() => openThread(t.id)}
+                      className="w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left cursor-pointer transition-colors hover:bg-muted/40"
+                      style={{ border: "1px solid var(--color-border-default)" }}
+                    >
+                      <span className="text-sm font-semibold truncate" style={{ color: "var(--color-text-primary)" }}>
+                        {t.title}
+                      </span>
+                      <span className="flex items-center gap-2 shrink-0">
+                        {t.noteCount > 0 && (
+                          <Tag
+                            className="text-[10.5px] font-bold px-2 py-0.5"
+                            style={{ backgroundColor: "var(--color-primary-subtle)", color: "var(--color-primary-hover)" }}
+                          >
+                            {t.noteCount}
+                          </Tag>
+                        )}
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteThread(t.id);
+                          }}
+                          className="cursor-pointer hover:opacity-70 p-0.5"
+                          style={{ color: "var(--color-text-subtle)" }}
+                        >
+                          <Trash2 size={14} />
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div
+              className="flex items-center gap-2 pt-3"
+              style={{ borderTop: "1px solid var(--color-border-subtle)" }}
+            >
+              <Input
+                placeholder="New thread (e.g. Side business)"
+                value={newThreadTitle}
+                onChange={(e) => setNewThreadTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCreateThread();
+                }}
+                className="flex-1"
+              />
+              <Button onClick={handleCreateThread} disabled={!newThreadTitle.trim()}>
+                <Plus size={15} />
+                Add
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="px-1 space-y-3">
+            {!notes ? (
+              <Skeleton className="h-24 w-full rounded-lg" />
+            ) : notes.length === 0 ? (
+              <p className="text-sm py-4 text-center" style={{ color: "var(--color-text-secondary)" }}>
+                No notes yet — add your first thought below.
+              </p>
+            ) : (
+              <ul className="space-y-2.5 max-h-[45vh] overflow-y-auto">
+                {notes.map((n) => (
+                  <li
+                    key={n.id}
+                    className="rounded-lg px-3 py-2.5"
+                    style={{ border: "1px solid var(--color-border-default)", backgroundColor: "var(--color-surface-subtle)" }}
+                  >
+                    {editingNoteId === n.id ? (
+                      <div className="space-y-2">
+                        <Textarea
+                          value={editingBody}
+                          onChange={(e) => setEditingBody(e.target.value)}
+                          className="text-sm"
+                          rows={3}
+                          autoFocus
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => setEditingNoteId(null)}>
+                            Cancel
+                          </Button>
+                          <Button size="sm" onClick={handleSaveEdit} disabled={!editingBody.trim()}>
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--color-text-primary)" }}>
+                          {n.body}
+                        </p>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-[11px]" style={{ color: "var(--color-text-subtle)" }}>
+                            {formatNoteTime(n.updated_at)}
+                          </span>
+                          <span className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startEdit(n)}
+                              className="cursor-pointer hover:opacity-70"
+                              style={{ color: "var(--color-text-subtle)" }}
+                            >
+                              <Pencil size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteNote(n.id)}
+                              className="cursor-pointer hover:opacity-70"
+                              style={{ color: "var(--color-danger)" }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div
+              className="flex items-end gap-2 pt-3"
+              style={{ borderTop: "1px solid var(--color-border-subtle)" }}
+            >
+              <Textarea
+                placeholder="Add a note..."
+                value={newNoteBody}
+                onChange={(e) => setNewNoteBody(e.target.value)}
+                className="text-sm flex-1"
+                rows={2}
+              />
+              <Button onClick={handleAddNote} disabled={!newNoteBody.trim()}>
+                Add
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function SimulationPage() {
   const [year, setYear] = useState(2026);
   const [data, setData] = useState<SimulationData | null>(null);
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("JPY");
   const [entriesDialog, setEntriesDialog] = useState<{ month: string; kind: "income" | "expense" } | null>(null);
+  const [threadsDialogOpen, setThreadsDialogOpen] = useState(false);
+  const [totalNoteCount, setTotalNoteCount] = useState(0);
+
+  const loadThreadsSummary = useCallback(async () => {
+    const res = await fetch("/api/simulation/threads");
+    if (!res.ok) return;
+    const threads: Thread[] = await res.json();
+    setTotalNoteCount(threads.reduce((s, t) => s + t.noteCount, 0));
+  }, []);
+
+  useEffect(() => {
+    loadThreadsSummary();
+  }, [loadThreadsSummary]);
 
   const load = useCallback(async (y: number) => {
     const res = await fetch(`/api/simulation?year=${y}`);
@@ -467,6 +796,23 @@ export default function SimulationPage() {
           </Select>
           <CurrencySwitch value={displayCurrency} onChange={setDisplayCurrency} />
         </div>
+        <button
+          type="button"
+          onClick={() => setThreadsDialogOpen(true)}
+          title="Threads"
+          className="relative flex h-[38px] w-[38px] items-center justify-center rounded-[10px] cursor-pointer transition-colors hover:bg-muted/40"
+          style={{ border: "1px solid var(--color-border-default)", color: "var(--color-text-secondary)" }}
+        >
+          <StickyNote size={17} />
+          {totalNoteCount > 0 && (
+            <span
+              className="absolute -top-1.5 -right-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold"
+              style={{ backgroundColor: "var(--color-primary)", color: "#fff" }}
+            >
+              {totalNoteCount}
+            </span>
+          )}
+        </button>
       </div>
 
       <Card
@@ -580,6 +926,14 @@ export default function SimulationPage() {
           onChanged={() => load(year)}
         />
       )}
+
+      <ThreadsDialog
+        open={threadsDialogOpen}
+        onOpenChange={(v) => {
+          setThreadsDialogOpen(v);
+          if (!v) loadThreadsSummary();
+        }}
+      />
     </div>
   );
 }
