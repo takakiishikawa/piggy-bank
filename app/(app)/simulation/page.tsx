@@ -1,19 +1,23 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { AlertTriangle, ChevronDown, ChevronLeft, StickyNote, Plus, Pencil, Trash2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Plus, Pencil, Trash2, MessageSquare, CheckSquare } from "lucide-react";
 import { formatJPY, formatVND } from "@/lib/format";
 import type { SimulationMonth, SpecialEntry } from "@/lib/simulation";
 import { NoteTag } from "@/components/note-tag";
 import {
   Button,
   Card,
+  Checkbox,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   Input,
   Textarea,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Progress,
   Select,
   SelectTrigger,
@@ -21,6 +25,9 @@ import {
   SelectContent,
   SelectItem,
   Skeleton,
+  Tabs,
+  TabsList,
+  TabsTrigger,
   Tag,
   toast,
 } from "@takaki/go-design-system";
@@ -394,11 +401,31 @@ interface Thread {
   title: string;
   createdAt: string;
   noteCount: number;
+  taskCount: number;
+  openTaskCount: number;
 }
 
 interface Note {
   id: string;
   thread_id: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface SimTask {
+  id: string;
+  thread_id: string;
+  title: string;
+  start_date: string | null;
+  done: boolean;
+  created_at: string;
+  commentCount: number;
+}
+
+interface TaskComment {
+  id: string;
+  task_id: string;
   body: string;
   created_at: string;
   updated_at: string;
@@ -413,79 +440,177 @@ function formatNoteTime(iso: string): string {
   });
 }
 
-function ThreadsDialog({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-}) {
-  const [threads, setThreads] = useState<Thread[] | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [notes, setNotes] = useState<Note[] | null>(null);
-  const [newThreadTitle, setNewThreadTitle] = useState("");
-  const [newNoteBody, setNewNoteBody] = useState("");
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editingBody, setEditingBody] = useState("");
+function formatTaskDate(dateStr: string): string {
+  return new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
-  const loadThreads = useCallback(async () => {
-    const res = await fetch("/api/simulation/threads");
-    if (!res.ok) return;
-    setThreads(await res.json());
-  }, []);
+function NewThreadButton({ onCreated }: { onCreated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const loadNotes = useCallback(async (threadId: string) => {
-    const res = await fetch(`/api/simulation/threads/${threadId}/notes`);
-    if (!res.ok) return;
-    setNotes(await res.json());
-  }, []);
-
-  useEffect(() => {
-    if (open) {
-      setSelectedId(null);
-      setNotes(null);
-      setNewThreadTitle("");
-      loadThreads();
-    }
-  }, [open, loadThreads]);
-
-  const selectedThread = threads?.find((t) => t.id === selectedId) ?? null;
-
-  const openThread = (id: string) => {
-    setSelectedId(id);
-    setNotes(null);
-    setNewNoteBody("");
-    loadNotes(id);
-  };
-
-  const handleCreateThread = async () => {
-    if (!newThreadTitle.trim()) return;
+  const handleCreate = async () => {
+    if (!title.trim()) return;
+    setSaving(true);
     const res = await fetch("/api/simulation/threads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: newThreadTitle.trim() }),
+      body: JSON.stringify({ title: title.trim() }),
     });
+    setSaving(false);
     if (!res.ok) {
       toast.error("Failed to create thread");
       return;
     }
-    setNewThreadTitle("");
-    loadThreads();
+    setTitle("");
+    setOpen(false);
+    onCreated();
   };
 
-  const handleDeleteThread = async (id: string) => {
-    const res = await fetch(`/api/simulation/threads/${id}`, { method: "DELETE" });
-    if (!res.ok) {
-      toast.error("Failed to delete thread");
-      return;
-    }
-    if (selectedId === id) setSelectedId(null);
-    loadThreads();
-  };
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (v) setTitle("");
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center gap-1.5 h-[34px] px-3 rounded-full text-sm font-semibold cursor-pointer transition-colors hover:bg-muted/40"
+          style={{ border: "1px dashed var(--color-border-strong)", color: "var(--color-text-secondary)" }}
+        >
+          <Plus size={14} />
+          New thread
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72">
+        <div className="space-y-2">
+          <Input
+            placeholder="e.g. Debt repayment"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleCreate();
+            }}
+            autoFocus
+          />
+          <Button className="w-full" onClick={handleCreate} disabled={saving || !title.trim()}>
+            Create
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function ThreadChips({
+  threads,
+  onOpen,
+  onDelete,
+}: {
+  threads: Thread[] | null;
+  onOpen: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  if (!threads || threads.length === 0) return null;
+  return (
+    <>
+      {threads.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          onClick={() => onOpen(t.id)}
+          className="group flex items-center gap-2 h-[34px] pl-3 pr-2 rounded-full text-sm font-semibold cursor-pointer transition-colors hover:opacity-90"
+          style={{ backgroundColor: "var(--color-surface)", border: "1px solid var(--color-border-default)", color: "var(--color-text-primary)" }}
+        >
+          <span className="truncate max-w-[160px]">{t.title}</span>
+          {t.noteCount > 0 && (
+            <span className="flex items-center gap-0.5 text-[11px] font-bold" style={{ color: "var(--color-primary-hover)" }}>
+              <MessageSquare size={11} />
+              {t.noteCount}
+            </span>
+          )}
+          {t.taskCount > 0 && (
+            <span
+              className="flex items-center gap-0.5 text-[11px] font-bold"
+              style={{ color: t.openTaskCount > 0 ? "var(--color-warning)" : "var(--color-success)" }}
+            >
+              <CheckSquare size={11} />
+              {t.openTaskCount}/{t.taskCount}
+            </span>
+          )}
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(t.id);
+            }}
+            className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer p-0.5"
+            style={{ color: "var(--color-text-subtle)" }}
+          >
+            <Trash2 size={12} />
+          </span>
+        </button>
+      ))}
+    </>
+  );
+}
+
+function ThreadDetailDialog({
+  threadId,
+  threadTitle,
+  onOpenChange,
+  onChanged,
+}: {
+  threadId: string;
+  threadTitle: string;
+  onOpenChange: (v: boolean) => void;
+  onChanged: () => void;
+}) {
+  const [tab, setTab] = useState<"notes" | "tasks">("notes");
+
+  const [notes, setNotes] = useState<Note[] | null>(null);
+  const [newNoteBody, setNewNoteBody] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingBody, setEditingBody] = useState("");
+
+  const [tasks, setTasks] = useState<SimTask[] | null>(null);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskDate, setNewTaskDate] = useState("");
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+  const [comments, setComments] = useState<Record<string, TaskComment[]>>({});
+  const [newCommentBody, setNewCommentBody] = useState("");
+
+  const loadNotes = useCallback(async () => {
+    const res = await fetch(`/api/simulation/threads/${threadId}/notes`);
+    if (!res.ok) return;
+    setNotes(await res.json());
+  }, [threadId]);
+
+  const loadTasks = useCallback(async () => {
+    const res = await fetch(`/api/simulation/threads/${threadId}/tasks`);
+    if (!res.ok) return;
+    setTasks(await res.json());
+  }, [threadId]);
+
+  useEffect(() => {
+    setNotes(null);
+    setTasks(null);
+    setTab("notes");
+    setExpandedTaskId(null);
+    setComments({});
+    loadNotes();
+    loadTasks();
+  }, [threadId, loadNotes, loadTasks]);
 
   const handleAddNote = async () => {
-    if (!selectedId || !newNoteBody.trim()) return;
-    const res = await fetch(`/api/simulation/threads/${selectedId}/notes`, {
+    if (!newNoteBody.trim()) return;
+    const res = await fetch(`/api/simulation/threads/${threadId}/notes`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ body: newNoteBody.trim() }),
@@ -495,8 +620,8 @@ function ThreadsDialog({
       return;
     }
     setNewNoteBody("");
-    loadNotes(selectedId);
-    loadThreads();
+    loadNotes();
+    onChanged();
   };
 
   const startEdit = (note: Note) => {
@@ -505,7 +630,7 @@ function ThreadsDialog({
   };
 
   const handleSaveEdit = async () => {
-    if (!editingNoteId || !editingBody.trim() || !selectedId) return;
+    if (!editingNoteId || !editingBody.trim()) return;
     const res = await fetch(`/api/simulation/notes/${editingNoteId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -516,106 +641,139 @@ function ThreadsDialog({
       return;
     }
     setEditingNoteId(null);
-    loadNotes(selectedId);
+    loadNotes();
   };
 
   const handleDeleteNote = async (id: string) => {
-    if (!selectedId) return;
     const res = await fetch(`/api/simulation/notes/${id}`, { method: "DELETE" });
     if (!res.ok) {
       toast.error("Failed to delete note");
       return;
     }
-    loadNotes(selectedId);
-    loadThreads();
+    loadNotes();
+    onChanged();
+  };
+
+  const handleAddTask = async () => {
+    if (!newTaskTitle.trim()) return;
+    const res = await fetch(`/api/simulation/threads/${threadId}/tasks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: newTaskTitle.trim(), startDate: newTaskDate || null }),
+    });
+    if (!res.ok) {
+      toast.error("Failed to save task");
+      return;
+    }
+    setNewTaskTitle("");
+    setNewTaskDate("");
+    loadTasks();
+    onChanged();
+  };
+
+  const handleToggleDone = async (task: SimTask) => {
+    const res = await fetch(`/api/simulation/tasks/${task.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ done: !task.done }),
+    });
+    if (!res.ok) {
+      toast.error("Failed to update task");
+      return;
+    }
+    loadTasks();
+    onChanged();
+  };
+
+  const handleDeleteTask = async (id: string) => {
+    const res = await fetch(`/api/simulation/tasks/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      toast.error("Failed to delete task");
+      return;
+    }
+    if (expandedTaskId === id) setExpandedTaskId(null);
+    loadTasks();
+    onChanged();
+  };
+
+  const loadComments = useCallback(async (taskId: string) => {
+    const res = await fetch(`/api/simulation/tasks/${taskId}/comments`);
+    if (!res.ok) return;
+    const data: TaskComment[] = await res.json();
+    setComments((prev) => ({ ...prev, [taskId]: data }));
+  }, []);
+
+  const toggleExpand = (taskId: string) => {
+    if (expandedTaskId === taskId) {
+      setExpandedTaskId(null);
+      return;
+    }
+    setExpandedTaskId(taskId);
+    setNewCommentBody("");
+    if (!comments[taskId]) loadComments(taskId);
+  };
+
+  const handleAddComment = async (taskId: string) => {
+    if (!newCommentBody.trim()) return;
+    const res = await fetch(`/api/simulation/tasks/${taskId}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: newCommentBody.trim() }),
+    });
+    if (!res.ok) {
+      toast.error("Failed to save comment");
+      return;
+    }
+    setNewCommentBody("");
+    loadComments(taskId);
+    loadTasks();
+  };
+
+  const handleDeleteComment = async (taskId: string, commentId: string) => {
+    const res = await fetch(`/api/simulation/task-comments/${commentId}`, { method: "DELETE" });
+    if (!res.ok) {
+      toast.error("Failed to delete comment");
+      return;
+    }
+    loadComments(taskId);
+    loadTasks();
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {selectedThread && (
-              <button
-                type="button"
-                onClick={() => setSelectedId(null)}
-                className="cursor-pointer hover:opacity-70"
-                style={{ color: "var(--color-text-secondary)" }}
-              >
-                <ChevronLeft size={18} />
-              </button>
-            )}
-            {selectedThread ? selectedThread.title : "Threads"}
-          </DialogTitle>
+          <DialogTitle>{threadTitle}</DialogTitle>
         </DialogHeader>
 
-        {!selectedThread ? (
-          <div className="px-1 space-y-3 flex flex-col flex-1 min-h-0">
-            {!threads ? (
-              <Skeleton className="h-24 w-full rounded-lg" />
-            ) : threads.length === 0 ? (
-              <p className="text-sm py-4 text-center" style={{ color: "var(--color-text-secondary)" }}>
-                No threads yet — create one below.
-              </p>
-            ) : (
-              <ul className="space-y-1.5 flex-1 overflow-y-auto">
-                {threads.map((t) => (
-                  <li key={t.id}>
-                    <button
-                      type="button"
-                      onClick={() => openThread(t.id)}
-                      className="w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left cursor-pointer transition-colors hover:bg-muted/40"
-                      style={{ border: "1px solid var(--color-border-default)" }}
-                    >
-                      <span className="text-sm font-semibold truncate" style={{ color: "var(--color-text-primary)" }}>
-                        {t.title}
-                      </span>
-                      <span className="flex items-center gap-2 shrink-0">
-                        {t.noteCount > 0 && (
-                          <Tag
-                            className="text-[10.5px] font-bold px-2 py-0.5"
-                            style={{ backgroundColor: "var(--color-primary-subtle)", color: "var(--color-primary-hover)" }}
-                          >
-                            {t.noteCount}
-                          </Tag>
-                        )}
-                        <span
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteThread(t.id);
-                          }}
-                          className="cursor-pointer hover:opacity-70 p-0.5"
-                          style={{ color: "var(--color-text-subtle)" }}
-                        >
-                          <Trash2 size={14} />
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div
-              className="flex items-center gap-2 pt-3"
-              style={{ borderTop: "1px solid var(--color-border-subtle)" }}
-            >
-              <Input
-                placeholder="New thread (e.g. Side business)"
-                value={newThreadTitle}
-                onChange={(e) => setNewThreadTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleCreateThread();
-                }}
-                className="flex-1"
-              />
-              <Button onClick={handleCreateThread} disabled={!newThreadTitle.trim()}>
-                <Plus size={15} />
-                Add
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="px-1 space-y-3 flex flex-col flex-1 min-h-0">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "notes" | "tasks")}>
+          <TabsList
+            className="p-1 rounded-[11px] h-auto gap-1 border-b-0"
+            style={{ backgroundColor: "var(--kg-track)" }}
+          >
+            {(["notes", "tasks"] as const).map((v) => (
+              <TabsTrigger
+                key={v}
+                value={v}
+                className="rounded-lg px-4 py-1.5 text-sm font-semibold capitalize border-b-0 transition-all"
+                style={
+                  tab === v
+                    ? {
+                        backgroundColor: "var(--color-surface)",
+                        color: "var(--color-text-primary)",
+                        boxShadow: "0 1px 2px rgba(120,72,10,.08)",
+                      }
+                    : { backgroundColor: "transparent", color: "var(--color-text-secondary)", boxShadow: "none" }
+                }
+              >
+                {v}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
+        {tab === "notes" ? (
+          <div className="px-1 space-y-3 flex flex-col flex-1 min-h-0 mt-2">
             {!notes ? (
               <Skeleton className="h-24 w-full rounded-lg" />
             ) : notes.length === 0 ? (
@@ -698,6 +856,135 @@ function ThreadsDialog({
               </Button>
             </div>
           </div>
+        ) : (
+          <div className="px-1 space-y-3 flex flex-col flex-1 min-h-0 mt-2">
+            {!tasks ? (
+              <Skeleton className="h-24 w-full rounded-lg" />
+            ) : tasks.length === 0 ? (
+              <p className="text-sm py-4 text-center" style={{ color: "var(--color-text-secondary)" }}>
+                No tasks yet — add your first one below.
+              </p>
+            ) : (
+              <ul className="space-y-2 flex-1 overflow-y-auto">
+                {tasks.map((t) => (
+                  <li key={t.id} className="rounded-lg" style={{ border: "1px solid var(--color-border-default)" }}>
+                    <div className="flex items-center gap-2.5 px-3 py-2.5">
+                      <Checkbox checked={t.done} onCheckedChange={() => handleToggleDone(t)} />
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className="text-sm font-medium truncate"
+                          style={{
+                            color: t.done ? "var(--color-text-subtle)" : "var(--color-text-primary)",
+                            textDecoration: t.done ? "line-through" : "none",
+                          }}
+                        >
+                          {t.title}
+                        </p>
+                        {t.start_date && (
+                          <p className="text-[11px]" style={{ color: "var(--color-text-subtle)" }}>
+                            Starts {formatTaskDate(t.start_date)}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleExpand(t.id)}
+                        className="flex items-center gap-1 text-[11px] font-semibold cursor-pointer hover:opacity-70 shrink-0"
+                        style={{ color: "var(--color-text-secondary)" }}
+                      >
+                        <MessageSquare size={12} />
+                        {t.commentCount}
+                        <ChevronRight
+                          size={12}
+                          style={{
+                            transform: expandedTaskId === t.id ? "rotate(90deg)" : undefined,
+                            transition: "transform 0.15s",
+                          }}
+                        />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTask(t.id)}
+                        className="cursor-pointer hover:opacity-70 shrink-0"
+                        style={{ color: "var(--color-danger)" }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                    {expandedTaskId === t.id && (
+                      <div className="px-3 pb-3 pt-2 space-y-2" style={{ borderTop: "1px solid var(--color-border-subtle)" }}>
+                        {!comments[t.id] ? (
+                          <Skeleton className="h-8 w-full rounded" />
+                        ) : comments[t.id].length === 0 ? (
+                          <p className="text-xs py-1" style={{ color: "var(--color-text-subtle)" }}>
+                            No comments yet.
+                          </p>
+                        ) : (
+                          <ul className="space-y-1.5">
+                            {comments[t.id].map((c) => (
+                              <li
+                                key={c.id}
+                                className="flex items-start justify-between gap-2 text-xs rounded px-2 py-1.5"
+                                style={{ backgroundColor: "var(--color-surface-subtle)" }}
+                              >
+                                <span style={{ color: "var(--color-text-primary)" }}>{c.body}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteComment(t.id, c.id)}
+                                  className="cursor-pointer hover:opacity-70 shrink-0"
+                                  style={{ color: "var(--color-danger)" }}
+                                >
+                                  <Trash2 size={11} />
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <Input
+                            placeholder="Add a comment..."
+                            value={newCommentBody}
+                            onChange={(e) => setNewCommentBody(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleAddComment(t.id);
+                            }}
+                            className="flex-1 h-8 text-xs"
+                          />
+                          <Button size="sm" onClick={() => handleAddComment(t.id)} disabled={!newCommentBody.trim()}>
+                            Add
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div
+              className="flex items-center gap-2 pt-3"
+              style={{ borderTop: "1px solid var(--color-border-subtle)" }}
+            >
+              <Input
+                placeholder="New task"
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAddTask();
+                }}
+                className="flex-1"
+              />
+              <Input
+                type="date"
+                value={newTaskDate}
+                onChange={(e) => setNewTaskDate(e.target.value)}
+                className="w-[150px] font-num"
+              />
+              <Button onClick={handleAddTask} disabled={!newTaskTitle.trim()}>
+                <Plus size={15} />
+                Add
+              </Button>
+            </div>
+          </div>
         )}
       </DialogContent>
     </Dialog>
@@ -709,19 +996,30 @@ export default function SimulationPage() {
   const [data, setData] = useState<SimulationData | null>(null);
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("JPY");
   const [entriesDialog, setEntriesDialog] = useState<{ month: string; kind: "income" | "expense" } | null>(null);
-  const [threadsDialogOpen, setThreadsDialogOpen] = useState(false);
-  const [totalNoteCount, setTotalNoteCount] = useState(0);
+  const [threads, setThreads] = useState<Thread[] | null>(null);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
 
-  const loadThreadsSummary = useCallback(async () => {
+  const loadThreads = useCallback(async () => {
     const res = await fetch("/api/simulation/threads");
     if (!res.ok) return;
-    const threads: Thread[] = await res.json();
-    setTotalNoteCount(threads.reduce((s, t) => s + t.noteCount, 0));
+    setThreads(await res.json());
   }, []);
 
   useEffect(() => {
-    loadThreadsSummary();
-  }, [loadThreadsSummary]);
+    loadThreads();
+  }, [loadThreads]);
+
+  const handleDeleteThread = async (id: string) => {
+    const res = await fetch(`/api/simulation/threads/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      toast.error("Failed to delete thread");
+      return;
+    }
+    if (selectedThreadId === id) setSelectedThreadId(null);
+    loadThreads();
+  };
+
+  const selectedThread = threads?.find((t) => t.id === selectedThreadId) ?? null;
 
   const load = useCallback(async (y: number) => {
     const res = await fetch(`/api/simulation?year=${y}`);
@@ -776,7 +1074,7 @@ export default function SimulationPage() {
 
   return (
     <div>
-      <div className="mt-8 mb-5 flex items-center justify-between flex-wrap gap-3">
+      <div className="mt-8 mb-4 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Select value={String(year)} onValueChange={(v) => setYear(parseInt(v, 10))}>
             <SelectTrigger
@@ -796,23 +1094,11 @@ export default function SimulationPage() {
           </Select>
           <CurrencySwitch value={displayCurrency} onChange={setDisplayCurrency} />
         </div>
-        <button
-          type="button"
-          onClick={() => setThreadsDialogOpen(true)}
-          title="Threads"
-          className="relative flex h-[38px] w-[38px] items-center justify-center rounded-[10px] cursor-pointer transition-colors hover:bg-muted/40"
-          style={{ border: "1px solid var(--color-border-default)", color: "var(--color-text-secondary)" }}
-        >
-          <StickyNote size={17} />
-          {totalNoteCount > 0 && (
-            <span
-              className="absolute -top-1.5 -right-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold"
-              style={{ backgroundColor: "var(--color-primary)", color: "#fff" }}
-            >
-              {totalNoteCount}
-            </span>
-          )}
-        </button>
+      </div>
+
+      <div className="mb-5 flex items-center flex-wrap gap-2">
+        <ThreadChips threads={threads} onOpen={setSelectedThreadId} onDelete={handleDeleteThread} />
+        <NewThreadButton onCreated={loadThreads} />
       </div>
 
       <Card
@@ -927,13 +1213,16 @@ export default function SimulationPage() {
         />
       )}
 
-      <ThreadsDialog
-        open={threadsDialogOpen}
-        onOpenChange={(v) => {
-          setThreadsDialogOpen(v);
-          if (!v) loadThreadsSummary();
-        }}
-      />
+      {selectedThread && (
+        <ThreadDetailDialog
+          threadId={selectedThread.id}
+          threadTitle={selectedThread.title}
+          onOpenChange={(v) => {
+            if (!v) setSelectedThreadId(null);
+          }}
+          onChanged={loadThreads}
+        />
+      )}
     </div>
   );
 }
