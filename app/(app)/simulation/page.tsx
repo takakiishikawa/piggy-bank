@@ -532,7 +532,7 @@ function ThreadsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {selectedThread && (
@@ -550,7 +550,7 @@ function ThreadsDialog({
         </DialogHeader>
 
         {!selectedThread ? (
-          <div className="px-1 space-y-3">
+          <div className="px-1 space-y-3 flex flex-col flex-1 min-h-0">
             {!threads ? (
               <Skeleton className="h-24 w-full rounded-lg" />
             ) : threads.length === 0 ? (
@@ -558,7 +558,7 @@ function ThreadsDialog({
                 No threads yet — create one below.
               </p>
             ) : (
-              <ul className="space-y-1.5 max-h-[50vh] overflow-y-auto">
+              <ul className="space-y-1.5 flex-1 overflow-y-auto">
                 {threads.map((t) => (
                   <li key={t.id}>
                     <button
@@ -615,7 +615,7 @@ function ThreadsDialog({
             </div>
           </div>
         ) : (
-          <div className="px-1 space-y-3">
+          <div className="px-1 space-y-3 flex flex-col flex-1 min-h-0">
             {!notes ? (
               <Skeleton className="h-24 w-full rounded-lg" />
             ) : notes.length === 0 ? (
@@ -623,7 +623,7 @@ function ThreadsDialog({
                 No notes yet — add your first thought below.
               </p>
             ) : (
-              <ul className="space-y-2.5 max-h-[45vh] overflow-y-auto">
+              <ul className="space-y-2.5 flex-1 overflow-y-auto">
                 {notes.map((n) => (
                   <li
                     key={n.id}
