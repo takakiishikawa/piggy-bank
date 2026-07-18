@@ -35,6 +35,7 @@ interface SimulationData {
   months: SimulationMonth[];
   annualIncome: number;
   annualExpense: number;
+  annualSpecialExpense: number;
   annualRemaining: number;
   yearEndProjection: number;
 }
@@ -90,30 +91,42 @@ function CurrencySwitch({
   );
 }
 
-// Income is always entered/edited in JPY regardless of the display-currency
-// switch — it's the JP salary figure, not something to convert for viewing.
+// Income is stored/edited in JPY internally, but shown and typed in
+// whichever currency the display switch is set to — converting on the way
+// in and out — so it stays consistent with every other figure on the page.
 function IncomeInput({
   value,
+  displayCurrency,
+  vndPerJpy,
   onSave,
 }: {
   value: number;
-  onSave: (n: number) => void;
+  displayCurrency: DisplayCurrency;
+  vndPerJpy: number;
+  onSave: (jpyAmount: number) => void;
 }) {
-  const [text, setText] = useState(String(value));
+  const toDisplay = (jpy: number) =>
+    displayCurrency === "JPY" ? Math.round(jpy) : Math.round(jpy * vndPerJpy);
+  const toJpy = (displayAmount: number) =>
+    displayCurrency === "JPY" ? displayAmount : displayAmount / vndPerJpy;
+
+  const [text, setText] = useState(String(toDisplay(value)));
   const savedValueRef = useRef(value);
 
   useEffect(() => {
-    setText(String(value));
+    setText(String(toDisplay(value)));
     savedValueRef.current = value;
-  }, [value]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, displayCurrency, vndPerJpy]);
 
   const commit = () => {
-    const n = parseInt(digitsOnly(text), 10) || 0;
+    const displayAmount = parseInt(digitsOnly(text), 10) || 0;
+    const n = Math.round(toJpy(displayAmount));
     if (n !== savedValueRef.current) {
       savedValueRef.current = n;
       onSave(n);
     }
-    setText(String(n));
+    setText(String(toDisplay(n)));
   };
 
   return (
@@ -136,12 +149,16 @@ function IncomeInput({
 function MonthRow({
   m,
   formatAmount,
+  displayCurrency,
+  vndPerJpy,
   onUpdateIncome,
   onOpenEntries,
   onSaveNote,
 }: {
   m: SimulationMonth;
   formatAmount: (jpyAmount: number) => string;
+  displayCurrency: DisplayCurrency;
+  vndPerJpy: number;
   onUpdateIncome: (month: string, jpyAmount: number) => void;
   onOpenEntries: (month: string, kind: "income" | "expense") => void;
   onSaveNote: (month: string, note: string | null) => void;
@@ -185,7 +202,12 @@ function MonthRow({
         </span>
       ) : (
         <>
-          <IncomeInput value={m.regularIncome} onSave={(n) => onUpdateIncome(m.month, n)} />
+          <IncomeInput
+            value={m.regularIncome}
+            displayCurrency={displayCurrency}
+            vndPerJpy={vndPerJpy}
+            onSave={(n) => onUpdateIncome(m.month, n)}
+          />
           <button
             type="button"
             onClick={() => onOpenEntries(m.month, "income")}
@@ -1105,7 +1127,7 @@ export default function SimulationPage() {
                 <span className="text-[15px] font-semibold" style={{ color: "var(--color-text-subtle)" }}>−</span>
                 <span className="flex items-center gap-1 font-num font-bold text-[15px]" style={{ color: "var(--color-text-secondary)" }}>
                   <TrendingDown size={14} />
-                  {formatAmount(data.annualExpense)}
+                  {formatAmount(data.annualExpense + data.annualSpecialExpense)}
                 </span>
                 <span className="text-[15px] font-semibold" style={{ color: "var(--color-text-subtle)" }}>=</span>
                 <span className="font-num font-bold text-[16px]" style={{ color: "var(--color-text-primary)" }}>
@@ -1158,6 +1180,8 @@ export default function SimulationPage() {
               key={m.month}
               m={m}
               formatAmount={formatAmount}
+              displayCurrency={displayCurrency}
+              vndPerJpy={vndPerJpy}
               onUpdateIncome={handleUpdateIncome}
               onOpenEntries={(month, kind) => setEntriesDialog({ month, kind })}
               onSaveNote={handleSaveNote}
