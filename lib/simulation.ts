@@ -21,8 +21,11 @@ export interface SimulationMonth {
   specialIncomes: SpecialEntry[];
   specialExpenses: SpecialEntry[];
   income: number; // regularIncome + sum(specialIncomes), JPY
-  expense: number; // sum(specialExpenses), JPY
-  remaining: number; // income - expense, JPY
+  // This month: Dashboard's forecast. Future months: Total Monthly Budget.
+  // Past months: 0 (not tracked). JPY.
+  expense: number;
+  specialExpenseTotal: number; // sum(specialExpenses), JPY
+  remaining: number; // income - expense - specialExpenseTotal, JPY
   note: string | null;
   hasRecord: boolean;
   isCurrentMonth: boolean;
@@ -55,6 +58,9 @@ export function buildSimulationYear(
   defaultMonthlyIncome: number,
   specialEntries: SpecialEntry[],
   vndPerJpy: number,
+  // VN-side budget figures (VND) from the Dashboard/Budget pages.
+  forecastVnd: number | null,
+  lifeBudgetVnd: number,
   now: Date = new Date(),
   startingCumulative = 0,
 ): SimulationMonth[] {
@@ -93,9 +99,7 @@ export function buildSimulationYear(
     // set per month.
     const regularIncome = hasRecord ? defaultMonthlyIncome : 0;
 
-    // Every entry converts into JPY using the day's rate before summing, so
-    // VND special expenses (flagged from VN transactions) actually reduce
-    // the JPY total instead of being silently excluded from it.
+    // Every entry converts into JPY using the day's rate before summing.
     const specialIncomeTotal = specialIncomes.reduce(
       (s, e) => s + toJpy(e.amount, e.currency, vndPerJpy),
       0,
@@ -104,9 +108,21 @@ export function buildSimulationYear(
       (s, e) => s + toJpy(e.amount, e.currency, vndPerJpy),
       0,
     );
+
+    // Expense reflects the VN-side regular spending plan, separate from
+    // one-off special expenses: this month uses the Dashboard's forecast,
+    // future months use the Total Monthly Budget, past months aren't
+    // tracked here (0).
+    let expenseVnd = 0;
+    if (isCurrentMonth) {
+      expenseVnd = forecastVnd ?? lifeBudgetVnd;
+    } else if (isFuture) {
+      expenseVnd = lifeBudgetVnd;
+    }
+    const expense = expenseVnd / vndPerJpy;
+
     const income = regularIncome + specialIncomeTotal;
-    const expense = specialExpenseTotal;
-    const remaining = income - expense;
+    const remaining = income - expense - specialExpenseTotal;
 
     if (hasRecord) {
       cumulative += remaining;
@@ -122,6 +138,7 @@ export function buildSimulationYear(
       specialExpenses,
       income,
       expense,
+      specialExpenseTotal,
       remaining,
       note: record?.note ?? null,
       hasRecord,
@@ -140,6 +157,10 @@ export function annualIncome(months: SimulationMonth[]): number {
 
 export function annualExpense(months: SimulationMonth[]): number {
   return months.reduce((sum, m) => sum + (m.hasRecord ? m.expense : 0), 0);
+}
+
+export function annualSpecialExpense(months: SimulationMonth[]): number {
+  return months.reduce((sum, m) => sum + (m.hasRecord ? m.specialExpenseTotal : 0), 0);
 }
 
 export function annualRemaining(months: SimulationMonth[]): number {
