@@ -29,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
   Skeleton,
+  Switch,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -61,6 +62,7 @@ interface ReportData {
   periods: PeriodItem[];
   topCategories: string[];
   categoryType: string;
+  includeSpecial: boolean;
 }
 type CategoryType = "variable" | "fixed" | "all";
 
@@ -184,6 +186,7 @@ export default function ReportPage() {
   const router = useRouter();
   const [categoryType, setCategoryType] = useState<CategoryType>("variable");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [includeSpecial, setIncludeSpecial] = useState(false);
   const [data, setData] = useState<ReportData | null>(null);
   const [wishlistOpen, setWishlistOpen] = useState(false);
   const [detail, setDetail] = useState<{
@@ -192,17 +195,17 @@ export default function ReportPage() {
     txs: TxItem[] | null;
   } | null>(null);
 
-  const fetchData = useCallback(async (type: CategoryType) => {
+  const fetchData = useCallback(async (type: CategoryType, special: boolean) => {
     setData(null);
-    const res = await fetch(`/api/weekly?type=${type}`);
+    const res = await fetch(`/api/weekly?type=${type}&includeSpecial=${special}`);
     if (!res.ok) return;
     const json: ReportData = await res.json();
     setData(json);
   }, []);
 
   useEffect(() => {
-    fetchData(categoryType);
-  }, [categoryType, fetchData]);
+    fetchData(categoryType, includeSpecial);
+  }, [categoryType, includeSpecial, fetchData]);
 
   useEffect(() => {
     if (
@@ -359,6 +362,12 @@ export default function ReportPage() {
           </TabsList>
         </Tabs>
         <div className="flex items-center gap-2.5">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <Switch checked={includeSpecial} onCheckedChange={setIncludeSpecial} />
+            <span className="text-sm font-medium" style={{ color: "var(--color-text-secondary)" }}>
+              Special expenses
+            </span>
+          </label>
           <Button
             variant="outline"
             size="sm"
@@ -391,7 +400,7 @@ export default function ReportPage() {
       >
         <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
           <p className="text-xs font-semibold uppercase tracking-[0.06em]" style={{ color: "var(--color-text-subtle)" }}>
-            Spending Trend (Last 6 Months)
+            Spending Trend (Last 9 Months)
           </p>
           {data && data.topCategories.length > 0 && (
             <div className="flex flex-wrap items-center justify-end gap-2">

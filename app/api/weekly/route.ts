@@ -21,12 +21,15 @@ export async function GET(req: NextRequest) {
   const typeParam = req.nextUrl.searchParams.get("type") ?? "variable";
   const categoryType: CategoryType =
     typeParam === "fixed" ? "fixed" : typeParam === "all" ? "all" : "variable";
+  // Special expenses (one-off items flagged from Transactions) are excluded
+  // from the Report by default, same as the Dashboard — toggle to include them.
+  const includeSpecial = req.nextUrl.searchParams.get("includeSpecial") === "true";
 
   const now = new Date();
 
-  // 過去6ヶ月分の月次バケットを生成
+  // 過去9ヶ月分の月次バケットを生成
   const bucketDefs: BucketDef[] = [];
-  for (let i = 5; i >= 0; i--) {
+  for (let i = 8; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const start = new Date(d.getFullYear(), d.getMonth(), 1);
     const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
@@ -37,15 +40,17 @@ export async function GET(req: NextRequest) {
 
   const [categoryRows, ...results] = await Promise.all([
     db.from("categories").select("name, is_fixed").order("created_at"),
-    ...bucketDefs.map(({ start, end }) =>
-      db
+    ...bucketDefs.map(({ start, end }) => {
+      let q = db
         .from("transactions")
         .select("category, amount, date")
         .gt("amount", 0)
         .gte("date", start.toISOString())
         .lte("date", end.toISOString())
-        .limit(2000),
-    ),
+        .limit(2000);
+      if (!includeSpecial) q = q.eq("excluded_from_dashboard", false);
+      return q;
+    }),
   ]);
 
   const allCategories = (categoryRows.data ?? []) as { name: string; is_fixed: boolean }[];
@@ -109,5 +114,6 @@ export async function GET(req: NextRequest) {
     periods,
     topCategories,
     categoryType,
+    includeSpecial,
   });
 }
