@@ -25,9 +25,6 @@ import {
   SelectContent,
   SelectItem,
   Skeleton,
-  Tabs,
-  TabsList,
-  TabsTrigger,
   Tag,
   toast,
 } from "@takaki/go-design-system";
@@ -81,7 +78,7 @@ function CurrencySwitch({
           key={c}
           type="button"
           onClick={() => onChange(c)}
-          className="px-3 h-[38px] text-sm font-semibold cursor-pointer transition-colors"
+          className="px-3 h-[38px] text-sm font-semibold cursor-pointer transition-all hover:opacity-80 active:scale-95"
           style={{
             backgroundColor: value === c ? "var(--color-primary)" : "transparent",
             color: value === c ? "#fff" : "var(--color-text-secondary)",
@@ -193,7 +190,7 @@ function MonthRow({
           <button
             type="button"
             onClick={() => onOpenEntries(m.month, "income")}
-            className="text-right text-sm font-num transition-opacity hover:opacity-70 cursor-pointer"
+            className="text-right text-sm font-num transition-all hover:opacity-70 active:scale-95 cursor-pointer"
             style={{ color: "var(--color-success)" }}
           >
             {formatAmount(m.income - m.regularIncome)}
@@ -208,7 +205,7 @@ function MonthRow({
           <button
             type="button"
             onClick={() => onOpenEntries(m.month, "expense")}
-            className="text-right text-sm font-num transition-opacity hover:opacity-70 cursor-pointer"
+            className="text-right text-sm font-num transition-all hover:opacity-70 active:scale-95 cursor-pointer"
             style={{ color: m.specialExpenseTotal > 0 ? "var(--color-danger)" : "var(--color-text-secondary)" }}
           >
             {m.specialExpenseTotal > 0 ? formatAmount(m.specialExpenseTotal) : "—"}
@@ -328,7 +325,7 @@ function SpecialEntriesDialog({
                         <button
                           type="button"
                           onClick={() => handleDelete(e.id)}
-                          className="text-xs font-medium cursor-pointer hover:opacity-70"
+                          className="text-xs font-medium cursor-pointer transition-all hover:opacity-70 active:scale-90"
                           style={{ color: "var(--color-danger)" }}
                         >
                           Remove
@@ -371,7 +368,7 @@ function SpecialEntriesDialog({
                   key={c}
                   type="button"
                   onClick={() => setCurrency(c)}
-                  className="px-2 h-9 text-xs font-semibold cursor-pointer transition-colors"
+                  className="px-2 h-9 text-xs font-semibold cursor-pointer transition-all hover:opacity-80 active:scale-95"
                   style={{
                     backgroundColor: currency === c ? "var(--color-primary)" : "transparent",
                     color: currency === c ? "#fff" : "var(--color-text-secondary)",
@@ -482,7 +479,7 @@ function NewThreadButton({ onCreated }: { onCreated: () => void }) {
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="flex items-center gap-1.5 h-[34px] px-3 rounded-full text-sm font-semibold cursor-pointer transition-colors hover:bg-muted/40"
+          className="flex items-center gap-1.5 h-[34px] px-3 rounded-full text-sm font-semibold cursor-pointer transition-all hover:bg-muted/40 active:scale-[0.96] active:bg-muted/60"
           style={{ border: "1px dashed var(--color-border-strong)", color: "var(--color-text-secondary)" }}
         >
           <Plus size={14} />
@@ -500,7 +497,7 @@ function NewThreadButton({ onCreated }: { onCreated: () => void }) {
             }}
             autoFocus
           />
-          <Button className="w-full" onClick={handleCreate} disabled={saving || !title.trim()}>
+          <Button className="w-full active:scale-[0.97]" onClick={handleCreate} disabled={saving || !title.trim()}>
             Create
           </Button>
         </div>
@@ -526,7 +523,7 @@ function ThreadChips({
           key={t.id}
           type="button"
           onClick={() => onOpen(t.id)}
-          className="group flex items-center gap-2 h-[34px] pl-3 pr-2 rounded-full text-sm font-semibold cursor-pointer transition-colors hover:opacity-90"
+          className="group flex items-center gap-2 h-[34px] pl-3 pr-2 rounded-full text-sm font-semibold cursor-pointer transition-all hover:bg-muted/40 active:scale-[0.96] active:bg-muted/60"
           style={{ backgroundColor: "var(--color-surface)", border: "1px solid var(--color-border-default)", color: "var(--color-text-primary)" }}
         >
           <span className="truncate max-w-[160px]">{t.title}</span>
@@ -550,7 +547,7 @@ function ThreadChips({
               e.stopPropagation();
               onDelete(t.id);
             }}
-            className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer p-0.5"
+            className="opacity-0 group-hover:opacity-100 transition-all cursor-pointer p-0.5 hover:opacity-70 active:scale-90"
             style={{ color: "var(--color-text-subtle)" }}
           >
             <Trash2 size={12} />
@@ -572,8 +569,6 @@ function ThreadDetailDialog({
   onOpenChange: (v: boolean) => void;
   onChanged: () => void;
 }) {
-  const [tab, setTab] = useState<"notes" | "tasks">("notes");
-
   const [notes, setNotes] = useState<Note[] | null>(null);
   const [newNoteBody, setNewNoteBody] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -601,7 +596,6 @@ function ThreadDetailDialog({
   useEffect(() => {
     setNotes(null);
     setTasks(null);
-    setTab("notes");
     setExpandedTaskId(null);
     setComments({});
     loadNotes();
@@ -741,47 +735,24 @@ function ThreadDetailDialog({
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{threadTitle}</DialogTitle>
         </DialogHeader>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as "notes" | "tasks")}>
-          <TabsList
-            className="p-1 rounded-[11px] h-auto gap-1 border-b-0"
-            style={{ backgroundColor: "var(--kg-track)" }}
-          >
-            {(["notes", "tasks"] as const).map((v) => (
-              <TabsTrigger
-                key={v}
-                value={v}
-                className="rounded-lg px-4 py-1.5 text-sm font-semibold capitalize border-b-0 transition-all"
-                style={
-                  tab === v
-                    ? {
-                        backgroundColor: "var(--color-surface)",
-                        color: "var(--color-text-primary)",
-                        boxShadow: "0 1px 2px rgba(120,72,10,.08)",
-                      }
-                    : { backgroundColor: "transparent", color: "var(--color-text-secondary)", boxShadow: "none" }
-                }
-              >
-                {v}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-
-        {tab === "notes" ? (
-          <div className="px-1 space-y-3 flex flex-col flex-1 min-h-0 mt-2">
+        <div className="grid grid-cols-2 gap-6 flex-1 min-h-0 mt-1">
+          <div className="flex flex-col min-h-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.05em] mb-2.5" style={{ color: "var(--color-text-subtle)" }}>
+              Notes
+            </p>
             {!notes ? (
               <Skeleton className="h-24 w-full rounded-lg" />
             ) : notes.length === 0 ? (
-              <p className="text-sm py-4 text-center" style={{ color: "var(--color-text-secondary)" }}>
-                No notes yet — add your first thought below.
+              <p className="text-sm py-4 text-center flex-1" style={{ color: "var(--color-text-secondary)" }}>
+                No notes yet.
               </p>
             ) : (
-              <ul className="space-y-2.5 flex-1 overflow-y-auto">
+              <ul className="space-y-2.5 flex-1 overflow-y-auto pr-1">
                 {notes.map((n) => (
                   <li
                     key={n.id}
@@ -798,10 +769,10 @@ function ThreadDetailDialog({
                           autoFocus
                         />
                         <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm" onClick={() => setEditingNoteId(null)}>
+                          <Button variant="outline" size="sm" className="active:scale-[0.96]" onClick={() => setEditingNoteId(null)}>
                             Cancel
                           </Button>
-                          <Button size="sm" onClick={handleSaveEdit} disabled={!editingBody.trim()}>
+                          <Button size="sm" className="active:scale-[0.96]" onClick={handleSaveEdit} disabled={!editingBody.trim()}>
                             Save
                           </Button>
                         </div>
@@ -819,7 +790,7 @@ function ThreadDetailDialog({
                             <button
                               type="button"
                               onClick={() => startEdit(n)}
-                              className="cursor-pointer hover:opacity-70"
+                              className="cursor-pointer transition-all hover:opacity-70 active:scale-90"
                               style={{ color: "var(--color-text-subtle)" }}
                             >
                               <Pencil size={13} />
@@ -827,7 +798,7 @@ function ThreadDetailDialog({
                             <button
                               type="button"
                               onClick={() => handleDeleteNote(n.id)}
-                              className="cursor-pointer hover:opacity-70"
+                              className="cursor-pointer transition-all hover:opacity-70 active:scale-90"
                               style={{ color: "var(--color-danger)" }}
                             >
                               <Trash2 size={13} />
@@ -841,7 +812,7 @@ function ThreadDetailDialog({
               </ul>
             )}
             <div
-              className="flex items-end gap-2 pt-3"
+              className="flex items-end gap-2 pt-3 mt-2"
               style={{ borderTop: "1px solid var(--color-border-subtle)" }}
             >
               <Textarea
@@ -851,21 +822,24 @@ function ThreadDetailDialog({
                 className="text-sm flex-1"
                 rows={2}
               />
-              <Button onClick={handleAddNote} disabled={!newNoteBody.trim()}>
+              <Button className="active:scale-[0.96]" onClick={handleAddNote} disabled={!newNoteBody.trim()}>
                 Add
               </Button>
             </div>
           </div>
-        ) : (
-          <div className="px-1 space-y-3 flex flex-col flex-1 min-h-0 mt-2">
+
+          <div className="flex flex-col min-h-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.05em] mb-2.5" style={{ color: "var(--color-text-subtle)" }}>
+              Tasks
+            </p>
             {!tasks ? (
               <Skeleton className="h-24 w-full rounded-lg" />
             ) : tasks.length === 0 ? (
-              <p className="text-sm py-4 text-center" style={{ color: "var(--color-text-secondary)" }}>
-                No tasks yet — add your first one below.
+              <p className="text-sm py-4 text-center flex-1" style={{ color: "var(--color-text-secondary)" }}>
+                No tasks yet.
               </p>
             ) : (
-              <ul className="space-y-2 flex-1 overflow-y-auto">
+              <ul className="space-y-2 flex-1 overflow-y-auto pr-1">
                 {tasks.map((t) => (
                   <li key={t.id} className="rounded-lg" style={{ border: "1px solid var(--color-border-default)" }}>
                     <div className="flex items-center gap-2.5 px-3 py-2.5">
@@ -889,7 +863,7 @@ function ThreadDetailDialog({
                       <button
                         type="button"
                         onClick={() => toggleExpand(t.id)}
-                        className="flex items-center gap-1 text-[11px] font-semibold cursor-pointer hover:opacity-70 shrink-0"
+                        className="flex items-center gap-1 text-[11px] font-semibold cursor-pointer transition-all hover:opacity-70 active:scale-90 shrink-0"
                         style={{ color: "var(--color-text-secondary)" }}
                       >
                         <MessageSquare size={12} />
@@ -905,7 +879,7 @@ function ThreadDetailDialog({
                       <button
                         type="button"
                         onClick={() => handleDeleteTask(t.id)}
-                        className="cursor-pointer hover:opacity-70 shrink-0"
+                        className="cursor-pointer transition-all hover:opacity-70 active:scale-90 shrink-0"
                         style={{ color: "var(--color-danger)" }}
                       >
                         <Trash2 size={13} />
@@ -931,7 +905,7 @@ function ThreadDetailDialog({
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteComment(t.id, c.id)}
-                                  className="cursor-pointer hover:opacity-70 shrink-0"
+                                  className="cursor-pointer transition-all hover:opacity-70 active:scale-90 shrink-0"
                                   style={{ color: "var(--color-danger)" }}
                                 >
                                   <Trash2 size={11} />
@@ -950,7 +924,7 @@ function ThreadDetailDialog({
                             }}
                             className="flex-1 h-8 text-xs"
                           />
-                          <Button size="sm" onClick={() => handleAddComment(t.id)} disabled={!newCommentBody.trim()}>
+                          <Button size="sm" className="active:scale-[0.96]" onClick={() => handleAddComment(t.id)} disabled={!newCommentBody.trim()}>
                             Add
                           </Button>
                         </div>
@@ -961,7 +935,7 @@ function ThreadDetailDialog({
               </ul>
             )}
             <div
-              className="flex items-center gap-2 pt-3"
+              className="space-y-2 pt-3 mt-2"
               style={{ borderTop: "1px solid var(--color-border-subtle)" }}
             >
               <Input
@@ -971,21 +945,22 @@ function ThreadDetailDialog({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleAddTask();
                 }}
-                className="flex-1"
               />
-              <Input
-                type="date"
-                value={newTaskDate}
-                onChange={(e) => setNewTaskDate(e.target.value)}
-                className="w-[150px] font-num"
-              />
-              <Button onClick={handleAddTask} disabled={!newTaskTitle.trim()}>
-                <Plus size={15} />
-                Add
-              </Button>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={newTaskDate}
+                  onChange={(e) => setNewTaskDate(e.target.value)}
+                  className="flex-1 font-num"
+                />
+                <Button className="active:scale-[0.96]" onClick={handleAddTask} disabled={!newTaskTitle.trim()}>
+                  <Plus size={15} />
+                  Add
+                </Button>
+              </div>
             </div>
           </div>
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -1074,7 +1049,7 @@ export default function SimulationPage() {
 
   return (
     <div>
-      <div className="mt-8 mb-4 flex items-center justify-between flex-wrap gap-3">
+      <div className="mt-8 mb-5 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Select value={String(year)} onValueChange={(v) => setYear(parseInt(v, 10))}>
             <SelectTrigger
@@ -1094,11 +1069,10 @@ export default function SimulationPage() {
           </Select>
           <CurrencySwitch value={displayCurrency} onChange={setDisplayCurrency} />
         </div>
-      </div>
-
-      <div className="mb-5 flex items-center flex-wrap gap-2">
-        <ThreadChips threads={threads} onOpen={setSelectedThreadId} onDelete={handleDeleteThread} />
-        <NewThreadButton onCreated={loadThreads} />
+        <div className="flex items-center flex-wrap justify-end gap-2">
+          <ThreadChips threads={threads} onOpen={setSelectedThreadId} onDelete={handleDeleteThread} />
+          <NewThreadButton onCreated={loadThreads} />
+        </div>
       </div>
 
       <Card
