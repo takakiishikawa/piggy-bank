@@ -293,7 +293,7 @@ function SpecialEntriesDialog({
         <div className="px-1 space-y-3">
           {isExpense && (
             <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
-              Set automatically when you mark a transaction as &quot;Special expense&quot; in Transactions. To remove one, unmark it there.
+              Add a planned expense yourself, or mark a transaction as &quot;Special expense&quot; in Transactions to add one automatically.
             </p>
           )}
           {entries.length === 0 ? (
@@ -316,7 +316,7 @@ function SpecialEntriesDialog({
                       <span className="font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>
                         {formatAmount(entryJpy)}
                       </span>
-                      {!isExpense && (
+                      {e.source === "manual" ? (
                         <button
                           type="button"
                           onClick={() => handleDelete(e.id)}
@@ -325,6 +325,10 @@ function SpecialEntriesDialog({
                         >
                           Remove
                         </button>
+                      ) : (
+                        <span className="text-[11px]" style={{ color: "var(--color-text-subtle)" }}>
+                          From Transactions
+                        </span>
                       )}
                     </span>
                   </li>
@@ -332,56 +336,52 @@ function SpecialEntriesDialog({
               })}
             </ul>
           )}
-          {!isExpense && (
-            <div
-              className="flex items-center gap-2 pt-3"
-              style={{ borderTop: "1px solid var(--color-border-subtle)" }}
-            >
-              <Input
-                placeholder="Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="flex-1"
-              />
-              <Input
-                type="text"
-                inputMode="numeric"
-                placeholder="Amount"
-                value={withCommas(amountText)}
-                onChange={(e) => setAmountText(digitsOnly(e.target.value))}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleAdd();
-                }}
-                className="w-24 font-num"
-              />
-              <div className="flex rounded-lg overflow-hidden shrink-0" style={{ border: "1px solid var(--color-border-default)" }}>
-                {(["JPY", "VND"] as const).map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setCurrency(c)}
-                    className="px-2 h-9 text-xs font-semibold cursor-pointer transition-colors"
-                    style={{
-                      backgroundColor: currency === c ? "var(--color-primary)" : "transparent",
-                      color: currency === c ? "#fff" : "var(--color-text-secondary)",
-                    }}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
+          <div
+            className="flex items-center gap-2 pt-3"
+            style={{ borderTop: "1px solid var(--color-border-subtle)" }}
+          >
+            <Input
+              placeholder="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="flex-1"
+            />
+            <Input
+              type="text"
+              inputMode="numeric"
+              placeholder="Amount"
+              value={withCommas(amountText)}
+              onChange={(e) => setAmountText(digitsOnly(e.target.value))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleAdd();
+              }}
+              className="w-24 font-num"
+            />
+            <div className="flex rounded-lg overflow-hidden shrink-0" style={{ border: "1px solid var(--color-border-default)" }}>
+              {(["JPY", "VND"] as const).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCurrency(c)}
+                  className="px-2 h-9 text-xs font-semibold cursor-pointer transition-colors"
+                  style={{
+                    backgroundColor: currency === c ? "var(--color-primary)" : "transparent",
+                    color: currency === c ? "#fff" : "var(--color-text-secondary)",
+                  }}
+                >
+                  {c}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
         </div>
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          {!isExpense && (
-            <Button onClick={handleAdd} disabled={saving || !name.trim()}>
-              Add
-            </Button>
-          )}
+          <Button onClick={handleAdd} disabled={saving || !name.trim()}>
+            Add
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

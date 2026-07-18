@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   const { data, error } = await db
     .from("special_entries")
     .insert(parsed)
-    .select("id, month, kind, name, amount, currency")
+    .select("id, month, kind, name, amount, currency, source")
     .single();
 
   if (error) {

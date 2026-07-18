@@ -11,6 +11,7 @@ export interface SpecialEntry {
   name: string;
   amount: number;
   currency: "JPY" | "VND";
+  source: "manual" | "transaction";
 }
 
 export interface SimulationMonth {

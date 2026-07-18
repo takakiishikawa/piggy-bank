@@ -36,7 +36,7 @@ async function fetchYearSpecialEntries(
 ): Promise<SpecialEntry[]> {
   const { data } = await db
     .from("special_entries")
-    .select("id, month, kind, name, amount, currency")
+    .select("id, month, kind, name, amount, currency, source")
     .gte("month", `${year}-01`)
     .lte("month", `${year}-12`);
   return (data ?? []) as SpecialEntry[];

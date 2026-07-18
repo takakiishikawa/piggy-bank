@@ -62,6 +62,7 @@ export async function PATCH(
           name: tx.store,
           amount: tx.amount,
           currency: "VND",
+          source: "transaction",
         })
         .select("id")
         .single();
