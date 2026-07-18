@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthDb } from "@/lib/supabase/auth-db";
 
@@ -6,17 +6,23 @@ const CreateSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(80),
 });
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const result = await getAuthDb();
   if (result instanceof NextResponse) return result;
   const { db } = result;
 
+  const wantClosed = req.nextUrl.searchParams.get("closed") === "true";
+
   const [{ data: threadRows, error: threadsError }, { data: taskRows, error: tasksError }] =
     await Promise.all([
-      db
-        .from("simulation_threads")
-        .select("id, title, created_at, notes:simulation_notes(count)")
-        .order("created_at", { ascending: true }),
+      (() => {
+        let q = db
+          .from("simulation_threads")
+          .select("id, title, created_at, closed_at, notes:simulation_notes(count)")
+          .order("created_at", { ascending: true });
+        q = wantClosed ? q.not("closed_at", "is", null) : q.is("closed_at", null);
+        return q;
+      })(),
       db.from("simulation_tasks").select("thread_id, done"),
     ]);
 
@@ -41,6 +47,7 @@ export async function GET() {
       id: t.id,
       title: t.title,
       createdAt: t.created_at,
+      closedAt: t.closed_at,
       noteCount: (t.notes as { count: number }[] | null)?.[0]?.count ?? 0,
       taskCount: tc.total,
       openTaskCount: tc.open,
@@ -76,7 +83,7 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json(
-    { id: data.id, title: data.title, createdAt: data.created_at, noteCount: 0, taskCount: 0, openTaskCount: 0 },
+    { id: data.id, title: data.title, createdAt: data.created_at, closedAt: null, noteCount: 0, taskCount: 0, openTaskCount: 0 },
     { status: 201 },
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { AlertTriangle, ChevronDown, Plus, Trash2, MessageSquare, CheckSquare, TrendingUp, TrendingDown } from "lucide-react";
+import { AlertTriangle, Archive, ChevronDown, Plus, Trash2, MessageSquare, CheckSquare, TrendingUp, TrendingDown } from "lucide-react";
 import { formatJPY, formatVND } from "@/lib/format";
 import type { SimulationMonth, SpecialEntry } from "@/lib/simulation";
 import { NoteTag } from "@/components/note-tag";
@@ -418,6 +418,7 @@ interface Thread {
   id: string;
   title: string;
   createdAt: string;
+  closedAt: string | null;
   noteCount: number;
   taskCount: number;
   openTaskCount: number;
@@ -571,6 +572,63 @@ function ThreadChips({
   );
 }
 
+function ArchivedThreadsDialog({
+  open,
+  onOpenChange,
+  threads,
+  onOpenThread,
+  onReopen,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  threads: Thread[];
+  onOpenThread: (id: string) => void;
+  onReopen: (id: string) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Archived threads</DialogTitle>
+        </DialogHeader>
+        {threads.length === 0 ? (
+          <p className="text-sm py-4 text-center" style={{ color: "var(--color-text-secondary)" }}>
+            Nothing archived yet.
+          </p>
+        ) : (
+          <ul className="space-y-1.5 max-h-[50vh] overflow-y-auto">
+            {threads.map((t) => (
+              <li
+                key={t.id}
+                className="flex items-center justify-between gap-2 rounded-lg px-3 py-2.5"
+                style={{ border: "1px solid var(--color-border-default)" }}
+              >
+                <button
+                  type="button"
+                  onClick={() => onOpenThread(t.id)}
+                  title={t.title}
+                  className="text-sm font-semibold truncate text-left cursor-pointer transition-opacity hover:opacity-70"
+                  style={{ color: "var(--color-text-primary)" }}
+                >
+                  {t.title}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onReopen(t.id)}
+                  className="text-xs font-semibold cursor-pointer transition-all hover:opacity-70 active:scale-95 shrink-0"
+                  style={{ color: "var(--color-primary-hover)" }}
+                >
+                  Reopen
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // A note's first line acts as its title — bold/larger in both view and edit.
 function splitNoteBody(body: string): { title: string; rest: string } {
   const idx = body.indexOf("\n");
@@ -635,6 +693,20 @@ function ThreadDetailDialog({
     setTitle(next);
     setEditingTitle(false);
     onChanged();
+  };
+
+  const handleCloseThread = async () => {
+    const res = await fetch(`/api/simulation/threads/${threadId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ closed: true }),
+    });
+    if (!res.ok) {
+      toast.error("Failed to close thread");
+      return;
+    }
+    onChanged();
+    onOpenChange(false);
   };
 
   const loadNotes = useCallback(async () => {
@@ -770,29 +842,40 @@ function ThreadDetailDialog({
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
         <DialogHeader>
-          {editingTitle ? (
-            <Input
-              value={titleDraft}
-              onChange={(e) => setTitleDraft(e.target.value)}
-              onBlur={handleSaveTitle}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSaveTitle();
-                if (e.key === "Escape") {
-                  setEditingTitle(false);
-                  setTitleDraft(title);
-                }
-              }}
-              autoFocus
-              className="text-lg font-semibold h-auto py-1"
-            />
-          ) : (
-            <DialogTitle
-              onClick={() => setEditingTitle(true)}
-              className="cursor-pointer transition-opacity hover:opacity-70 w-fit"
+          <div className="flex items-center justify-between gap-3 pr-6">
+            {editingTitle ? (
+              <Input
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onBlur={handleSaveTitle}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveTitle();
+                  if (e.key === "Escape") {
+                    setEditingTitle(false);
+                    setTitleDraft(title);
+                  }
+                }}
+                autoFocus
+                className="text-lg font-semibold h-auto py-1"
+              />
+            ) : (
+              <DialogTitle
+                onClick={() => setEditingTitle(true)}
+                className="cursor-pointer transition-opacity hover:opacity-70 w-fit"
+              >
+                {title}
+              </DialogTitle>
+            )}
+            <button
+              type="button"
+              onClick={handleCloseThread}
+              className="flex items-center gap-1 text-xs font-semibold cursor-pointer transition-all hover:opacity-70 active:scale-95 shrink-0"
+              style={{ color: "var(--color-text-subtle)" }}
             >
-              {title}
-            </DialogTitle>
-          )}
+              <Archive size={13} />
+              Close thread
+            </button>
+          </div>
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-6 flex-1 min-h-0 mt-1">
@@ -999,7 +1082,9 @@ export default function SimulationPage() {
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("JPY");
   const [entriesDialog, setEntriesDialog] = useState<{ month: string; kind: "income" | "expense" } | null>(null);
   const [threads, setThreads] = useState<Thread[] | null>(null);
+  const [closedThreads, setClosedThreads] = useState<Thread[] | null>(null);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [archivedOpen, setArchivedOpen] = useState(false);
 
   const loadThreads = useCallback(async () => {
     const res = await fetch("/api/simulation/threads");
@@ -1007,9 +1092,20 @@ export default function SimulationPage() {
     setThreads(await res.json());
   }, []);
 
-  useEffect(() => {
+  const loadClosedThreads = useCallback(async () => {
+    const res = await fetch("/api/simulation/threads?closed=true");
+    if (!res.ok) return;
+    setClosedThreads(await res.json());
+  }, []);
+
+  const refreshThreads = useCallback(() => {
     loadThreads();
-  }, [loadThreads]);
+    loadClosedThreads();
+  }, [loadThreads, loadClosedThreads]);
+
+  useEffect(() => {
+    refreshThreads();
+  }, [refreshThreads]);
 
   const handleDeleteThread = async (id: string) => {
     const res = await fetch(`/api/simulation/threads/${id}`, { method: "DELETE" });
@@ -1018,10 +1114,31 @@ export default function SimulationPage() {
       return;
     }
     if (selectedThreadId === id) setSelectedThreadId(null);
-    loadThreads();
+    refreshThreads();
   };
 
-  const selectedThread = threads?.find((t) => t.id === selectedThreadId) ?? null;
+  const handleReopenThread = async (id: string) => {
+    const res = await fetch(`/api/simulation/threads/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ closed: false }),
+    });
+    if (!res.ok) {
+      toast.error("Failed to reopen thread");
+      return;
+    }
+    refreshThreads();
+  };
+
+  const openArchivedThread = (id: string) => {
+    setArchivedOpen(false);
+    setSelectedThreadId(id);
+  };
+
+  const selectedThread =
+    threads?.find((t) => t.id === selectedThreadId) ??
+    closedThreads?.find((t) => t.id === selectedThreadId) ??
+    null;
 
   const load = useCallback(async (y: number) => {
     const res = await fetch(`/api/simulation?year=${y}`);
@@ -1098,7 +1215,17 @@ export default function SimulationPage() {
         </div>
         <div className="flex items-center flex-wrap justify-end gap-2">
           <ThreadChips threads={threads} onOpen={setSelectedThreadId} onDelete={handleDeleteThread} />
-          <NewThreadButton onCreated={loadThreads} />
+          <NewThreadButton onCreated={refreshThreads} />
+          {closedThreads && closedThreads.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setArchivedOpen(true)}
+              className="text-xs font-medium cursor-pointer transition-opacity hover:opacity-70"
+              style={{ color: "var(--color-text-subtle)" }}
+            >
+              Archived ({closedThreads.length})
+            </button>
+          )}
         </div>
       </div>
 
@@ -1212,9 +1339,17 @@ export default function SimulationPage() {
           onOpenChange={(v) => {
             if (!v) setSelectedThreadId(null);
           }}
-          onChanged={loadThreads}
+          onChanged={refreshThreads}
         />
       )}
+
+      <ArchivedThreadsDialog
+        open={archivedOpen}
+        onOpenChange={setArchivedOpen}
+        threads={closedThreads ?? []}
+        onOpenThread={openArchivedThread}
+        onReopen={handleReopenThread}
+      />
     </div>
   );
 }
