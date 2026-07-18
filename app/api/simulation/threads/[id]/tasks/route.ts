@@ -18,7 +18,7 @@ export async function GET(
 
   const { data, error } = await db
     .from("simulation_tasks")
-    .select("id, thread_id, title, start_date, done, created_at, comments:simulation_task_comments(count)")
+    .select("id, thread_id, title, start_date, done, created_at")
     .eq("thread_id", id)
     .order("created_at", { ascending: false });
 
@@ -26,17 +26,7 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const tasks = (data ?? []).map((t) => ({
-    id: t.id,
-    thread_id: t.thread_id,
-    title: t.title,
-    start_date: t.start_date,
-    done: t.done,
-    created_at: t.created_at,
-    commentCount: (t.comments as { count: number }[] | null)?.[0]?.count ?? 0,
-  }));
-
-  return NextResponse.json(tasks);
+  return NextResponse.json(data ?? []);
 }
 
 export async function POST(
@@ -72,5 +62,5 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ...data, commentCount: 0 }, { status: 201 });
+  return NextResponse.json(data, { status: 201 });
 }

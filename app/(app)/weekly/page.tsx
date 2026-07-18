@@ -362,12 +362,6 @@ export default function ReportPage() {
           </TabsList>
         </Tabs>
         <div className="flex items-center gap-2.5">
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <Switch checked={includeSpecial} onCheckedChange={setIncludeSpecial} />
-            <span className="text-sm font-medium" style={{ color: "var(--color-text-secondary)" }}>
-              Special expenses
-            </span>
-          </label>
           <Button
             variant="outline"
             size="sm"
@@ -402,25 +396,33 @@ export default function ReportPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.06em]" style={{ color: "var(--color-text-subtle)" }}>
             Spending Trend (Last 9 Months)
           </p>
-          {data && data.topCategories.length > 0 && (
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <CategoryChip
-                label="All"
-                value="all"
-                active={categoryFilter === "all"}
-                onSelect={setCategoryFilter}
-              />
-              {data.topCategories.map((cat) => (
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <Switch checked={includeSpecial} onCheckedChange={setIncludeSpecial} />
+              <span className="text-sm font-medium" style={{ color: "var(--color-text-secondary)" }}>
+                Special expenses
+              </span>
+            </label>
+            {data && data.topCategories.length > 0 && (
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <CategoryChip
-                  key={cat}
-                  label={cat}
-                  value={cat}
-                  active={categoryFilter === cat}
+                  label="All"
+                  value="all"
+                  active={categoryFilter === "all"}
                   onSelect={setCategoryFilter}
                 />
-              ))}
-            </div>
-          )}
+                {data.topCategories.map((cat) => (
+                  <CategoryChip
+                    key={cat}
+                    label={cat}
+                    value={cat}
+                    active={categoryFilter === cat}
+                    onSelect={setCategoryFilter}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         {chartData.length > 0 ? (
           <ChartContainer

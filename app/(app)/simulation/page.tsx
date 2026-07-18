@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { AlertTriangle, ChevronDown, ChevronRight, Plus, Pencil, Trash2, MessageSquare, CheckSquare } from "lucide-react";
+import { AlertTriangle, ChevronDown, Plus, Trash2, MessageSquare, CheckSquare, TrendingUp, TrendingDown } from "lucide-react";
 import { formatJPY, formatVND } from "@/lib/format";
 import type { SimulationMonth, SpecialEntry } from "@/lib/simulation";
 import { NoteTag } from "@/components/note-tag";
@@ -35,7 +35,6 @@ interface SimulationData {
   months: SimulationMonth[];
   annualIncome: number;
   annualExpense: number;
-  annualSpecialExpense: number;
   annualRemaining: number;
   yearEndProjection: number;
 }
@@ -417,15 +416,6 @@ interface SimTask {
   start_date: string | null;
   done: boolean;
   created_at: string;
-  commentCount: number;
-}
-
-interface TaskComment {
-  id: string;
-  task_id: string;
-  body: string;
-  created_at: string;
-  updated_at: string;
 }
 
 function formatNoteTime(iso: string): string {
@@ -523,10 +513,11 @@ function ThreadChips({
           key={t.id}
           type="button"
           onClick={() => onOpen(t.id)}
+          title={t.title}
           className="group flex items-center gap-2 h-[34px] pl-3 pr-2 rounded-full text-sm font-semibold cursor-pointer transition-all hover:bg-muted/40 active:scale-[0.96] active:bg-muted/60"
           style={{ backgroundColor: "var(--color-surface)", border: "1px solid var(--color-border-default)", color: "var(--color-text-primary)" }}
         >
-          <span className="truncate max-w-[160px]">{t.title}</span>
+          <span className="truncate max-w-[140px]">{t.title}</span>
           {t.noteCount > 0 && (
             <span className="flex items-center gap-0.5 text-[11px] font-bold" style={{ color: "var(--color-primary-hover)" }}>
               <MessageSquare size={11} />
@@ -558,6 +549,17 @@ function ThreadChips({
   );
 }
 
+// A note's first line acts as its title — bold/larger in both view and edit.
+function splitNoteBody(body: string): { title: string; rest: string } {
+  const idx = body.indexOf("\n");
+  if (idx === -1) return { title: body, rest: "" };
+  return { title: body.slice(0, idx), rest: body.slice(idx + 1) };
+}
+
+function joinNoteBody(title: string, rest: string): string {
+  return rest.trim() ? `${title}\n${rest}` : title;
+}
+
 function ThreadDetailDialog({
   threadId,
   threadTitle,
@@ -569,17 +571,49 @@ function ThreadDetailDialog({
   onOpenChange: (v: boolean) => void;
   onChanged: () => void;
 }) {
+  const [title, setTitle] = useState(threadTitle);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(threadTitle);
+
   const [notes, setNotes] = useState<Note[] | null>(null);
-  const [newNoteBody, setNewNoteBody] = useState("");
+  const [newNoteTitle, setNewNoteTitle] = useState("");
+  const [newNoteRest, setNewNoteRest] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editingBody, setEditingBody] = useState("");
+  const [editingNoteTitle, setEditingNoteTitle] = useState("");
+  const [editingNoteRest, setEditingNoteRest] = useState("");
 
   const [tasks, setTasks] = useState<SimTask[] | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDate, setNewTaskDate] = useState("");
-  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
-  const [comments, setComments] = useState<Record<string, TaskComment[]>>({});
-  const [newCommentBody, setNewCommentBody] = useState("");
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskTitle, setEditingTaskTitle] = useState("");
+
+  useEffect(() => {
+    setTitle(threadTitle);
+    setTitleDraft(threadTitle);
+    setEditingTitle(false);
+  }, [threadId, threadTitle]);
+
+  const handleSaveTitle = async () => {
+    const next = titleDraft.trim();
+    if (!next || next === title) {
+      setEditingTitle(false);
+      setTitleDraft(title);
+      return;
+    }
+    const res = await fetch(`/api/simulation/threads/${threadId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: next }),
+    });
+    if (!res.ok) {
+      toast.error("Failed to rename thread");
+      return;
+    }
+    setTitle(next);
+    setEditingTitle(false);
+    onChanged();
+  };
 
   const loadNotes = useCallback(async () => {
     const res = await fetch(`/api/simulation/threads/${threadId}/notes`);
@@ -596,39 +630,40 @@ function ThreadDetailDialog({
   useEffect(() => {
     setNotes(null);
     setTasks(null);
-    setExpandedTaskId(null);
-    setComments({});
     loadNotes();
     loadTasks();
   }, [threadId, loadNotes, loadTasks]);
 
   const handleAddNote = async () => {
-    if (!newNoteBody.trim()) return;
+    if (!newNoteTitle.trim()) return;
     const res = await fetch(`/api/simulation/threads/${threadId}/notes`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: newNoteBody.trim() }),
+      body: JSON.stringify({ body: joinNoteBody(newNoteTitle.trim(), newNoteRest) }),
     });
     if (!res.ok) {
       toast.error("Failed to save note");
       return;
     }
-    setNewNoteBody("");
+    setNewNoteTitle("");
+    setNewNoteRest("");
     loadNotes();
     onChanged();
   };
 
-  const startEdit = (note: Note) => {
+  const startEditNote = (note: Note) => {
+    const { title: t, rest } = splitNoteBody(note.body);
     setEditingNoteId(note.id);
-    setEditingBody(note.body);
+    setEditingNoteTitle(t);
+    setEditingNoteRest(rest);
   };
 
-  const handleSaveEdit = async () => {
-    if (!editingNoteId || !editingBody.trim()) return;
+  const handleSaveNoteEdit = async () => {
+    if (!editingNoteId || !editingNoteTitle.trim()) return;
     const res = await fetch(`/api/simulation/notes/${editingNoteId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: editingBody.trim() }),
+      body: JSON.stringify({ body: joinNoteBody(editingNoteTitle.trim(), editingNoteRest) }),
     });
     if (!res.ok) {
       toast.error("Failed to save note");
@@ -679,65 +714,63 @@ function ThreadDetailDialog({
     onChanged();
   };
 
+  const startEditTask = (task: SimTask) => {
+    setEditingTaskId(task.id);
+    setEditingTaskTitle(task.title);
+  };
+
+  const handleSaveTaskTitle = async () => {
+    if (!editingTaskId || !editingTaskTitle.trim()) return;
+    const res = await fetch(`/api/simulation/tasks/${editingTaskId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: editingTaskTitle.trim() }),
+    });
+    if (!res.ok) {
+      toast.error("Failed to save task");
+      return;
+    }
+    setEditingTaskId(null);
+    loadTasks();
+  };
+
   const handleDeleteTask = async (id: string) => {
     const res = await fetch(`/api/simulation/tasks/${id}`, { method: "DELETE" });
     if (!res.ok) {
       toast.error("Failed to delete task");
       return;
     }
-    if (expandedTaskId === id) setExpandedTaskId(null);
     loadTasks();
     onChanged();
-  };
-
-  const loadComments = useCallback(async (taskId: string) => {
-    const res = await fetch(`/api/simulation/tasks/${taskId}/comments`);
-    if (!res.ok) return;
-    const data: TaskComment[] = await res.json();
-    setComments((prev) => ({ ...prev, [taskId]: data }));
-  }, []);
-
-  const toggleExpand = (taskId: string) => {
-    if (expandedTaskId === taskId) {
-      setExpandedTaskId(null);
-      return;
-    }
-    setExpandedTaskId(taskId);
-    setNewCommentBody("");
-    if (!comments[taskId]) loadComments(taskId);
-  };
-
-  const handleAddComment = async (taskId: string) => {
-    if (!newCommentBody.trim()) return;
-    const res = await fetch(`/api/simulation/tasks/${taskId}/comments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: newCommentBody.trim() }),
-    });
-    if (!res.ok) {
-      toast.error("Failed to save comment");
-      return;
-    }
-    setNewCommentBody("");
-    loadComments(taskId);
-    loadTasks();
-  };
-
-  const handleDeleteComment = async (taskId: string, commentId: string) => {
-    const res = await fetch(`/api/simulation/task-comments/${commentId}`, { method: "DELETE" });
-    if (!res.ok) {
-      toast.error("Failed to delete comment");
-      return;
-    }
-    loadComments(taskId);
-    loadTasks();
   };
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>{threadTitle}</DialogTitle>
+          {editingTitle ? (
+            <Input
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onBlur={handleSaveTitle}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveTitle();
+                if (e.key === "Escape") {
+                  setEditingTitle(false);
+                  setTitleDraft(title);
+                }
+              }}
+              autoFocus
+              className="text-lg font-semibold h-auto py-1"
+            />
+          ) : (
+            <DialogTitle
+              onClick={() => setEditingTitle(true)}
+              className="cursor-pointer transition-opacity hover:opacity-70 w-fit"
+            >
+              {title}
+            </DialogTitle>
+          )}
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-6 flex-1 min-h-0 mt-1">
@@ -753,48 +786,58 @@ function ThreadDetailDialog({
               </p>
             ) : (
               <ul className="space-y-2.5 flex-1 overflow-y-auto pr-1">
-                {notes.map((n) => (
-                  <li
-                    key={n.id}
-                    className="rounded-lg px-3 py-2.5"
-                    style={{ border: "1px solid var(--color-border-default)", backgroundColor: "var(--color-surface-subtle)" }}
-                  >
-                    {editingNoteId === n.id ? (
-                      <div className="space-y-2">
-                        <Textarea
-                          value={editingBody}
-                          onChange={(e) => setEditingBody(e.target.value)}
-                          className="text-sm"
-                          rows={3}
-                          autoFocus
-                        />
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm" className="active:scale-[0.96]" onClick={() => setEditingNoteId(null)}>
-                            Cancel
-                          </Button>
-                          <Button size="sm" className="active:scale-[0.96]" onClick={handleSaveEdit} disabled={!editingBody.trim()}>
-                            Save
-                          </Button>
+                {notes.map((n) => {
+                  const { title: noteTitle, rest: noteRest } = splitNoteBody(n.body);
+                  return (
+                    <li
+                      key={n.id}
+                      className="rounded-lg px-3 py-2.5"
+                      style={{ border: "1px solid var(--color-border-default)", backgroundColor: "var(--color-surface-subtle)" }}
+                    >
+                      {editingNoteId === n.id ? (
+                        <div className="space-y-2">
+                          <Input
+                            value={editingNoteTitle}
+                            onChange={(e) => setEditingNoteTitle(e.target.value)}
+                            className="text-sm font-bold"
+                            placeholder="Title"
+                            autoFocus
+                          />
+                          <Textarea
+                            value={editingNoteRest}
+                            onChange={(e) => setEditingNoteRest(e.target.value)}
+                            className="text-sm"
+                            rows={3}
+                            placeholder="Details (optional)"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" className="active:scale-[0.96]" onClick={() => setEditingNoteId(null)}>
+                              Cancel
+                            </Button>
+                            <Button size="sm" className="active:scale-[0.96]" onClick={handleSaveNoteEdit} disabled={!editingNoteTitle.trim()}>
+                              Save
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <>
-                        <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--color-text-primary)" }}>
-                          {n.body}
-                        </p>
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-[11px]" style={{ color: "var(--color-text-subtle)" }}>
-                            {formatNoteTime(n.updated_at)}
-                          </span>
-                          <span className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => startEdit(n)}
-                              className="cursor-pointer transition-all hover:opacity-70 active:scale-90"
-                              style={{ color: "var(--color-text-subtle)" }}
-                            >
-                              <Pencil size={13} />
-                            </button>
+                      ) : (
+                        <>
+                          <div
+                            onClick={() => startEditNote(n)}
+                            className="cursor-pointer transition-opacity hover:opacity-70"
+                          >
+                            <p className="text-sm font-bold" style={{ color: "var(--color-text-primary)" }}>
+                              {noteTitle}
+                            </p>
+                            {noteRest && (
+                              <p className="text-sm whitespace-pre-wrap mt-1" style={{ color: "var(--color-text-primary)" }}>
+                                {noteRest}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-[11px]" style={{ color: "var(--color-text-subtle)" }}>
+                              {formatNoteTime(n.updated_at)}
+                            </span>
                             <button
                               type="button"
                               onClick={() => handleDeleteNote(n.id)}
@@ -803,28 +846,36 @@ function ThreadDetailDialog({
                             >
                               <Trash2 size={13} />
                             </button>
-                          </span>
-                        </div>
-                      </>
-                    )}
-                  </li>
-                ))}
+                          </div>
+                        </>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
             <div
-              className="flex items-end gap-2 pt-3 mt-2"
+              className="space-y-2 pt-3 mt-2"
               style={{ borderTop: "1px solid var(--color-border-subtle)" }}
             >
-              <Textarea
-                placeholder="Add a note..."
-                value={newNoteBody}
-                onChange={(e) => setNewNoteBody(e.target.value)}
-                className="text-sm flex-1"
-                rows={2}
+              <Input
+                placeholder="Title"
+                value={newNoteTitle}
+                onChange={(e) => setNewNoteTitle(e.target.value)}
+                className="font-bold"
               />
-              <Button className="active:scale-[0.96]" onClick={handleAddNote} disabled={!newNoteBody.trim()}>
-                Add
-              </Button>
+              <div className="flex items-end gap-2">
+                <Textarea
+                  placeholder="Details (optional)"
+                  value={newNoteRest}
+                  onChange={(e) => setNewNoteRest(e.target.value)}
+                  className="text-sm flex-1"
+                  rows={2}
+                />
+                <Button className="active:scale-[0.96]" onClick={handleAddNote} disabled={!newNoteTitle.trim()}>
+                  Add
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -845,37 +896,36 @@ function ThreadDetailDialog({
                     <div className="flex items-center gap-2.5 px-3 py-2.5">
                       <Checkbox checked={t.done} onCheckedChange={() => handleToggleDone(t)} />
                       <div className="flex-1 min-w-0">
-                        <p
-                          className="text-sm font-medium truncate"
-                          style={{
-                            color: t.done ? "var(--color-text-subtle)" : "var(--color-text-primary)",
-                            textDecoration: t.done ? "line-through" : "none",
-                          }}
-                        >
-                          {t.title}
-                        </p>
+                        {editingTaskId === t.id ? (
+                          <Input
+                            value={editingTaskTitle}
+                            onChange={(e) => setEditingTaskTitle(e.target.value)}
+                            onBlur={handleSaveTaskTitle}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleSaveTaskTitle();
+                              if (e.key === "Escape") setEditingTaskId(null);
+                            }}
+                            autoFocus
+                            className="h-7 text-sm"
+                          />
+                        ) : (
+                          <p
+                            onClick={() => startEditTask(t)}
+                            className="text-sm font-medium truncate cursor-pointer transition-opacity hover:opacity-70"
+                            style={{
+                              color: t.done ? "var(--color-text-subtle)" : "var(--color-text-primary)",
+                              textDecoration: t.done ? "line-through" : "none",
+                            }}
+                          >
+                            {t.title}
+                          </p>
+                        )}
                         {t.start_date && (
                           <p className="text-[11px]" style={{ color: "var(--color-text-subtle)" }}>
                             Starts {formatTaskDate(t.start_date)}
                           </p>
                         )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => toggleExpand(t.id)}
-                        className="flex items-center gap-1 text-[11px] font-semibold cursor-pointer transition-all hover:opacity-70 active:scale-90 shrink-0"
-                        style={{ color: "var(--color-text-secondary)" }}
-                      >
-                        <MessageSquare size={12} />
-                        {t.commentCount}
-                        <ChevronRight
-                          size={12}
-                          style={{
-                            transform: expandedTaskId === t.id ? "rotate(90deg)" : undefined,
-                            transition: "transform 0.15s",
-                          }}
-                        />
-                      </button>
                       <button
                         type="button"
                         onClick={() => handleDeleteTask(t.id)}
@@ -885,51 +935,6 @@ function ThreadDetailDialog({
                         <Trash2 size={13} />
                       </button>
                     </div>
-                    {expandedTaskId === t.id && (
-                      <div className="px-3 pb-3 pt-2 space-y-2" style={{ borderTop: "1px solid var(--color-border-subtle)" }}>
-                        {!comments[t.id] ? (
-                          <Skeleton className="h-8 w-full rounded" />
-                        ) : comments[t.id].length === 0 ? (
-                          <p className="text-xs py-1" style={{ color: "var(--color-text-subtle)" }}>
-                            No comments yet.
-                          </p>
-                        ) : (
-                          <ul className="space-y-1.5">
-                            {comments[t.id].map((c) => (
-                              <li
-                                key={c.id}
-                                className="flex items-start justify-between gap-2 text-xs rounded px-2 py-1.5"
-                                style={{ backgroundColor: "var(--color-surface-subtle)" }}
-                              >
-                                <span style={{ color: "var(--color-text-primary)" }}>{c.body}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteComment(t.id, c.id)}
-                                  className="cursor-pointer transition-all hover:opacity-70 active:scale-90 shrink-0"
-                                  style={{ color: "var(--color-danger)" }}
-                                >
-                                  <Trash2 size={11} />
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <Input
-                            placeholder="Add a comment..."
-                            value={newCommentBody}
-                            onChange={(e) => setNewCommentBody(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleAddComment(t.id);
-                            }}
-                            className="flex-1 h-8 text-xs"
-                          />
-                          <Button size="sm" className="active:scale-[0.96]" onClick={() => handleAddComment(t.id)} disabled={!newCommentBody.trim()}>
-                            Add
-                          </Button>
-                        </div>
-                      </div>
-                    )}
                   </li>
                 ))}
               </ul>
@@ -1086,37 +1091,26 @@ export default function SimulationPage() {
             <div className="flex items-end justify-between flex-wrap gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.06em] mb-1" style={{ color: "var(--color-text-subtle)" }}>
-                  {data.year} cumulative balance
+                  {data.year} projected cumulative balance
                 </p>
                 <p className="font-display text-[32px] font-bold leading-none" style={{ color: "var(--color-text-primary)" }}>
                   {formatAmount(data.yearEndProjection)}
                 </p>
               </div>
-              <div className="flex items-center gap-5 flex-wrap">
-                <div>
-                  <p className="text-[11px] mb-0.5" style={{ color: "var(--color-text-secondary)" }}>Income</p>
-                  <p className="font-num font-bold text-[14px]" style={{ color: "var(--color-success)" }}>
-                    {formatAmount(data.annualIncome)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] mb-0.5" style={{ color: "var(--color-text-secondary)" }}>Expense</p>
-                  <p className="font-num font-bold text-[14px]" style={{ color: "var(--color-text-secondary)" }}>
-                    {formatAmount(data.annualExpense)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] mb-0.5" style={{ color: "var(--color-text-secondary)" }}>Special expense</p>
-                  <p className="font-num font-bold text-[14px]" style={{ color: "var(--color-danger)" }}>
-                    {formatAmount(data.annualSpecialExpense)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] mb-0.5" style={{ color: "var(--color-text-secondary)" }}>Remaining</p>
-                  <p className="font-num font-bold text-[14px]" style={{ color: "var(--color-text-primary)" }}>
-                    {formatAmount(data.annualRemaining)}
-                  </p>
-                </div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="flex items-center gap-1 font-num font-bold text-[15px]" style={{ color: "var(--color-success)" }}>
+                  <TrendingUp size={14} />
+                  {formatAmount(data.annualIncome)}
+                </span>
+                <span className="text-[15px] font-semibold" style={{ color: "var(--color-text-subtle)" }}>−</span>
+                <span className="flex items-center gap-1 font-num font-bold text-[15px]" style={{ color: "var(--color-text-secondary)" }}>
+                  <TrendingDown size={14} />
+                  {formatAmount(data.annualExpense)}
+                </span>
+                <span className="text-[15px] font-semibold" style={{ color: "var(--color-text-subtle)" }}>=</span>
+                <span className="font-num font-bold text-[16px]" style={{ color: "var(--color-text-primary)" }}>
+                  {formatAmount(data.annualRemaining)}
+                </span>
               </div>
             </div>
             {data.annualIncome > 0 && (
