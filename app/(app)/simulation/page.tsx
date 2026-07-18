@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { AlertTriangle, ChevronDown, Settings } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { AlertTriangle, ChevronDown } from "lucide-react";
 import { formatJPY, formatVND } from "@/lib/format";
 import type { SimulationMonth, SpecialEntry } from "@/lib/simulation";
 import { NoteTag } from "@/components/note-tag";
@@ -26,7 +26,6 @@ import {
 
 interface SimulationData {
   year: number;
-  defaultMonthlyIncome: number;
   vndPerJpy: number;
   months: SimulationMonth[];
   annualIncome: number;
@@ -87,14 +86,59 @@ function CurrencySwitch({
   );
 }
 
+// Income is always entered/edited in JPY regardless of the display-currency
+// switch — it's the JP salary figure, not something to convert for viewing.
+function IncomeInput({
+  value,
+  onSave,
+}: {
+  value: number;
+  onSave: (n: number) => void;
+}) {
+  const [text, setText] = useState(String(value));
+  const savedValueRef = useRef(value);
+
+  useEffect(() => {
+    setText(String(value));
+    savedValueRef.current = value;
+  }, [value]);
+
+  const commit = () => {
+    const n = parseInt(digitsOnly(text), 10) || 0;
+    if (n !== savedValueRef.current) {
+      savedValueRef.current = n;
+      onSave(n);
+    }
+    setText(String(n));
+  };
+
+  return (
+    <Input
+      type="text"
+      inputMode="numeric"
+      value={withCommas(text)}
+      onChange={(e) => setText(digitsOnly(e.target.value))}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+      }}
+      onClick={(e) => e.stopPropagation()}
+      className="h-8 text-right font-num text-[13px] rounded-lg justify-self-end w-full"
+      style={{ borderColor: "var(--color-border-default)", backgroundColor: "var(--color-surface-subtle)" }}
+    />
+  );
+}
+
 function MonthRow({
   m,
   formatAmount,
+  onUpdateIncome,
   onOpenEntries,
   onSaveNote,
 }: {
   m: SimulationMonth;
   formatAmount: (jpyAmount: number) => string;
+  onUpdateIncome: (month: string, jpyAmount: number) => void;
   onOpenEntries: (month: string, kind: "income" | "expense") => void;
   onSaveNote: (month: string, note: string | null) => void;
 }) {
@@ -137,9 +181,7 @@ function MonthRow({
         </span>
       ) : (
         <>
-          <span className="text-right text-sm font-num" style={{ color: "var(--color-text-secondary)" }}>
-            {formatAmount(m.regularIncome)}
-          </span>
+          <IncomeInput value={m.regularIncome} onSave={(n) => onUpdateIncome(m.month, n)} />
           <button
             type="button"
             onClick={() => onOpenEntries(m.month, "income")}
@@ -150,7 +192,7 @@ function MonthRow({
           </button>
           <span
             className="text-right text-sm font-num"
-            title={m.isCurrentMonth ? "This month's forecast" : m.isFuture ? "Total Monthly Budget" : undefined}
+            title={m.isCurrentMonth ? "This month's forecast" : m.isFuture ? "Total Monthly Budget" : "Actual VN spend"}
             style={{ color: m.expense > 0 ? "var(--color-text-secondary)" : "var(--color-text-subtle)" }}
           >
             {m.expense > 0 ? formatAmount(m.expense) : "—"}
@@ -176,80 +218,6 @@ function MonthRow({
         </>
       )}
     </div>
-  );
-}
-
-function IncomeSettingsDialog({
-  open,
-  onOpenChange,
-  defaultMonthlyIncome,
-  onSaved,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  defaultMonthlyIncome: number;
-  onSaved: () => void;
-}) {
-  const [text, setText] = useState(String(defaultMonthlyIncome));
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (open) setText(String(defaultMonthlyIncome));
-  }, [open, defaultMonthlyIncome]);
-
-  const handleSave = async () => {
-    setSaving(true);
-    const val = parseInt(digitsOnly(text), 10) || 0;
-    const res = await fetch("/api/simulation", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ defaultMonthlyIncome: val }),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      toast.error("Failed to save");
-      return;
-    }
-    toast.success("Default income saved");
-    onOpenChange(false);
-    onSaved();
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Regular monthly income</DialogTitle>
-        </DialogHeader>
-        <div className="px-1">
-          <div className="flex items-center gap-2">
-            <Input
-              type="text"
-              inputMode="numeric"
-              value={withCommas(text)}
-              onChange={(e) => setText(digitsOnly(e.target.value))}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSave();
-              }}
-              className="font-num"
-              autoFocus
-            />
-            <span className="text-xs shrink-0" style={{ color: "var(--color-text-secondary)" }}>JPY / mo</span>
-          </div>
-          <p className="text-xs mt-2" style={{ color: "var(--color-text-secondary)" }}>
-            Used as the recurring income for the current/future months. Add special income for one-off amounts.
-          </p>
-        </div>
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : "Save"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -424,7 +392,6 @@ export default function SimulationPage() {
   const [year, setYear] = useState(2026);
   const [data, setData] = useState<SimulationData | null>(null);
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("JPY");
-  const [incomeDialogOpen, setIncomeDialogOpen] = useState(false);
   const [entriesDialog, setEntriesDialog] = useState<{ month: string; kind: "income" | "expense" } | null>(null);
 
   const load = useCallback(async (y: number) => {
@@ -438,6 +405,19 @@ export default function SimulationPage() {
     setData(null);
     load(year);
   }, [year, load]);
+
+  const handleUpdateIncome = async (month: string, income: number) => {
+    const res = await fetch(`/api/simulation/months/${month}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ income }),
+    });
+    if (!res.ok) {
+      toast.error("Failed to save");
+      return;
+    }
+    load(year);
+  };
 
   const handleSaveNote = async (month: string, note: string | null) => {
     const res = await fetch(`/api/simulation/months/${month}`, {
@@ -467,7 +447,7 @@ export default function SimulationPage() {
 
   return (
     <div>
-      <div className="mt-8 mb-6 flex items-center justify-between flex-wrap gap-3">
+      <div className="mt-8 mb-5 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Select value={String(year)} onValueChange={(v) => setYear(parseInt(v, 10))}>
             <SelectTrigger
@@ -487,67 +467,61 @@ export default function SimulationPage() {
           </Select>
           <CurrencySwitch value={displayCurrency} onChange={setDisplayCurrency} />
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="rounded-[10px] h-auto py-2.5 px-4 font-semibold hover:opacity-80"
-          style={{ borderColor: "var(--color-border-default)", color: "var(--color-text-primary)" }}
-          onClick={() => setIncomeDialogOpen(true)}
-        >
-          <Settings size={15} />
-          Regular income
-        </Button>
       </div>
 
       <Card
-        className="p-7 rounded-2xl mb-6"
+        className="p-5 rounded-2xl mb-5"
         style={{ borderColor: "var(--color-border-default)", boxShadow: CARD_SHADOW }}
       >
         {!data ? (
-          <Skeleton className="h-24 w-full rounded-lg" />
+          <Skeleton className="h-16 w-full rounded-lg" />
         ) : (
           <>
-            <p className="text-xs font-semibold uppercase tracking-[0.06em] mb-2.5" style={{ color: "var(--color-text-subtle)" }}>
-              {data.year} cumulative balance
-            </p>
-            <p className="font-display text-[48px] font-bold leading-none" style={{ color: "var(--color-text-primary)" }}>
-              {formatAmount(data.yearEndProjection)}
-            </p>
-            <div className="mt-[18px] grid grid-cols-4 gap-4">
+            <div className="flex items-end justify-between flex-wrap gap-4">
               <div>
-                <p className="text-[12.5px] mb-1" style={{ color: "var(--color-text-secondary)" }}>Income</p>
-                <p className="font-num font-bold text-[16px]" style={{ color: "var(--color-success)" }}>
-                  {formatAmount(data.annualIncome)}
+                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] mb-1" style={{ color: "var(--color-text-subtle)" }}>
+                  {data.year} cumulative balance
+                </p>
+                <p className="font-display text-[32px] font-bold leading-none" style={{ color: "var(--color-text-primary)" }}>
+                  {formatAmount(data.yearEndProjection)}
                 </p>
               </div>
-              <div>
-                <p className="text-[12.5px] mb-1" style={{ color: "var(--color-text-secondary)" }}>Expense</p>
-                <p className="font-num font-bold text-[16px]" style={{ color: "var(--color-text-secondary)" }}>
-                  {formatAmount(data.annualExpense)}
-                </p>
-              </div>
-              <div>
-                <p className="text-[12.5px] mb-1" style={{ color: "var(--color-text-secondary)" }}>Special expense</p>
-                <p className="font-num font-bold text-[16px]" style={{ color: "var(--color-danger)" }}>
-                  {formatAmount(data.annualSpecialExpense)}
-                </p>
-              </div>
-              <div>
-                <p className="text-[12.5px] mb-1" style={{ color: "var(--color-text-secondary)" }}>Remaining</p>
-                <p className="font-num font-bold text-[16px]" style={{ color: "var(--color-text-primary)" }}>
-                  {formatAmount(data.annualRemaining)}
-                </p>
+              <div className="flex items-center gap-5 flex-wrap">
+                <div>
+                  <p className="text-[11px] mb-0.5" style={{ color: "var(--color-text-secondary)" }}>Income</p>
+                  <p className="font-num font-bold text-[14px]" style={{ color: "var(--color-success)" }}>
+                    {formatAmount(data.annualIncome)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] mb-0.5" style={{ color: "var(--color-text-secondary)" }}>Expense</p>
+                  <p className="font-num font-bold text-[14px]" style={{ color: "var(--color-text-secondary)" }}>
+                    {formatAmount(data.annualExpense)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] mb-0.5" style={{ color: "var(--color-text-secondary)" }}>Special expense</p>
+                  <p className="font-num font-bold text-[14px]" style={{ color: "var(--color-danger)" }}>
+                    {formatAmount(data.annualSpecialExpense)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] mb-0.5" style={{ color: "var(--color-text-secondary)" }}>Remaining</p>
+                  <p className="font-num font-bold text-[14px]" style={{ color: "var(--color-text-primary)" }}>
+                    {formatAmount(data.annualRemaining)}
+                  </p>
+                </div>
               </div>
             </div>
             {data.annualIncome > 0 && (
-              <div className="mt-[18px]">
+              <div className="mt-3">
                 <Progress
                   value={savingsRatePct}
-                  className="h-2"
+                  className="h-1.5"
                   style={{ backgroundColor: "var(--kg-track)" }}
                   indicatorStyle={{ backgroundColor: "var(--color-primary)" }}
                 />
-                <p className="text-sm font-medium mt-3" style={{ color: "var(--color-primary-hover)" }}>
+                <p className="text-xs font-medium mt-1.5" style={{ color: "var(--color-primary-hover)" }}>
                   Saving {savingsRatePct}% of income so far this year
                 </p>
               </div>
@@ -584,19 +558,13 @@ export default function SimulationPage() {
               key={m.month}
               m={m}
               formatAmount={formatAmount}
+              onUpdateIncome={handleUpdateIncome}
               onOpenEntries={(month, kind) => setEntriesDialog({ month, kind })}
               onSaveNote={handleSaveNote}
             />
           ))
         )}
       </Card>
-
-      <IncomeSettingsDialog
-        open={incomeDialogOpen}
-        onOpenChange={setIncomeDialogOpen}
-        defaultMonthlyIncome={data?.defaultMonthlyIncome ?? 0}
-        onSaved={() => load(year)}
-      />
 
       {entriesDialog && (
         <SpecialEntriesDialog

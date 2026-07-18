@@ -1,5 +1,6 @@
 export interface SavingsMonthRecord {
   month: string; // 'YYYY-MM'
+  planned_savings: number; // manually entered income for the month (JPY)
   note: string | null;
 }
 
@@ -17,12 +18,14 @@ export interface SimulationMonth {
   year: number;
   monthNum: number; // 1-12
   label: string; // 'Jan', 'Feb', ...
+  // Manually entered income (JPY), carried forward from the last month it
+  // was explicitly set — income doesn't change every month, only on a raise.
   regularIncome: number;
   specialIncomes: SpecialEntry[];
   specialExpenses: SpecialEntry[];
   income: number; // regularIncome + sum(specialIncomes), JPY
-  // This month: Dashboard's forecast. Future months: Total Monthly Budget.
-  // Past months: 0 (not tracked). JPY.
+  // Past months: actual VN spend that month. This month: Dashboard's
+  // forecast. Future months: Total Monthly Budget. JPY.
   expense: number;
   specialExpenseTotal: number; // sum(specialExpenses), JPY
   remaining: number; // income - expense - specialExpenseTotal, JPY
@@ -55,14 +58,16 @@ function toJpy(amount: number, currency: "JPY" | "VND", vndPerJpy: number): numb
 export function buildSimulationYear(
   year: number,
   records: SavingsMonthRecord[],
-  defaultMonthlyIncome: number,
   specialEntries: SpecialEntry[],
   vndPerJpy: number,
   // VN-side budget figures (VND) from the Dashboard/Budget pages.
   forecastVnd: number | null,
   lifeBudgetVnd: number,
+  // Actual VN spend (VND) already recorded for past months, keyed 'YYYY-MM'.
+  actualExpenseByMonth: Record<string, number>,
   now: Date = new Date(),
   startingCumulative = 0,
+  startingIncome = 0,
 ): SimulationMonth[] {
   const byMonth = new Map(records.map((r) => [r.month, r]));
   const incomesByMonth = new Map<string, SpecialEntry[]>();
@@ -77,6 +82,7 @@ export function buildSimulationYear(
   const currentKey = monthKey(now.getFullYear(), now.getMonth() + 1);
 
   let cumulative = startingCumulative;
+  let lastIncome = startingIncome;
   const months: SimulationMonth[] = [];
 
   for (let m = 1; m <= 12; m++) {
@@ -88,18 +94,14 @@ export function buildSimulationYear(
     const isCurrentMonth = key === currentKey;
     const isPast = key < currentKey;
 
-    // A month counts once it's been explicitly tracked (a note or a special
-    // entry was added), or it's the current/future month (seeded from the
-    // default income). Untouched past months are "No data" and excluded.
-    const hasRecord =
-      !!record || specialIncomes.length > 0 || specialExpenses.length > 0 || !isPast;
+    if (record) lastIncome = record.planned_savings;
+    const regularIncome = lastIncome;
 
-    // Regular income always mirrors the current "Regular monthly income"
-    // setting for any tracked month — it's a single figure, not something
-    // set per month.
-    const regularIncome = hasRecord ? defaultMonthlyIncome : 0;
+    // Every month within a tracked year has real data now (income carries
+    // forward, expense falls back to actual/forecast/budget) — only years
+    // before the epoch are excluded entirely.
+    const hasRecord = year >= SIMULATION_EPOCH_YEAR;
 
-    // Every entry converts into JPY using the day's rate before summing.
     const specialIncomeTotal = specialIncomes.reduce(
       (s, e) => s + toJpy(e.amount, e.currency, vndPerJpy),
       0,
@@ -109,15 +111,13 @@ export function buildSimulationYear(
       0,
     );
 
-    // Expense reflects the VN-side regular spending plan, separate from
-    // one-off special expenses: this month uses the Dashboard's forecast,
-    // future months use the Total Monthly Budget, past months aren't
-    // tracked here (0).
-    let expenseVnd = 0;
+    let expenseVnd: number;
     if (isCurrentMonth) {
       expenseVnd = forecastVnd ?? lifeBudgetVnd;
     } else if (isFuture) {
       expenseVnd = lifeBudgetVnd;
+    } else {
+      expenseVnd = actualExpenseByMonth[key] ?? 0;
     }
     const expense = expenseVnd / vndPerJpy;
 
@@ -169,4 +169,8 @@ export function annualRemaining(months: SimulationMonth[]): number {
 
 export function yearEndProjection(months: SimulationMonth[]): number {
   return months[months.length - 1]?.cumulative ?? 0;
+}
+
+export function yearEndIncome(months: SimulationMonth[]): number {
+  return months[months.length - 1]?.regularIncome ?? 0;
 }

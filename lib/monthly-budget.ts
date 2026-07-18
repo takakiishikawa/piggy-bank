@@ -91,3 +91,29 @@ export async function computeMonthlyBudget(db: Db, now: Date = new Date()): Prom
     lifeBudgetVnd,
   };
 }
+
+// Actual VN spend (VND) for every month in a calendar year, keyed 'YYYY-MM'.
+// Used for past months in the Simulation, which show what really happened
+// instead of a forecast/budget projection.
+export async function computeActualSpendByMonth(
+  db: Db,
+  year: number,
+): Promise<Record<string, number>> {
+  const start = new Date(year, 0, 1);
+  const end = new Date(year, 11, 31, 23, 59, 59, 999);
+
+  const { data } = await db
+    .from("transactions")
+    .select("amount, date")
+    .gte("date", start.toISOString())
+    .lte("date", end.toISOString())
+    .eq("excluded_from_dashboard", false);
+
+  const byMonth: Record<string, number> = {};
+  for (const tx of data ?? []) {
+    const d = new Date(tx.date);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    byMonth[key] = (byMonth[key] ?? 0) + tx.amount;
+  }
+  return byMonth;
+}
