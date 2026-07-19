@@ -36,6 +36,21 @@ const AppSwitcher = dynamic(() =>
   import("@takaki/go-design-system").then((m) => ({ default: m.AppSwitcher })),
 );
 
+// GO_APPS (shared across the Go series in @takaki/go-design-system) hasn't
+// picked up two sibling rebrands yet: CookGo -> HomeCook and NativeGo ->
+// Fluent. Overriding the entries locally keeps the switcher on-brand
+// without forking the shared package (same pattern used for the PiggyBank
+// rebrand previously — see commit 075f9f2).
+const SIDEBAR_APPS = GO_APPS.map((app) => {
+  if (app.name === "CookGo") {
+    return { ...app, name: "HomeCook", color: "oklch(56% 0.15 35)" };
+  }
+  if (app.name === "NativeGo") {
+    return { ...app, name: "Fluent", color: "oklch(52% 0.19 290)" };
+  }
+  return app;
+});
+
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/budget", label: "Budget", icon: Wallet },
@@ -112,7 +127,7 @@ export function PiggyBankSidebar() {
       className="border-r"
     >
       <SidebarHeader>
-        <AppSwitcher currentApp="PiggyBank" apps={GO_APPS} placement="bottom" />
+        <AppSwitcher currentApp="PiggyBank" apps={SIDEBAR_APPS} placement="bottom" />
       </SidebarHeader>
 
       <SidebarContent>
