@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { TrendingDown, TrendingUp } from "lucide-react";
+import { AlertTriangle, TrendingDown, TrendingUp } from "lucide-react";
 import { formatVND } from "@/lib/format";
 import { getCategoryColors, getCategoryColorTint } from "@/lib/category-colors";
 import { getCategoryIcon } from "@/lib/category-icons";
@@ -353,9 +353,9 @@ export default function Dashboard() {
               borderLeft: "3px solid var(--color-warning)",
             }}
           >
-            <span style={{ color: "var(--color-warning)" }}>⚠</span>
+            <AlertTriangle size={16} className="shrink-0" style={{ color: "var(--color-warning)" }} />
             <span style={{ color: "var(--color-text-primary)" }}>
-              You have {uncategorizedCount} unreviewed transactions.
+              You have {uncategorizedCount} unreviewed transaction{uncategorizedCount === 1 ? "" : "s"}.
             </span>
             <a
               href="/transactions"

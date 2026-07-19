@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Trash2, Pencil } from "lucide-react";
+import { AlertTriangle, Trash2, Pencil } from "lucide-react";
 import { toast } from "@takaki/go-design-system";
 import { formatVND, formatDateWithYear } from "@/lib/format";
 import { getCategoryColors } from "@/lib/category-colors";
@@ -571,10 +571,11 @@ export default function TransactionsPage() {
             style={{ borderColor: "var(--color-warning)" }}
           >
             <p
-              className="text-xs font-medium uppercase tracking-widest"
+              className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest"
               style={{ color: "var(--color-warning)" }}
             >
-              ⚠ Needs Review ({uncategorizedStores.length})
+              <AlertTriangle size={13} />
+              Needs Review ({uncategorizedStores.length})
             </p>
           </div>
           {uncategorizedStores.map((s) => (
@@ -676,18 +677,16 @@ export default function TransactionsPage() {
           <Button
             variant="outline"
             size="sm"
+            className="gap-1.5"
             onClick={fetchUncategorizedStores}
             disabled={reviewLoading}
             style={
               uncategorizedCount && uncategorizedCount > 0
-                ? {
-                    borderColor: "var(--color-warning)",
-                    color: "var(--color-warning)",
-                    backgroundColor: "var(--color-warning-subtle)",
-                  }
+                ? { color: "var(--color-warning)" }
                 : undefined
             }
           >
+            {uncategorizedCount && uncategorizedCount > 0 ? <AlertTriangle size={13} /> : null}
             {reviewLoading
               ? "Loading..."
               : `Needs Review${uncategorizedCount ? ` (${uncategorizedCount})` : ""}`}
