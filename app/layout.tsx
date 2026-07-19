@@ -35,11 +35,6 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){var s=localStorage.getItem('kg-theme');var d=s||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.classList.add(d);})();`,
-          }}
-        />
         <DesignTokens primaryColor="#BE5B85" primaryColorHover="#8C3A5E" />
       </head>
       <body className="min-h-full">

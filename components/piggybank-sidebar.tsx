@@ -24,8 +24,6 @@ import {
 import {
   LayoutDashboard,
   BarChart2,
-  Sun,
-  Moon,
   Wallet,
   Target,
   LogOut,
@@ -51,7 +49,6 @@ export function PiggyBankSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
     if (!supabaseConfigured) return;
@@ -68,24 +65,6 @@ export function PiggyBankSidebar() {
     });
     return () => sub?.unsubscribe();
   }, []);
-
-  useEffect(() => {
-    const update = () =>
-      setIsDark(document.documentElement.classList.contains("dark"));
-    update();
-    const obs = new MutationObserver(update);
-    obs.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    return () => obs.disconnect();
-  }, []);
-
-  function toggleTheme() {
-    const next = isDark ? "light" : "dark";
-    localStorage.setItem("kg-theme", next);
-    document.documentElement.classList.toggle("dark", next === "dark");
-  }
 
   const handleSignIn = () => router.push("/login");
 
@@ -194,19 +173,6 @@ export function PiggyBankSidebar() {
           </div>
         ) : (
           <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                onClick={toggleTheme}
-                className="cursor-pointer"
-              >
-                {isDark ? (
-                  <Moon className="h-4 w-4 shrink-0" />
-                ) : (
-                  <Sun className="h-4 w-4 shrink-0" />
-                )}
-                {isDark ? "Dark" : "Light"}
-              </SidebarMenuButton>
-            </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
                 onClick={handleSignIn}
