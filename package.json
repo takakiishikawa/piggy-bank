@@ -16,7 +16,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.1",
-    "@tailwindcss/postcss": "^4.2.4",
+    "@tailwindcss/postcss": "^4.1.18",
     "@takaki/go-design-system": "github:takakiishikawa/go-design-system",
     "@types/node": "^25.6.0",
     "@types/react": "^19",
@@ -31,7 +31,7 @@
     "react-dropzone": "^15.0.0",
     "react-hook-form": "^7.74.0",
     "recharts": "^3.8.1",
-    "tailwindcss": "^4.2.4",
+    "tailwindcss": "^4.1.18",
     "typescript": "^6.0.3",
     "zod": "^4.3.6"
   },
