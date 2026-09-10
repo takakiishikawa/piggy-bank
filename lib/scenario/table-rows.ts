@@ -25,6 +25,13 @@ function cell(v: number, fmt: (n: number) => string, isNeg = false): TableCell {
   return { fmt: fmt(v), negative: isNeg && v < 0, color: isNeg && v < 0 ? "#C0392B" : "inherit" };
 }
 
+// 全期間を通じて0円の内訳行は、そのシナリオに関係が無い(配偶者なし→配偶者給与、
+// 子どもなし→公的支援・教育 など)ため、テーブルには出さない。総収入/総支出の
+// 合計には元々0円しか寄与しないので、行を省いても内訳の合計は変わらない。
+function allZeroCells(values: number[]): boolean {
+  return values.every((v) => Math.round(v) === 0);
+}
+
 // 総貯蓄の行専用: その期間の増減(netFlowYen、投資益込み)を「+」符号付きで
 // 添える。マイナスの時は fmt() 側が既に「-」を付けてくれる。
 function cellWithDelta(v: number, deltaV: number, fmt: (n: number) => string, isNeg = false): TableCell {
@@ -151,9 +158,13 @@ export function buildSingleTableRows(
   });
   if (isExpanded("income")) {
     push({ key: "income.husband", depth: 1, label: t(lang, "husband"), cells: rows.map((r) => cell(r.husbandYen, fmt)) });
-    push({ key: "income.wife", depth: 1, label: t(lang, "wife"), cells: rows.map((r) => cell(r.wifeYen, fmt)) });
+    if (!allZeroCells(rows.map((r) => r.wifeYen))) {
+      push({ key: "income.wife", depth: 1, label: t(lang, "wife"), cells: rows.map((r) => cell(r.wifeYen, fmt)) });
+    }
     push({ key: "income.side", depth: 1, label: t(lang, "side"), cells: rows.map((r) => cell(r.sideYen, fmt)) });
-    push({ key: "income.allowance", depth: 1, label: t(lang, "childAllowance"), cells: rows.map((r) => cell(r.allowanceYen, fmt)) });
+    if (!allZeroCells(rows.map((r) => r.allowanceYen))) {
+      push({ key: "income.allowance", depth: 1, label: t(lang, "childAllowance"), cells: rows.map((r) => cell(r.allowanceYen, fmt)) });
+    }
     // 投資益は収入の内訳には出さない(incomeTotalYenの計算自体に含めていない。
     // 実際に手元に入ってくるお金ではないため。貯蓄→投資の行にその期間の
     // 増分として表示する)。
@@ -215,7 +226,9 @@ export function buildSingleTableRows(
         });
       }
     }
-    push({ key: "expense.education", depth: 1, label: t(lang, "education"), cells: rows.map((r) => cell(r.educationTotalYen, fmt)) });
+    if (!allZeroCells(rows.map((r) => r.educationTotalYen))) {
+      push({ key: "expense.education", depth: 1, label: t(lang, "education"), cells: rows.map((r) => cell(r.educationTotalYen, fmt)) });
+    }
     push({
       key: "expense.events",
       depth: 1,
@@ -310,9 +323,13 @@ export function buildCompareTableRows(
     push({ key: ik, depth: 1, label: t(lang, "totalIncome"), cells: scn.rows.map((r) => cell(r.incomeTotalYen, fmt)), expandable: true });
     if (isExpanded(ik)) {
       push({ key: `${ik}.husband`, depth: 2, label: t(lang, "husband"), cells: scn.rows.map((r) => cell(r.husbandYen, fmt)) });
-      push({ key: `${ik}.wife`, depth: 2, label: t(lang, "wife"), cells: scn.rows.map((r) => cell(r.wifeYen, fmt)) });
+      if (!allZeroCells(scn.rows.map((r) => r.wifeYen))) {
+        push({ key: `${ik}.wife`, depth: 2, label: t(lang, "wife"), cells: scn.rows.map((r) => cell(r.wifeYen, fmt)) });
+      }
       push({ key: `${ik}.side`, depth: 2, label: t(lang, "side"), cells: scn.rows.map((r) => cell(r.sideYen, fmt)) });
-      push({ key: `${ik}.allowance`, depth: 2, label: t(lang, "childAllowance"), cells: scn.rows.map((r) => cell(r.allowanceYen, fmt)) });
+      if (!allZeroCells(scn.rows.map((r) => r.allowanceYen))) {
+        push({ key: `${ik}.allowance`, depth: 2, label: t(lang, "childAllowance"), cells: scn.rows.map((r) => cell(r.allowanceYen, fmt)) });
+      }
       // 投資益は収入の内訳には出さない(incomeTotalYenの計算自体に含めていない)。
       // 同棲時の一時収入はテーブル上では特別収入の行に合算する(設定モーダルでは
       // 引き続き別項目のまま)。
@@ -356,7 +373,9 @@ export function buildCompareTableRows(
           });
         }
       }
-      push({ key: `${ek}.education`, depth: 2, label: t(lang, "education"), cells: scn.rows.map((r) => cell(r.educationTotalYen, fmt)) });
+      if (!allZeroCells(scn.rows.map((r) => r.educationTotalYen))) {
+        push({ key: `${ek}.education`, depth: 2, label: t(lang, "education"), cells: scn.rows.map((r) => cell(r.educationTotalYen, fmt)) });
+      }
       push({
         key: `${ek}.events`,
         depth: 2,
