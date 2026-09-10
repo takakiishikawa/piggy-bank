@@ -735,7 +735,11 @@ export function ScenarioSettingsDialog({
               (
                 [
                   { key: "husband" as const, label: t(lang, "husbandIncome") },
-                  { key: "wife" as const, label: t(lang, "wifeIncome") },
+                  // 配偶者なしの場合、配偶者・手取りの入力欄は非表示にする(要望対応)。
+                  // compute.ts側でも配偶者なしなら配偶者の収入は計上しない。
+                  ...(draft.family.spouse
+                    ? [{ key: "wife" as const, label: t(lang, "wifeIncome") }]
+                    : []),
                 ]
               ).map((row) => (
                 <div key={row.key} className="flex flex-col gap-1.5">
@@ -1168,6 +1172,9 @@ export function ScenarioSettingsDialog({
                   {/* 結婚式・旅行は「よくあるイベント」として、クリックして追加するのではなく
                       最初から常設のフォームとして用意する。チェックボックスは1ステップ
                       余分になるので置かず、金額0円=未計上として扱う(compute.ts側もそう判定)。 */}
+                  {/* 配偶者なしの場合、結婚式関連費用のフォームは非表示にする(要望対応)。
+                      compute.ts側でも配偶者なしなら金額を計上しない。 */}
+                  {draft.family.spouse && (
                   <div className="flex flex-col gap-1.5 rounded-lg border p-2.5" style={{ borderColor: DC.trackAlt }}>
                     <span className="text-sm font-semibold flex items-center gap-1" style={{ color: DC.textPrimary }}>
                       {t(lang, "eventPresetWedding")}
@@ -1214,6 +1221,7 @@ export function ScenarioSettingsDialog({
                       />
                     </div>
                   </div>
+                  )}
 
                   <div className="flex flex-col gap-1.5 rounded-lg border p-2.5" style={{ borderColor: DC.trackAlt }}>
                     <span className="text-sm font-semibold" style={{ color: DC.textPrimary }}>

@@ -543,7 +543,11 @@ export function computeScenarioYears(
     // 結婚式(単発)・旅行(毎年繰り返す、暮らしと同じインフレ率で複利)は常設フォーム
     // のイベントとして、汎用のevents配列とは別に計算する。UIにON/OFFチェックボックスは
     // 置かない(1ステップ余分になるため)ので、金額0円=未計上として扱う。
-    const weddingYen = config.wedding.amountYen > 0 && config.wedding.year === year ? config.wedding.amountYen : 0;
+    // 配偶者なしの場合は結婚式関連費用は計上しない(要望対応)。
+    const weddingYen =
+      config.family.spouse && config.wedding.amountYen > 0 && config.wedding.year === year
+        ? config.wedding.amountYen
+        : 0;
     // 旅行の金額は「1回あたり」。年間の総額はそれ×年間の回数。
     const travelYen =
       config.travel.amountYen > 0 && year >= config.travel.startYear
@@ -747,8 +751,14 @@ function simulateYearMonths(
         : 0;
     // 結婚式はその月にまとめて計上。旅行は1回あたりの金額を、年間の回数ぶん
     // travelMonthsで割り振った月にそのまま計上する(12ヶ月への均等按分はしない)。
+    // 配偶者なしの場合は結婚式関連費用は計上しない(要望対応)。
     const weddingThisMonth =
-      config.wedding.amountYen > 0 && config.wedding.year === focusYear && config.wedding.month === m ? config.wedding.amountYen : 0;
+      config.family.spouse &&
+      config.wedding.amountYen > 0 &&
+      config.wedding.year === focusYear &&
+      config.wedding.month === m
+        ? config.wedding.amountYen
+        : 0;
     const travelPerTripYen =
       config.travel.amountYen > 0 && focusYear >= config.travel.startYear
         ? config.travel.amountYen * Math.pow(1 + config.inflationRatePercent / 100, focusYear - config.travel.startYear)
