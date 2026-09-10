@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PiggyBankSidebar } from "./client-sidebar";
+import { MizuhoImportBanner } from "@/components/mizuho-import-banner";
 
 const supabaseConfigured =
   !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -29,6 +30,9 @@ export default async function AppGroupLayout({
     <div className="flex w-full h-screen overflow-hidden" style={{ backgroundColor: "#FAF5EE" }}>
       <PiggyBankSidebar />
       <div className="flex-1 flex flex-col min-w-0 h-full">
+        {/* 毎月1日〜、みずほ銀行(日本側)の出金CSVアップロードを促す通知バナー。
+            スクロール領域の外に置き、全画面の最上部に常に見えるようにする。 */}
+        <MizuhoImportBanner />
         {/* 上部の余白は、スクロールコンテナ自身の padding-top ではなく中の div に
             付ける。scroll containerのpadding-topはCSS仕様上スクロールしても消えず、
             position:stickyな子要素(Simulationテーブルのヘッダー等)がその分だけ

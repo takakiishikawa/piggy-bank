@@ -171,6 +171,23 @@ export const DICT = {
     txNoMatch: "「{query}」に一致する取引がありません",
     txNoTransactions: "取引がありません",
 
+    // みずほ銀行CSV取込
+    mizuhoBannerTitle: "みずほ銀行の出金データを取り込んでください",
+    mizuhoBannerBody: "日本側(みずほ銀行)の当月の出金明細を、CSVでアップロードしてください。",
+    mizuhoUploadBtn: "CSVをアップロード",
+    mizuhoNoExpenseBtn: "日本側の支出なし",
+    mizuhoDialogTitle: "みずほ銀行CSVの取込",
+    mizuhoDialogBody: "みずほダイレクトからダウンロードした入出金明細CSVを選択してください。出金のみ取り込みます(入金・給与は対象外)。",
+    mizuhoChooseFile: "CSVファイルを選択",
+    mizuhoImporting: "取込中…",
+    mizuhoImportDone: "{imported}件を取り込みました(重複{skipped}件、入金{deposits}件は対象外)",
+    mizuhoImportNone: "取り込める出金明細がありませんでした。CSVの形式をご確認ください。",
+    mizuhoImportFailed: "取込に失敗しました",
+    mizuhoNoExpenseDone: "今月は「支出なし」として記録しました",
+    txSource: "経由",
+    txSourceMizuho: "みずほ銀行(CSV取込)",
+    txSourceVietcombank: "Vietcombank(Gmail自動取込)",
+
     // ダッシュボード: 投資記録
     investRecordBtn: "投資を記録",
     investAmountLabel: "投資額",
@@ -387,6 +404,23 @@ export const DICT = {
     txChooseCategory: "Choose category",
     txNoMatch: 'No transactions match "{query}"',
     txNoTransactions: "No transactions yet",
+
+    // Mizuho Bank CSV import
+    mizuhoBannerTitle: "Import your Mizuho Bank withdrawals",
+    mizuhoBannerBody: "Upload this month's withdrawal statement (CSV) from the Japan side (Mizuho Bank).",
+    mizuhoUploadBtn: "Upload CSV",
+    mizuhoNoExpenseBtn: "No expenses this month",
+    mizuhoDialogTitle: "Import Mizuho Bank CSV",
+    mizuhoDialogBody: "Choose the transaction-statement CSV downloaded from Mizuho Direct. Only withdrawals are imported (deposits / salary are ignored).",
+    mizuhoChooseFile: "Choose CSV file",
+    mizuhoImporting: "Importing…",
+    mizuhoImportDone: "Imported {imported} (skipped {skipped} duplicates; {deposits} deposits ignored)",
+    mizuhoImportNone: "No withdrawal rows found. Please check the CSV format.",
+    mizuhoImportFailed: "Import failed",
+    mizuhoNoExpenseDone: "Marked this month as \"no expenses\"",
+    txSource: "Via",
+    txSourceMizuho: "Mizuho Bank (CSV import)",
+    txSourceVietcombank: "Vietcombank (Gmail auto-import)",
 
     // Dashboard: investment record
     investRecordBtn: "Record investment",

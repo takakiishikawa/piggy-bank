@@ -9,9 +9,11 @@ export interface Category {
   created_at: string;
 }
 
+export type TransactionSource = "vietcombank" | "mizuho";
+
 export interface Transaction {
   id: string;
-  gmail_id: string;
+  gmail_id: string | null;
   store: string;
   amount: number;
   date: string;
@@ -20,6 +22,18 @@ export interface Transaction {
   note: string | null;
   excluded_from_dashboard: boolean;
   special_entry_id: string | null;
+  // データ経由: vietcombank = Gmail自動取込 / mizuho = CSV手動アップロード
+  source: TransactionSource;
+  // 取込元での一意キー(みずほ = 明細通番)。重複取込の防止に使う。
+  external_id: string | null;
+  created_at: string;
+}
+
+// みずほ銀行CSVの月次アップロード状況(1行 = 1暦月)
+export interface MizuhoMonthlyImport {
+  month: string; // 'YYYY-MM'
+  status: "imported" | "no_expense";
+  imported_count: number;
   created_at: string;
 }
 

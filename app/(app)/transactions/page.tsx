@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { AlertCircle, Search, Sparkles } from "lucide-react";
+import { AlertCircle, Search, Sparkles, UploadCloud } from "lucide-react";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -25,9 +25,12 @@ import { getCategoryIcon } from "@/lib/category-icons";
 import { FALLBACK_CATEGORY } from "@/lib/constants";
 import { NoteTag } from "@/components/note-tag";
 import { SpecialExpenseToggle } from "@/components/special-expense-toggle";
+import { SourceBadge } from "@/components/source-badge";
+import { MizuhoImportDialog, MIZUHO_UPDATED_EVENT } from "@/components/mizuho-import-dialog";
 import { DC } from "@/lib/scenario/design-colors";
 import { t, tf, catLabel } from "@/lib/scenario/dictionary";
 import { usePreferences } from "@/lib/preferences";
+import type { TransactionSource } from "@/lib/supabase/db";
 
 // claude design の取引ページ(検索バー + カテゴリチップ + フラットなリスト)に
 // 合わせて全面刷新。以前あったストア単位の一括レビューパネル・検索一致の
@@ -45,6 +48,7 @@ interface Transaction {
   note: string | null;
   excluded_from_dashboard: boolean;
   special_entry_id: string | null;
+  source: TransactionSource;
 }
 
 interface Category {
@@ -94,6 +98,7 @@ function TransactionsPageInner() {
   );
   const [savingId, setSavingId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [mizuhoOpen, setMizuhoOpen] = useState(false);
 
   const fetchCategories = useCallback(() => {
     fetch("/api/categories")
@@ -111,6 +116,14 @@ function TransactionsPageInner() {
     fetchCategories();
     fetchTransactions();
   }, [fetchCategories, fetchTransactions]);
+
+  // みずほCSV取込が完了したら一覧を取り直す(バナー・当ページどちらから
+  // 取り込んでも反映されるように)。
+  useEffect(() => {
+    const onUpdated = () => fetchTransactions();
+    window.addEventListener(MIZUHO_UPDATED_EVENT, onUpdated);
+    return () => window.removeEventListener(MIZUHO_UPDATED_EVENT, onUpdated);
+  }, [fetchTransactions]);
 
   const handleSelectCategory = async (tx: Transaction, category: string) => {
     // フォールバックカテゴリ(Other/その他)は未分類の初期値でもあるため、
@@ -209,18 +222,29 @@ function TransactionsPageInner() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div
-        className="flex items-center gap-2 rounded-[10px] border px-3.5 py-2.5 max-w-[340px]"
-        style={{ borderColor: DC.cardBorder, backgroundColor: DC.cardBg }}
-      >
-        <Search size={14} style={{ color: DC.textFaint }} className="shrink-0" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t(lang, "txSearchPlaceholder")}
-          className="flex-1 text-[12.5px] bg-transparent outline-none border-none min-w-0"
-          style={{ color: DC.textPrimary }}
-        />
+      <div className="flex items-center gap-2 flex-wrap">
+        <div
+          className="flex items-center gap-2 rounded-[10px] border px-3.5 py-2.5 flex-1 max-w-[340px]"
+          style={{ borderColor: DC.cardBorder, backgroundColor: DC.cardBg }}
+        >
+          <Search size={14} style={{ color: DC.textFaint }} className="shrink-0" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t(lang, "txSearchPlaceholder")}
+            className="flex-1 text-[12.5px] bg-transparent outline-none border-none min-w-0"
+            style={{ color: DC.textPrimary }}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => setMizuhoOpen(true)}
+          className="flex items-center gap-1.5 rounded-[10px] border px-3 py-2.5 text-[12.5px] font-semibold cursor-pointer transition-all hover:brightness-95 active:scale-95 shrink-0"
+          style={{ borderColor: DC.cardBorder, backgroundColor: DC.cardBg, color: DC.textSecondary }}
+        >
+          <UploadCloud size={14} style={{ color: DC.textFaint }} />
+          {t(lang, "mizuhoUploadBtn")}
+        </button>
       </div>
 
       <div className="flex flex-wrap gap-1.5">
@@ -291,6 +315,7 @@ function TransactionsPageInner() {
                 <span className="w-[74px] shrink-0 whitespace-nowrap text-[11.5px]" style={{ color: DC.textFaint }}>
                   {formatDateShort(tx.date)}
                 </span>
+                <SourceBadge source={tx.source} lang={lang} />
                 <span className="flex-1 min-w-[120px] text-[13px] font-normal truncate" style={{ color: DC.textPrimary }}>
                   {tx.store}
                 </span>
@@ -333,6 +358,8 @@ function TransactionsPageInner() {
           })
         )}
       </div>
+
+      <MizuhoImportDialog open={mizuhoOpen} onOpenChange={setMizuhoOpen} lang={lang} />
     </div>
   );
 }

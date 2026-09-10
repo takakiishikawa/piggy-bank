@@ -171,6 +171,8 @@ export async function GET(req: Request) {
       date: parsed.date.toISOString(),
       category: knownCategory ?? FALLBACK_CATEGORY,
       reviewed: false,
+      source: "vietcombank",
+      external_id: null,
     } satisfies Omit<Transaction, "created_at" | "note" | "excluded_from_dashboard" | "special_entry_id">);
 
     if (err) {
