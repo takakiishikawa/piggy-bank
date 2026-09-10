@@ -66,7 +66,7 @@ function CategoryBadgeInline({ category, lang }: { category: string; lang: "ja" 
   const Icon = getCategoryIcon(category);
   const hex = getCategoryHex(category);
   return (
-    <span className="flex items-center gap-1.5 text-[11.5px] font-semibold shrink-0 w-32" style={{ color: DC.textSecondary }}>
+    <span className="flex items-center gap-1.5 text-[11.5px] font-semibold w-full min-w-0" style={{ color: DC.textSecondary }}>
       <span
         className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md"
         style={{ backgroundColor: getCategoryColorTint(category) }}
@@ -323,14 +323,14 @@ function TransactionsPageInner() {
                   {formatAmount(tx.amount)}
                 </span>
                 {uncategorized ? (
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <AlertCircle size={13} style={{ color: DC.primaryHover }} />
+                  <div className="w-[150px] shrink-0 flex items-center gap-1.5">
+                    <AlertCircle size={13} style={{ color: DC.primaryHover }} className="shrink-0" />
                     <Select
                       value={undefined}
                       onValueChange={(v) => handleSelectCategory(tx, v)}
                       disabled={savingId === tx.id}
                     >
-                      <SelectTrigger className="h-7 text-xs w-36" style={{ borderColor: DC.primaryHover, color: DC.primaryHover }}>
+                      <SelectTrigger className="h-7 text-xs w-full" style={{ borderColor: DC.primaryHover, color: DC.primaryHover }}>
                         <SelectValue placeholder={t(lang, "txChooseCategory")} />
                       </SelectTrigger>
                       <SelectContent>
@@ -343,7 +343,9 @@ function TransactionsPageInner() {
                     </Select>
                   </div>
                 ) : (
-                  <CategoryBadgeInline category={tx.category} lang={lang} />
+                  <div className="w-[150px] shrink-0 flex">
+                    <CategoryBadgeInline category={tx.category} lang={lang} />
+                  </div>
                 )}
                 <div className="flex items-center gap-1.5 shrink-0">
                   <NoteTag value={tx.note} onSave={(v) => handleSaveNote(tx.id, v)} lang={lang} />

@@ -16,7 +16,7 @@ export function SourceBadge({ source, lang }: { source: TransactionSource; lang:
   return (
     <span
       title={title}
-      className="inline-flex items-center justify-center rounded-md px-1.5 h-5 text-[10px] font-bold leading-none tracking-tight shrink-0 select-none"
+      className="inline-flex items-center justify-center rounded-md w-[46px] h-5 text-[10px] font-bold leading-none tracking-tight shrink-0 select-none"
       style={{ backgroundColor: c.bg, color: c.fg }}
     >
       {c.label}

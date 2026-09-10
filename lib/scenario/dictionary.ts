@@ -173,7 +173,6 @@ export const DICT = {
 
     // みずほ銀行CSV取込
     mizuhoBannerTitle: "みずほ銀行の出金データを取り込んでください",
-    mizuhoBannerBody: "日本側(みずほ銀行)の当月の出金明細を、CSVでアップロードしてください。",
     mizuhoUploadBtn: "CSVをアップロード",
     mizuhoNoExpenseBtn: "日本側の支出なし",
     mizuhoDialogTitle: "みずほ銀行CSVの取込",
@@ -407,7 +406,6 @@ export const DICT = {
 
     // Mizuho Bank CSV import
     mizuhoBannerTitle: "Import your Mizuho Bank withdrawals",
-    mizuhoBannerBody: "Upload this month's withdrawal statement (CSV) from the Japan side (Mizuho Bank).",
     mizuhoUploadBtn: "Upload CSV",
     mizuhoNoExpenseBtn: "No expenses this month",
     mizuhoDialogTitle: "Import Mizuho Bank CSV",

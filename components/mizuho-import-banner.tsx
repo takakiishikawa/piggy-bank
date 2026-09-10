@@ -65,9 +65,6 @@ export function MizuhoImportBanner() {
       >
         <UploadCloud size={15} style={{ color: DC.warning }} className="shrink-0" />
         <span className="font-semibold">{t(lang, "mizuhoBannerTitle")}</span>
-        <span className="hidden sm:inline" style={{ color: DC.textSecondary }}>
-          {t(lang, "mizuhoBannerBody")}
-        </span>
         <div className="flex items-center gap-2 ml-auto shrink-0">
           <button
             type="button"
