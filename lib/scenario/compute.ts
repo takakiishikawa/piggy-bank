@@ -292,10 +292,13 @@ export function resolveCategoryMonthlyYen(
   return preAmt.monthlyYen;
 }
 
-// 今年の月次表示専用: 経過済みの月(今月を含む)はその月の実績、未経過の月は
+// 今年の月次表示専用: 先月までの経過済みの月はその月の実績、当月と未経過の月は
 // 予算ベース(同棲前後どちらのフェーズかに応じた月額)の月額をそのまま使う
 // 12ヶ月ぶんの配列を返す(要望: 「今年の月次表示で過去月にも実績ではなく
 // 年換算の平均値が出ていた」への対応)。
+// 当月を実績ではなく予測(予算)にするのは、月の途中では実績が過少に見えて
+// 当月の支出が小さく=貯蓄が過大に表示されてしまうため(要望: 「当月の実績の
+// 金額は月の予測値が入るようにしてほしい」)。
 function categoryMonthlyActualOrBudgetYen(
   category: { id: string; budget: number },
   overridesForCategory: CategoryBudgetOverride[],
@@ -310,15 +313,18 @@ function categoryMonthlyActualOrBudgetYen(
   return Array.from({ length: 12 }, (_, idx) => {
     const m = idx + 1;
     const key = `${nowYear}-${String(m).padStart(2, "0")}`;
-    if (m <= currentMonth) {
-      // 経過月は必ず実績を使う(その月の取引が1件も無いカテゴリはキー自体が
-      // 存在しないため undefined になるが、それは「実績0円」であって「不明だから
-      // 予算で埋める」ではない。ここをbudgetMonthlyYenにfallbackしていたのが、
-      // 年次合計(annualCategoryYen: 実績の総額を使う)と月次内訳の合計が
-      // 食い違う=貯蓄サマリーカードとテーブルの数字が食い違うバグの原因だった)。
+    if (m < currentMonth) {
+      // 先月までの経過月は必ず実績を使う(その月の取引が1件も無いカテゴリは
+      // キー自体が存在しないため undefined になるが、それは「実績0円」であって
+      // 「不明だから予算で埋める」ではない。ここをbudgetMonthlyYenにfallbackして
+      // いたのが、年次合計(annualCategoryYen)と月次内訳の合計が食い違う
+      // =貯蓄サマリーカードとテーブルの数字が食い違うバグの原因だった)。
       const actualVnd = monthlyActualVnd?.[key] ?? 0;
       return actualVnd / vndPerJpy;
     }
+    // 当月(m === currentMonth)以降は、実績ではなくその月の予算を「月の予測値」
+    // として使う。当月を実績にすると、月の途中では実績が過少で貯蓄が過大に
+    // 見えてしまうため。
     // 未経過月は、その月における「今、有効な予算」をresolveCategoryMonthlyYenで
     // 月単位に解決する(期間限定・恒久変更どちらもその開始月から正しく反映される)。
     return resolveCategoryMonthlyYen(category, overridesForCategory, preAmountByCategory, cohabiting, key, vndPerJpy);
@@ -327,11 +333,11 @@ function categoryMonthlyActualOrBudgetYen(
 
 // 今年ぶんは、予算projectionだけでなく「経過月までの実績」も併せて使う。
 // 以前はここだけ「年初来実績を経過日数で年換算(トレンド外挿)」していたが、
-// 月次内訳(categoryMonthlyActualOrBudgetYen: 経過月=実績そのもの、未経過月=
-// 予算)とは別の計算式だったため、月次テーブルを12ヶ月ぶん合計した値と
-// この年次の値がズレる(=貯蓄サマリーカードとテーブルの数字が食い違う)
-// バグになっていた。月次内訳の合計と必ず一致するよう、
-// 「経過月ぶんの実績 + 残り月数×月額予算」という同じ式に統一する。
+// 月次内訳(categoryMonthlyActualOrBudgetYen)とは別の計算式だったため、
+// 月次テーブルを12ヶ月ぶん合計した値とこの年次の値がズレる
+// (=貯蓄サマリーカードとテーブルの数字が食い違う)バグになっていた。
+// 月次内訳の合計と必ず一致するよう「先月までの実績 + 当月以降の月数×月額予算」
+// という同じ区切りに統一する(当月は実績ではなく予算=月の予測値を使う)。
 // 実績が無いカテゴリ(まだ一度も使っていない等)は従来通り予算ベース。
 function annualCategoryYen(
   category: { name: string },
@@ -341,13 +347,20 @@ function annualCategoryYen(
   nowMonth: number,
   vndPerJpy: number,
   actualByCategoryVnd: Record<string, number>,
+  // カテゴリの月別実績(VND、"YYYY-MM"キー)。当月を予算に切り替えるため、
+  // 年初来累計ではなく「先月まで」の実績だけを足せるように月別で受け取る。
+  actualByMonthForCategory: Record<string, number> | undefined,
 ): number {
   if (year !== nowYear) return monthlyYen * 12;
   const actualVnd = actualByCategoryVnd[category.name];
   if (!actualVnd || actualVnd <= 0) return monthlyYen * 12;
-  const actualYtdYen = actualVnd / vndPerJpy;
-  const remainingMonths = 12 - nowMonth;
-  return actualYtdYen + monthlyYen * remainingMonths;
+  let actualBeforeThisMonthYen = 0;
+  for (let m = 1; m < nowMonth; m++) {
+    const key = `${nowYear}-${String(m).padStart(2, "0")}`;
+    actualBeforeThisMonthYen += (actualByMonthForCategory?.[key] ?? 0) / vndPerJpy;
+  }
+  const monthsFromCurrent = 12 - nowMonth + 1; // 当月〜12月
+  return actualBeforeThisMonthYen + monthlyYen * monthsFromCurrent;
 }
 
 // 児童手当: 0〜2歳 1.5万円/月、3歳〜高校生(18歳)まで 1万円/月。要件5-2。
@@ -445,7 +458,9 @@ export function computeScenarioYears(
             nowYear,
           );
       const renewalYen = renewalFeeYenForYear(c, overridesForCat, year, config.inflationRatePercent, vndPerJpy, nowYear);
-      const valueYen = annualCategoryYen(c, monthlyYen, year, nowYear, nowMonth, vndPerJpy, actualByCategoryVnd) + renewalYen;
+      const valueYen =
+        annualCategoryYen(c, monthlyYen, year, nowYear, nowMonth, vndPerJpy, actualByCategoryVnd, actualByCategoryMonthVnd[c.name]) +
+        renewalYen;
       return { id: c.id, name: c.name, valueYen, color: getCategoryHex(c.name) };
     });
     const fixedTotalYen = fixedByCategory.reduce((s, c) => s + c.valueYen, 0);
@@ -485,7 +500,16 @@ export function computeScenarioYears(
             vndPerJpy,
             nowYear,
           );
-      const valueYen = annualCategoryYen(c, monthlyYen, year, nowYear, nowMonth, vndPerJpy, actualByCategoryVnd);
+      const valueYen = annualCategoryYen(
+        c,
+        monthlyYen,
+        year,
+        nowYear,
+        nowMonth,
+        vndPerJpy,
+        actualByCategoryVnd,
+        actualByCategoryMonthVnd[c.name],
+      );
       return { id: c.id, name: c.name, valueYen, color: getCategoryHex(c.name) };
     });
     const variableTotalYen = variableByCategory.reduce((s, c) => s + c.valueYen, 0);
