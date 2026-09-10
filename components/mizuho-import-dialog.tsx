@@ -43,6 +43,7 @@ export function MizuhoImportDialog({
           imported: json.imported ?? 0,
           skipped: json.skipped ?? 0,
           deposits: json.depositCount ?? 0,
+          excluded: json.excludedCount ?? 0,
         }),
       );
       fireUpdated();

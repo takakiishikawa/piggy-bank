@@ -3,6 +3,16 @@
 // 口座情報のメタ行が並ぶ形式。出金(お引出金額)のみを取り込み、入金
 // (お預入金額 = 給与・入金など)は扱わない。
 
+// お取引内容にこれらの語を含む出金は取り込まない。
+// - ワイズペイメンツジヤパン: Wise への送金。そこから VCB に入るだけで、
+//   自分にとっての支出ではない(要望対応)。
+// みずほのカナは全角・小書きなし(ネツト / ジヤパン)なので部分一致で判定する。
+export const MIZUHO_EXCLUDED_DESCRIPTIONS = ["ワイズペイメンツ"];
+
+function isExcludedDescription(description: string): boolean {
+  return MIZUHO_EXCLUDED_DESCRIPTIONS.some((word) => description.includes(word));
+}
+
 export interface MizuhoWithdrawal {
   externalId: string; // 明細通番(取込の重複防止キー)
   date: Date;
@@ -13,6 +23,7 @@ export interface MizuhoWithdrawal {
 export interface MizuhoParseResult {
   withdrawals: MizuhoWithdrawal[];
   depositCount: number; // 取り込まなかった入金明細の件数(結果表示用)
+  excludedCount: number; // 対象外の語を含むため取り込まなかった出金の件数
   periodStart: string | null;
   periodEnd: string | null;
 }
@@ -95,7 +106,7 @@ export function parseMizuhoCsv(csv: string): MizuhoParseResult {
     (cols) => cols.includes("日付") && cols.some((c) => c.includes("お引出金額")),
   );
   if (headerIdx === -1) {
-    return { withdrawals: [], depositCount: 0, periodStart: null, periodEnd: null };
+    return { withdrawals: [], depositCount: 0, excludedCount: 0, periodStart: null, periodEnd: null };
   }
 
   const header = rows[headerIdx].map((c) => c.trim());
@@ -108,6 +119,7 @@ export function parseMizuhoCsv(csv: string): MizuhoParseResult {
 
   const withdrawals: MizuhoWithdrawal[] = [];
   let depositCount = 0;
+  let excludedCount = 0;
 
   for (let i = headerIdx + 1; i < rows.length; i++) {
     const cols = rows[i];
@@ -127,6 +139,11 @@ export function parseMizuhoCsv(csv: string): MizuhoParseResult {
       ?.trim()
       .replace(/\s+/g, " ") || "みずほ銀行 出金";
 
+    if (isExcludedDescription(description)) {
+      excludedCount++;
+      continue; // Wiseへの送金など、自分の支出でないものは取り込まない
+    }
+
     withdrawals.push({
       // 明細通番が無いCSV形式でも、日付+金額+内容で一意キーを合成する。
       externalId: seq || `${date.toISOString().slice(0, 10)}_${outJpy}_${description}`,
@@ -139,6 +156,7 @@ export function parseMizuhoCsv(csv: string): MizuhoParseResult {
   return {
     withdrawals,
     depositCount,
+    excludedCount,
     periodStart: findValue(rows.slice(0, headerIdx), "照会期間開始日"),
     periodEnd: findValue(rows.slice(0, headerIdx), "照会期間終了日"),
   };

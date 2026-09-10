@@ -49,11 +49,13 @@ export async function POST(req: NextRequest) {
   const csv = decodeMizuhoCsv(await file.arrayBuffer());
   const parsed = parseMizuhoCsv(csv);
 
-  if (parsed.withdrawals.length === 0) {
-    return NextResponse.json(
-      { error: "no_withdrawals", depositCount: parsed.depositCount },
-      { status: 422 },
-    );
+  // 明細行が1つも読めなければCSVの形式エラー扱い。出金が全部フィルタ対象
+  // (Wise送金など)や入金だけ、というのは「取り込むものが無かった」だけなので
+  // 正常終了させ、その月は実施済みとして記録する。
+  const nothingParsed =
+    parsed.withdrawals.length === 0 && parsed.depositCount === 0 && parsed.excludedCount === 0;
+  if (nothingParsed) {
+    return NextResponse.json({ error: "no_withdrawals" }, { status: 422 });
   }
 
   // 重複取込の防止: 既にある mizuho の external_id を集める。
@@ -126,6 +128,7 @@ export async function POST(req: NextRequest) {
     imported,
     skipped,
     depositCount: parsed.depositCount,
+    excludedCount: parsed.excludedCount,
     aiUpdated,
     periodStart: parsed.periodStart,
     periodEnd: parsed.periodEnd,
