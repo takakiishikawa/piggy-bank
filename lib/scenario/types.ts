@@ -127,8 +127,10 @@ export const scenarioConfigSchema = z.object({
     // シナリオの開始年(1月時点)の現金・投資の残高。以降の年はここからの増減で計算する。
     initialCashYen: z.number().min(0),
     initialInvestYen: z.number().min(0),
-    // 現金の上限額。0は「上限なし」。これを超える見込みの現金は、
-    // investRatioPercentの配分とは別に、超過ぶん全額を投資に回す。
+    // 生活防衛資金(常に手元に残す現金)。0は無効。これを超える見込みの現金は
+    // investRatioPercentの配分とは別に超過ぶん全額を投資に回し、これを下回る
+    // あいだは投資せず現金を積み増して先に回復させる(投資判定の現金下限)。
+    // フィールド名は互換のため cashCapYen のまま(過去シナリオのJSONと揃える)。
     cashCapYen: z.number().min(0),
   }),
   inflationRatePercent: z.number(),

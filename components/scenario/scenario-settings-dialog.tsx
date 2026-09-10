@@ -1335,8 +1335,8 @@ export function ScenarioSettingsDialog({
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm w-28 flex items-center gap-1" style={{ color: DC.textSecondary }}>
-                  {t(lang, "cashCap")}
-                  <HelpTip text={t(lang, "cashCapHelp")} />
+                  {t(lang, "emergencyFund")}
+                  <HelpTip text={t(lang, "emergencyFundHelp")} />
                 </span>
                 <YenInput
                   value={draft.savings.cashCapYen}

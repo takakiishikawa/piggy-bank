@@ -22,20 +22,23 @@ export function specialEntryYen(e: SpecialEntryInput, vndPerJpy: number): number
 
 // 現金の安全ライン: これを下回る見込みの期間は投資に回さず全額現金に残す
 // (年次・月次どちらの積立判定でも共通のルールとして使う)。
-const MIN_CASH_TO_INVEST_YEN = 100_000;
+// 生活防衛資金が未設定(0)のときに使う、投資判定の既定の現金下限。
+const DEFAULT_MIN_CASH_TO_INVEST_YEN = 100_000;
 
-// 現金の上限額(config.savings.cashCapYen、0は「上限なし」)。investRatioPercentの
-// 配分とは別に、これを超える見込みの現金は超過ぶん全額を投資に回す
-// (「300万円を超えたら全部投資に回す」という要望への対応)。年次・月次
-// どちらの積立判定でも共通で使う。
-function applyCashCap(
+// 生活防衛資金(config.savings.cashCapYen、0は無効)。「常に手元に残す現金」で、
+// 年次・月次どちらの積立判定でも共通で使う:
+//  - 現金がこの額を超えたぶんは、investRatioPercentの配分とは別に超過ぶん全額を
+//    投資に回す(例: 100万円設定・残高105万円 → 5万円を投資)。
+//  - この額を下回っているあいだは投資せず、まず現金を積み増して回復させる
+//    (下限判定は下の investDelta の条件側で行う)。
+function applyEmergencyFundSweep(
   cashBeforeYen: number,
   cashDeltaYen: number,
   investDeltaYen: number,
-  cashCapYen: number,
+  emergencyFundYen: number,
 ): { cashDeltaYen: number; investDeltaYen: number } {
-  if (cashCapYen <= 0) return { cashDeltaYen, investDeltaYen };
-  const excessYen = cashBeforeYen + cashDeltaYen - cashCapYen;
+  if (emergencyFundYen <= 0) return { cashDeltaYen, investDeltaYen };
+  const excessYen = cashBeforeYen + cashDeltaYen - emergencyFundYen;
   if (excessYen <= 0) return { cashDeltaYen, investDeltaYen };
   return { cashDeltaYen: cashDeltaYen - excessYen, investDeltaYen: investDeltaYen + excessYen };
 }
@@ -727,7 +730,7 @@ function simulateYearMonths(
   // 投資残高は「均等按分」ではなく、月を追うごとに増えていくように出す。
   // - 経過済み月(今年のみ): その月までの実際の投資額の累計をそのまま使う。
   // - それ以外の月: 前月末の投資残高に想定利率(月割り)で含み益を積み、かつ
-  //   年次と同じ「現金がMIN_CASH_TO_INVEST_YENを下回る見込みなら投資しない」
+  //   「現金が下限(生活防衛資金、未設定なら既定額)を下回る見込みなら投資しない」
   //   ルールをその月の実際の収支で判定しながら1ヶ月ずつ進める(以前は年初/
   //   年末の2点だけを直線補間していたため、月の途中で現金がマイナスになって
   //   いても投資額が機械的に増え続けるバグになっていた)。
@@ -839,12 +842,16 @@ function simulateYearMonths(
     } else {
       const earnedNetFlowYen = netFlowYen;
       const cashIfNoInvestYen = simCashCumYen + earnedNetFlowYen;
+      // 生活防衛資金が設定されていればそれを投資判定の現金下限に使う(この額を
+      // 下回るあいだは投資せず現金を積み増す)。未設定なら既定の下限。
+      const minCashToInvestYen =
+        config.savings.cashCapYen > 0 ? config.savings.cashCapYen : DEFAULT_MIN_CASH_TO_INVEST_YEN;
       let investDelta =
-        earnedNetFlowYen >= 0 && cashIfNoInvestYen >= MIN_CASH_TO_INVEST_YEN
+        earnedNetFlowYen >= 0 && cashIfNoInvestYen >= minCashToInvestYen
           ? (earnedNetFlowYen * config.savings.investRatioPercent) / 100
           : 0;
       let cashDelta = earnedNetFlowYen - investDelta;
-      ({ cashDeltaYen: cashDelta, investDeltaYen: investDelta } = applyCashCap(
+      ({ cashDeltaYen: cashDelta, investDeltaYen: investDelta } = applyEmergencyFundSweep(
         simCashCumYen,
         cashDelta,
         investDelta,
