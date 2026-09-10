@@ -1,10 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { UploadCloud } from "lucide-react";
+import { ExternalLink, UploadCloud } from "lucide-react";
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, Spinner, toast } from "@takaki/go-design-system";
 import { t, tf, type Lang } from "@/lib/scenario/dictionary";
 import { DC } from "@/lib/scenario/design-colors";
+
+// みずほダイレクト(個人)のログイン画面。ここから入出金明細をCSVで
+// ダウンロードして、下のフォームでアップロードする。
+const MIZUHO_DIRECT_URL = "https://web.ib.mizuhobank.co.jp/servlet/LOGBNK0000000B.do";
 
 // みずほ銀行の入出金明細CSVをアップロードして取り込むポップアップ。
 // バナーからも、Transactions画面のボタンからも同じものを開く。
@@ -67,6 +71,17 @@ export function MizuhoImportDialog({
           <p className="text-[13px] leading-relaxed" style={{ color: DC.textSecondary }}>
             {t(lang, "mizuhoDialogBody")}
           </p>
+
+          <a
+            href={MIZUHO_DIRECT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold w-fit hover:underline"
+            style={{ color: DC.primary }}
+          >
+            <ExternalLink size={13} />
+            {t(lang, "mizuhoOpenBank")}
+          </a>
 
           <input
             ref={inputRef}
