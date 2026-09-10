@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthDb } from "@/lib/supabase/auth-db";
 import { getJpyToVndRate } from "@/lib/exchange-rate";
-import { computeActualSpendThisYear } from "@/lib/monthly-budget";
+import { computeActualSpendThisYear, computeMonthlyBudget } from "@/lib/monthly-budget";
 import { scenarioConfigSchema, normalizeScenarioConfig, DEFAULT_SCENARIO_CONFIG } from "@/lib/scenario/types";
 
 // シナリオ一覧 + 為替レート(暮らしのVND予算をJPYへ換算するため)を1回で返す。
@@ -16,7 +16,7 @@ export async function GET() {
   if (result instanceof NextResponse) return result;
   const { db } = result;
 
-  const [scenariosRes, vndPerJpy, actualSpend, investmentsRes] = await Promise.all([
+  const [scenariosRes, vndPerJpy, actualSpend, investmentsRes, monthlyBudget] = await Promise.all([
     db
       .from("scenarios")
       .select("id, name, is_primary, config, created_at, updated_at")
@@ -24,6 +24,7 @@ export async function GET() {
     getJpyToVndRate(),
     computeActualSpendThisYear(db),
     db.from("investment_entries").select("amount_vnd, invested_on, note").order("invested_on", { ascending: true }),
+    computeMonthlyBudget(db),
   ]);
 
   if (scenariosRes.error) {
@@ -43,12 +44,18 @@ export async function GET() {
     name: (e.note as string | null) ?? null,
   }));
 
+  // ダッシュボードの「今月の見込み」(固定費+変動費、VND)。Simulationの当月
+  // 支出をこの額に一致させるため、JPY換算して返す(全画面共通の固定レート)。
+  const currentMonthForecastYen =
+    monthlyBudget.forecastVnd !== null ? Math.round(monthlyBudget.forecastVnd / vndPerJpy) : null;
+
   return NextResponse.json({
     scenarios,
     vndPerJpy,
     actualByCategoryVnd: actualSpend.byCategory,
     actualByCategoryMonthVnd: actualSpend.byCategoryMonth,
     investmentEntries,
+    currentMonthForecastYen,
   });
 }
 

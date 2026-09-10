@@ -43,6 +43,7 @@ export default function SimulationPage() {
   const [actualByCategoryVnd, setActualByCategoryVnd] = useState<Record<string, number>>({});
   const [actualByCategoryMonthVnd, setActualByCategoryMonthVnd] = useState<Record<string, Record<string, number>>>({});
   const [investmentEntries, setInvestmentEntries] = useState<InvestmentEntryInput[]>([]);
+  const [currentMonthForecastYen, setCurrentMonthForecastYen] = useState<number | null>(null);
   const [specialEntries, setSpecialEntries] = useState<SpecialEntry[]>([]);
   const [categories, setCategories] = useState<CategoryForCard[]>([]);
   const [overrides, setOverrides] = useState<CategoryBudgetOverride[]>([]);
@@ -68,18 +69,21 @@ export default function SimulationPage() {
       actualByCategoryVnd: actual,
       actualByCategoryMonthVnd: actualByMonth,
       investmentEntries: investments,
+      currentMonthForecastYen: forecastYen,
     } = (await r.json()) as {
       scenarios: Scenario[];
       vndPerJpy: number;
       actualByCategoryVnd: Record<string, number>;
       actualByCategoryMonthVnd: Record<string, Record<string, number>>;
       investmentEntries: InvestmentEntryInput[];
+      currentMonthForecastYen: number | null;
     };
     setScenarios(list);
     setVndPerJpy(rate);
     setActualByCategoryVnd(actual ?? {});
     setActualByCategoryMonthVnd(actualByMonth ?? {});
     setInvestmentEntries(investments ?? []);
+    setCurrentMonthForecastYen(forecastYen ?? null);
   }, []);
 
   const fetchCategories = useCallback(async () => {
@@ -151,9 +155,20 @@ export default function SimulationPage() {
             actualByCategoryMonthVnd,
             specialEntries,
             investmentEntries,
+            currentMonthForecastYen,
           )
         : [],
-    [primary, categories, overrides, vndPerJpy, actualByCategoryVnd, actualByCategoryMonthVnd, specialEntries, investmentEntries],
+    [
+      primary,
+      categories,
+      overrides,
+      vndPerJpy,
+      actualByCategoryVnd,
+      actualByCategoryMonthVnd,
+      specialEntries,
+      investmentEntries,
+      currentMonthForecastYen,
+    ],
   );
   const rowsForView: ScenarioRow[] = useMemo(() => {
     if (!primary) return [];
@@ -174,6 +189,7 @@ export default function SimulationPage() {
         actualByCategoryMonthVnd,
         specialEntries,
         investmentEntries,
+        currentMonthForecastYen,
       );
       const rows =
         timeMode === "yearly"
@@ -192,6 +208,7 @@ export default function SimulationPage() {
     focusYear,
     investmentEntries,
     specialEntries,
+    currentMonthForecastYen,
   ]);
 
   const formatAmount = useCallback((yen: number) => formatYen(yen, currency, vndPerJpy), [currency, vndPerJpy]);

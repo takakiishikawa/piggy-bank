@@ -325,23 +325,21 @@ function categoryMonthlyActualOrBudgetYen(
       const actualVnd = monthlyActualVnd?.[key] ?? 0;
       return actualVnd / vndPerJpy;
     }
-    // 当月(m === currentMonth)以降は、実績ではなくその月の予算を「月の予測値」
-    // として使う。当月を実績にすると、月の途中では実績が過少で貯蓄が過大に
-    // 見えてしまうため。
+    // 当月(m === currentMonth)以降は実績ではなくその月の予算を使う。当月ぶんは
+    // このあと computeScenarioYears 側で、ダッシュボードの「今月の見込み」に
+    // 合計が一致するよう予算比で按分し直す(当月を実績にすると月の途中では
+    // 過少で貯蓄が過大に見えるため。また Simulation とダッシュボードの当月
+    // 支出を必ず揃えるため)。
     // 未経過月は、その月における「今、有効な予算」をresolveCategoryMonthlyYenで
     // 月単位に解決する(期間限定・恒久変更どちらもその開始月から正しく反映される)。
     return resolveCategoryMonthlyYen(category, overridesForCategory, preAmountByCategory, cohabiting, key, vndPerJpy);
   });
 }
 
-// 今年ぶんは、予算projectionだけでなく「経過月までの実績」も併せて使う。
-// 以前はここだけ「年初来実績を経過日数で年換算(トレンド外挿)」していたが、
-// 月次内訳(categoryMonthlyActualOrBudgetYen)とは別の計算式だったため、
-// 月次テーブルを12ヶ月ぶん合計した値とこの年次の値がズレる
-// (=貯蓄サマリーカードとテーブルの数字が食い違う)バグになっていた。
-// 月次内訳の合計と必ず一致するよう「先月までの実績 + 当月以降の月数×月額予算」
-// という同じ区切りに統一する(当月は実績ではなく予算=月の予測値を使う)。
-// 実績が無いカテゴリ(まだ一度も使っていない等)は従来通り予算ベース。
+// 今年より後の年の年額。今年ぶんは computeScenarioYears 側で「月次内訳の合計」から
+// 出す(先月まで=実績、当月=ダッシュボードの見込み、当月より後=予算)ため、
+// この関数は原則 year !== nowYear でしか呼ばれない。呼ばれても破綻しないよう
+// 従来の近似(年初来実績 + 残り月数×予算)を残しておく。
 function annualCategoryYen(
   category: { name: string },
   monthlyYen: number,
@@ -350,20 +348,13 @@ function annualCategoryYen(
   nowMonth: number,
   vndPerJpy: number,
   actualByCategoryVnd: Record<string, number>,
-  // カテゴリの月別実績(VND、"YYYY-MM"キー)。当月を予算に切り替えるため、
-  // 年初来累計ではなく「先月まで」の実績だけを足せるように月別で受け取る。
-  actualByMonthForCategory: Record<string, number> | undefined,
 ): number {
   if (year !== nowYear) return monthlyYen * 12;
   const actualVnd = actualByCategoryVnd[category.name];
   if (!actualVnd || actualVnd <= 0) return monthlyYen * 12;
-  let actualBeforeThisMonthYen = 0;
-  for (let m = 1; m < nowMonth; m++) {
-    const key = `${nowYear}-${String(m).padStart(2, "0")}`;
-    actualBeforeThisMonthYen += (actualByMonthForCategory?.[key] ?? 0) / vndPerJpy;
-  }
-  const monthsFromCurrent = 12 - nowMonth + 1; // 当月〜12月
-  return actualBeforeThisMonthYen + monthlyYen * monthsFromCurrent;
+  const actualYtdYen = actualVnd / vndPerJpy;
+  const remainingMonths = 12 - nowMonth;
+  return actualYtdYen + monthlyYen * remainingMonths;
 }
 
 // 児童手当: 0〜2歳 1.5万円/月、3歳〜高校生(18歳)まで 1万円/月。要件5-2。
@@ -395,6 +386,9 @@ export function computeScenarioYears(
   // 今年ぶんの投資残高をsimulateYearMonths経由で月次表示(expandMonthly)と
   // 全く同じロジックで計算するために必要(経過済み月は実績、未経過月は複利)。
   investmentEntries: InvestmentEntryInput[] = [],
+  // ダッシュボードの「今月の見込み」(固定費+変動費、JPY)。今年の当月ぶんの
+  // 支出をこの額に一致させる(Simulationとダッシュボードの当月支出を必ず揃える)。
+  currentMonthForecastYen: number | null = null,
 ): ScenarioYearRow[] {
   const nowYear = new Date().getFullYear();
   const nowMonth = new Date().getMonth() + 1;
@@ -443,13 +437,11 @@ export function computeScenarioYears(
 
     // 固定費・変動費は、同棲前後どちらの年でも同じカテゴリ(piggybank.categories)を
     // 使う。月額の出どころだけ、同棲後は実カテゴリの予算、同棲前は
-    // preAmountByCategory(無ければ同棲後の実額をそのまま流用)で分岐する
-    // (要望: 「同棲前・同棲後いずれにしても共通のカテゴリを利用」への対応。
-    // 以前はidが同棲前後で食い違い、テーブルのカテゴリ内訳行が同棲後の年で
-    // ¥0になるバグの原因になっていた)。
-    const fixedByCategory: ScenarioCategoryValue[] = fixedCats.map((c) => {
+    // preAmountByCategory(無ければ同棲後の実額をそのまま流用)で分岐する。
+    const isNowYear = year === nowYear;
+    const monthlyYenFor = (c: CategoryForScenario) => {
       const overridesForCat = overridesByCategory.get(c.id) ?? [];
-      const monthlyYen = cohabiting
+      return cohabiting
         ? projectCategoryMonthlyYen(c, overridesForCat, year, config.inflationRatePercent, vndPerJpy, nowYear)
         : preCategoryMonthlyYen(
             c,
@@ -460,82 +452,90 @@ export function computeScenarioYears(
             vndPerJpy,
             nowYear,
           );
+    };
+
+    // 今年の月次内訳(先月まで=実績、当月以降=予算)。当月ぶんは、この後で
+    // ダッシュボードの「今月の見込み」(currentMonthForecastYen)に固定費+変動費の
+    // 合計が一致するよう、予算比を保ったまま同じ係数で按分し直す。これにより
+    // Simulation の当月支出とダッシュボードの数字が必ず一致し、かつカテゴリ
+    // 内訳の合計=総支出 の関係も崩れない。
+    const fixedMonthly: Record<string, number[]> = {};
+    const variableMonthly: Record<string, number[]> = {};
+    if (isNowYear) {
+      for (const c of fixedCats) {
+        fixedMonthly[c.id] = categoryMonthlyActualOrBudgetYen(
+          c,
+          overridesByCategory.get(c.id) ?? [],
+          config.cohabitation.preAmountByCategory,
+          cohabiting,
+          actualByCategoryMonthVnd[c.name],
+          nowMonth,
+          config.inflationRatePercent,
+          vndPerJpy,
+          nowYear,
+        );
+      }
+      for (const c of variableCats) {
+        variableMonthly[c.id] = categoryMonthlyActualOrBudgetYen(
+          c,
+          overridesByCategory.get(c.id) ?? [],
+          config.cohabitation.preAmountByCategory,
+          cohabiting,
+          actualByCategoryMonthVnd[c.name],
+          nowMonth,
+          config.inflationRatePercent,
+          vndPerJpy,
+          nowYear,
+        );
+      }
+      if (currentMonthForecastYen != null && currentMonthForecastYen >= 0) {
+        const curIdx = nowMonth - 1;
+        let rawCur = 0;
+        for (const c of fixedCats) rawCur += fixedMonthly[c.id][curIdx];
+        for (const c of variableCats) rawCur += variableMonthly[c.id][curIdx];
+        if (rawCur > 0) {
+          const factor = currentMonthForecastYen / rawCur;
+          for (const c of fixedCats) fixedMonthly[c.id][curIdx] *= factor;
+          for (const c of variableCats) variableMonthly[c.id][curIdx] *= factor;
+        } else if (currentMonthForecastYen > 0) {
+          // 予算・実績とも0のカテゴリしか無い稀なケース: 予算比で配分。
+          const budgets = [...fixedCats, ...variableCats].map((c) => monthlyYenFor(c));
+          const total = budgets.reduce((s, v) => s + v, 0);
+          if (total > 0) {
+            fixedCats.forEach((c, i) => {
+              fixedMonthly[c.id][curIdx] = currentMonthForecastYen * (budgets[i] / total);
+            });
+            variableCats.forEach((c, i) => {
+              variableMonthly[c.id][curIdx] = currentMonthForecastYen * (budgets[fixedCats.length + i] / total);
+            });
+          }
+        }
+      }
+    }
+
+    const fixedByCategory: ScenarioCategoryValue[] = fixedCats.map((c) => {
+      const overridesForCat = overridesByCategory.get(c.id) ?? [];
+      const monthlyYen = monthlyYenFor(c);
       const renewalYen = renewalFeeYenForYear(c, overridesForCat, year, config.inflationRatePercent, vndPerJpy, nowYear);
-      const valueYen =
-        annualCategoryYen(c, monthlyYen, year, nowYear, nowMonth, vndPerJpy, actualByCategoryVnd, actualByCategoryMonthVnd[c.name]) +
-        renewalYen;
+      // 今年ぶんは月次内訳の合計(=先月まで実績+当月見込み+当月より後は予算)を
+      // そのまま年額にして、月次テーブルとの整合を必ず保つ。
+      const valueYen = isNowYear
+        ? fixedMonthly[c.id].reduce((s, v) => s + v, 0) + renewalYen
+        : annualCategoryYen(c, monthlyYen, year, nowYear, nowMonth, vndPerJpy, actualByCategoryVnd) + renewalYen;
       return { id: c.id, name: c.name, valueYen, color: getCategoryHex(c.name) };
     });
     const fixedTotalYen = fixedByCategory.reduce((s, c) => s + c.valueYen, 0);
-
-    // 今年の月次表示専用の内訳(経過月=実績、未経過月=予算)。他の年では作らない
-    // (expandMonthly側で従来通り年額を均等按分にfallbackする)。
-    const fixedByCategoryMonthly: Record<string, number[]> | undefined =
-      year === nowYear
-        ? Object.fromEntries(
-            fixedCats.map((c) => [
-              c.id,
-              categoryMonthlyActualOrBudgetYen(
-                c,
-                overridesByCategory.get(c.id) ?? [],
-                config.cohabitation.preAmountByCategory,
-                cohabiting,
-                actualByCategoryMonthVnd[c.name],
-                nowMonth,
-                config.inflationRatePercent,
-                vndPerJpy,
-                nowYear,
-              ),
-            ]),
-          )
-        : undefined;
+    const fixedByCategoryMonthly: Record<string, number[]> | undefined = isNowYear ? fixedMonthly : undefined;
 
     const variableByCategory: ScenarioCategoryValue[] = variableCats.map((c) => {
-      const overridesForCat = overridesByCategory.get(c.id) ?? [];
-      const monthlyYen = cohabiting
-        ? projectCategoryMonthlyYen(c, overridesForCat, year, config.inflationRatePercent, vndPerJpy, nowYear)
-        : preCategoryMonthlyYen(
-            c,
-            config.cohabitation.preAmountByCategory,
-            overridesForCat,
-            year,
-            config.inflationRatePercent,
-            vndPerJpy,
-            nowYear,
-          );
-      const valueYen = annualCategoryYen(
-        c,
-        monthlyYen,
-        year,
-        nowYear,
-        nowMonth,
-        vndPerJpy,
-        actualByCategoryVnd,
-        actualByCategoryMonthVnd[c.name],
-      );
+      const monthlyYen = monthlyYenFor(c);
+      const valueYen = isNowYear
+        ? variableMonthly[c.id].reduce((s, v) => s + v, 0)
+        : annualCategoryYen(c, monthlyYen, year, nowYear, nowMonth, vndPerJpy, actualByCategoryVnd);
       return { id: c.id, name: c.name, valueYen, color: getCategoryHex(c.name) };
     });
     const variableTotalYen = variableByCategory.reduce((s, c) => s + c.valueYen, 0);
-
-    const variableByCategoryMonthly: Record<string, number[]> | undefined =
-      year === nowYear
-        ? Object.fromEntries(
-            variableCats.map((c) => [
-              c.id,
-              categoryMonthlyActualOrBudgetYen(
-                c,
-                overridesByCategory.get(c.id) ?? [],
-                config.cohabitation.preAmountByCategory,
-                cohabiting,
-                actualByCategoryMonthVnd[c.name],
-                nowMonth,
-                config.inflationRatePercent,
-                vndPerJpy,
-                nowYear,
-              ),
-            ]),
-          )
-        : undefined;
+    const variableByCategoryMonthly: Record<string, number[]> | undefined = isNowYear ? variableMonthly : undefined;
 
     const educationTotalYen = config.family.kids.reduce((sum, kid, kidIdx) => {
       const age = year - kid.birthYear;
