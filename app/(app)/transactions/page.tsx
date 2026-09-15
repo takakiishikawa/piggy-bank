@@ -331,8 +331,8 @@ function TransactionsPageInner() {
                     disabled={savingId === tx.id}
                   >
                     <SelectTrigger
-                      className="h-7 text-xs w-full border-0 bg-transparent px-1 shadow-none hover:bg-[color-mix(in_srgb,var(--color-text-primary)_6%,transparent)] focus:ring-1 focus:ring-offset-0"
-                      style={uncategorized ? { border: `1px solid ${DC.primaryHover}`, color: DC.primaryHover } : undefined}
+                      className="h-auto w-full items-center border-0 bg-transparent p-0 shadow-none cursor-pointer [&>svg]:hidden focus:outline-none focus-visible:ring-1 focus-visible:ring-offset-1"
+                      style={uncategorized ? { color: DC.primaryHover } : undefined}
                     >
                       <CategoryBadgeInline category={tx.category} lang={lang} />
                     </SelectTrigger>
