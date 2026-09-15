@@ -15,7 +15,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
   toast,
 } from "@takaki/go-design-system";
 import { formatDateShort } from "@/lib/format";
@@ -322,31 +321,30 @@ function TransactionsPageInner() {
                 <span className="w-24 shrink-0 text-right text-[13px] font-normal font-num" style={{ color: DC.textPrimary }}>
                   {formatAmount(tx.amount)}
                 </span>
-                {uncategorized ? (
-                  <div className="w-[150px] shrink-0 flex items-center gap-1.5">
+                <div className="w-[150px] shrink-0 flex items-center gap-1.5">
+                  {uncategorized && (
                     <AlertCircle size={13} style={{ color: DC.primaryHover }} className="shrink-0" />
-                    <Select
-                      value={undefined}
-                      onValueChange={(v) => handleSelectCategory(tx, v)}
-                      disabled={savingId === tx.id}
+                  )}
+                  <Select
+                    value={tx.category}
+                    onValueChange={(v) => handleSelectCategory(tx, v)}
+                    disabled={savingId === tx.id}
+                  >
+                    <SelectTrigger
+                      className="h-7 text-xs w-full border-0 bg-transparent px-1 shadow-none hover:bg-[color-mix(in_srgb,var(--color-text-primary)_6%,transparent)] focus:ring-1 focus:ring-offset-0"
+                      style={uncategorized ? { border: `1px solid ${DC.primaryHover}`, color: DC.primaryHover } : undefined}
                     >
-                      <SelectTrigger className="h-7 text-xs w-full" style={{ borderColor: DC.primaryHover, color: DC.primaryHover }}>
-                        <SelectValue placeholder={t(lang, "txChooseCategory")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {catLabel(lang, cat)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : (
-                  <div className="w-[150px] shrink-0 flex">
-                    <CategoryBadgeInline category={tx.category} lang={lang} />
-                  </div>
-                )}
+                      <CategoryBadgeInline category={tx.category} lang={lang} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {catLabel(lang, cat)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <NoteTag value={tx.note} onSave={(v) => handleSaveNote(tx.id, v)} lang={lang} />
                   <SpecialExpenseToggle
