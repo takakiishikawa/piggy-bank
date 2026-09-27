@@ -48,6 +48,7 @@ export function CashWalletDialog({
   const formatAmount = makeFormatAmount(currency);
   const [amountInput, setAmountInput] = useState("");
   const [category, setCategory] = useState("");
+  const [note, setNote] = useState("");
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [saving, setSaving] = useState(false);
   const [wallet, setWallet] = useState<CashWallet | null>(null);
@@ -78,7 +79,7 @@ export function CashWalletDialog({
     const res = await fetch("/api/cash-wallet", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amountVnd, category, date: toDateInputValue(date) }),
+      body: JSON.stringify({ amountVnd, category, date: toDateInputValue(date), note: note.trim() || undefined }),
     });
     setSaving(false);
     if (!res.ok) {
@@ -92,6 +93,7 @@ export function CashWalletDialog({
     }
     toast.success(t(lang, "cashSaved"));
     setAmountInput("");
+    setNote("");
     fetchWallet(month);
     onSaved();
   };
@@ -193,6 +195,19 @@ export function CashWalletDialog({
             </span>
             <DatePicker value={date} onChange={setDate} toDate={new Date()} />
           </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-semibold" style={labelStyle}>
+              {t(lang, "cashNoteLabel")}
+            </span>
+            <Input
+              type="text"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={t(lang, "cashNotePlaceholder")}
+              maxLength={200}
+              className="h-9"
+            />
+          </div>
           <Button onClick={handleSave} disabled={saving || amountVnd <= 0 || !category || !date || exceeds || wallet === null}>
             {t(lang, "cashRecordBtn")}
           </Button>
@@ -216,8 +231,13 @@ export function CashWalletDialog({
                           day: "numeric",
                         })}
                       </span>
-                      <span className="flex-1 truncate" style={{ color: "var(--color-text-primary)" }}>
+                      <span className="flex-1 min-w-0 truncate" style={{ color: "var(--color-text-primary)" }}>
                         {catLabel(lang, r.category)}
+                        {r.note && (
+                          <span className="ml-1.5" style={labelStyle}>
+                            {r.note}
+                          </span>
+                        )}
                       </span>
                       <span className="font-num shrink-0" style={{ color: "var(--color-text-primary)" }}>
                         {formatAmount(r.amount)}

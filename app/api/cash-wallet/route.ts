@@ -19,6 +19,7 @@ const postSchema = z.object({
   amountVnd: z.number().int().min(1),
   category: z.string().trim().min(1).max(50),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  note: z.string().trim().max(200).optional(),
 });
 
 // 現金支出を記録する。特定の引き出しとは紐づけず、その月の財布から差し引く。
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid body" }, { status: 400 });
   }
-  const { amountVnd, category, date } = parsed.data;
+  const { amountVnd, category, date, note } = parsed.data;
   if (category === CASH_CATEGORY) {
     return NextResponse.json({ error: "invalid category" }, { status: 400 });
   }
@@ -65,8 +66,9 @@ export async function POST(req: NextRequest) {
       reviewed: true,
       source: "cash",
       external_id: null,
-    } satisfies Omit<Transaction, "created_at" | "note" | "excluded_from_dashboard" | "special_entry_id">)
-    .select("id, amount, category, date")
+      note: note || null,
+    } satisfies Omit<Transaction, "created_at" | "excluded_from_dashboard" | "special_entry_id">)
+    .select("id, amount, category, date, note")
     .single();
 
   if (error) {

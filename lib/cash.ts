@@ -37,7 +37,7 @@ export interface CashWallet {
   recordedVnd: number;
   // 引き出し額 − 記録済みの現金支出 = 現金(内訳なし)
   unallocatedVnd: number;
-  records: { id: string; amount: number; category: string; date: string }[];
+  records: { id: string; amount: number; category: string; date: string; note: string | null }[];
 }
 
 function monthRange(month: string): { start: Date; end: Date } {
@@ -70,7 +70,7 @@ export async function fetchCashWallet(db: Db, month: string): Promise<CashWallet
       .lte("date", end.toISOString()),
     db
       .from("transactions")
-      .select("id, amount, category, date")
+      .select("id, amount, category, date, note")
       .eq("source", "cash")
       .gte("date", start.toISOString())
       .lte("date", end.toISOString())
