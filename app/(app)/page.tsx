@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Inbox, List, PiggyBank, TrendingDown, TrendingUp } from "lucide-react";
+import { Inbox, List, PiggyBank, Plus, TrendingDown, TrendingUp } from "lucide-react";
 import { getCategoryColors, getCategoryColorTint } from "@/lib/category-colors";
 import { getCategoryIcon } from "@/lib/category-icons";
 import { makeFormatAmount, toDisplayAmount, toVndAmount, withThousands } from "@/lib/currency";
 import { usePreferences } from "@/lib/preferences";
 import { catLabel, t, tf, type Lang } from "@/lib/scenario/dictionary";
 import { NoteTag } from "@/components/note-tag";
+import { CashWalletDialog } from "@/components/cash-wallet-dialog";
+import { CASH_CATEGORY } from "@/lib/cash";
 import { SpecialExpenseToggle } from "@/components/special-expense-toggle";
 import type { DisplayCurrency } from "@/components/currency-switch";
 import {
@@ -43,6 +45,8 @@ interface DashboardData {
   forecastVnd: number | null;
   savingsImpactVnd: number | null;
   lifeBudgetVnd: number;
+  cashWithdrawnVnd: number;
+  cashUnallocatedVnd: number;
 }
 
 interface TxItem {
@@ -175,6 +179,68 @@ function VariableCategoryCard({
           todayPct={todayPct}
           showToday={false}
           fillColor={barColor}
+        />
+      </div>
+    </button>
+  );
+}
+
+// 現金(内訳なし)カード。予算比ではなく「未分類額 / 今月の引き出し額」を出し、
+// クリックで現金支出の記録ダイアログを開く(lib/cash.ts)。バーは引き出し額のうち
+// まだ振り分けていない割合。
+function CashCard({
+  unallocatedVnd,
+  withdrawnVnd,
+  onClick,
+  formatAmount,
+  lang,
+}: {
+  unallocatedVnd: number;
+  withdrawnVnd: number;
+  onClick: () => void;
+  formatAmount: (vnd: number) => string;
+  lang: Lang;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={t(lang, "cashCardHint")}
+      className="text-left rounded-[13px] border p-[11px_14px] transition-all bg-[var(--color-surface-subtle)] hover:bg-muted/40 active:scale-[0.98] active:bg-muted/60 cursor-pointer"
+      style={{ borderColor: "var(--color-border-default)" }}
+    >
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <div
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[9px]"
+            style={{ backgroundColor: getCategoryColorTint(CASH_CATEGORY) }}
+          >
+            <CategoryIcon name={CASH_CATEGORY} />
+          </div>
+          <span className="text-[13.5px] font-semibold truncate" style={{ color: "var(--color-text-primary)" }}>
+            {t(lang, "cashCardTitle")}
+          </span>
+        </div>
+        <span
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md"
+          style={{ backgroundColor: "var(--kg-track)", color: "var(--color-text-secondary)" }}
+        >
+          <Plus size={12} />
+        </span>
+      </div>
+      <span className="text-[12.5px]" style={{ color: "var(--color-text-secondary)" }}>
+        <span className="font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>
+          {formatAmount(unallocatedVnd)}
+        </span>
+        <span className="font-num"> / {formatAmount(withdrawnVnd)}</span>
+      </span>
+      <div className="mt-1.5">
+        <ProgressBar
+          actual={unallocatedVnd}
+          budget={withdrawnVnd}
+          todayPct={0}
+          showToday={false}
+          fillColor="var(--color-text-subtle)"
         />
       </div>
     </button>
@@ -357,6 +423,7 @@ export default function Dashboard() {
   const [uncategorizedCount, setUncategorizedCount] = useState(0);
   const [investments, setInvestments] = useState<InvestmentEntry[]>([]);
   const [investDialogOpen, setInvestDialogOpen] = useState(false);
+  const [cashDialogOpen, setCashDialogOpen] = useState(false);
   const [detail, setDetail] = useState<{
     categoryName: string;
     txs: TxItem[] | null;
@@ -464,8 +531,13 @@ export default function Dashboard() {
     ? data.variableTotalBudget > 0 || data.fixedTotalBudget > 0
     : false;
 
+  // 現金(内訳なし)は専用のCashCardで先頭に出すので、通常のカード一覧からは外す。
+  const hasCashCategory = data?.variableCategories.some((c) => c.name === CASH_CATEGORY) ?? false;
   const sortedVariable = data
-    ? [...data.variableCategories].sort((a, b) => b.budget - a.budget)
+    ? data.variableCategories.filter((c) => c.name !== CASH_CATEGORY).sort((a, b) => b.budget - a.budget)
+    : [];
+  const cashTargetCategories = data
+    ? [...data.variableCategories, ...data.fixedCategories].map((c) => c.name).filter((n) => n !== CASH_CATEGORY)
     : [];
   const sortedFixed = data
     ? [...data.fixedCategories].sort((a, b) => b.budget - a.budget)
@@ -571,6 +643,15 @@ export default function Dashboard() {
           onSaved={fetchInvestments}
         />
 
+        <CashWalletDialog
+          open={cashDialogOpen}
+          onOpenChange={setCashDialogOpen}
+          categories={cashTargetCategories}
+          currency={currency}
+          lang={lang}
+          onSaved={fetchDashboard}
+        />
+
         <Card
           className="p-6 rounded-2xl overflow-hidden animate-fade-up"
           style={{
@@ -614,12 +695,21 @@ export default function Dashboard() {
                 <Skeleton key={i} className="h-20 rounded-lg" />
               ))}
             </div>
-          ) : sortedVariable.length === 0 ? (
+          ) : sortedVariable.length === 0 && !hasCashCategory ? (
             <p className="py-6 text-sm text-center" style={{ color: "var(--color-text-secondary)" }}>
               {t(lang, "dashNoVariableCategories")}
             </p>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {hasCashCategory && (
+                <CashCard
+                  unallocatedVnd={data.cashUnallocatedVnd}
+                  withdrawnVnd={data.cashWithdrawnVnd}
+                  onClick={() => setCashDialogOpen(true)}
+                  formatAmount={formatAmount}
+                  lang={lang}
+                />
+              )}
               {sortedVariable.map((cat) => (
                 <VariableCategoryCard
                   key={cat.id}

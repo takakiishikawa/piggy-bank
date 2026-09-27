@@ -8,7 +8,8 @@ export const FIXED_CATEGORIES = ["Rent", "Phone"] as const;
 export const FALLBACK_CATEGORY = "Other";
 
 /** 削除不可の固定費カテゴリ名(常に存在している必要があるもの) */
-export const UNDELETABLE_CATEGORIES = ["Rent"] as const;
+// 「Cash (Unitemized)」は現金財布(lib/cash.ts)のATM引き出し・現金(内訳なし)用。
+export const UNDELETABLE_CATEGORIES = ["Rent", "Cash (Unitemized)"] as const;
 
 /** AI一括分類のバッチサイズ（店名数） */
 export const AI_CATEGORIZE_BATCH_SIZE = 100;

@@ -92,6 +92,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   "Daily Goods": Boxes,
   Transfer: Wallet,
   Cash: Banknote,
+  "Cash (Unitemized)": Banknote,
   Entertainment: Tv,
 };
 

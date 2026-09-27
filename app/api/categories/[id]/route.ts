@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthDb } from "@/lib/supabase/auth-db";
 import { FALLBACK_CATEGORY, UNDELETABLE_CATEGORIES } from "@/lib/constants";
+import { CASH_CATEGORY } from "@/lib/cash";
 
 export const maxDuration = 30;
 
@@ -45,9 +46,10 @@ export async function PATCH(
 
   // 名前変更がある場合の処理
   if (newName !== undefined && newName !== oldName) {
-    if (oldName === FALLBACK_CATEGORY) {
+    // 現金財布は名前でATM引き出しを判定しているため、改名させない。
+    if (oldName === FALLBACK_CATEGORY || oldName === CASH_CATEGORY) {
       return NextResponse.json(
-        { error: `"${FALLBACK_CATEGORY}" cannot be renamed` },
+        { error: `"${oldName}" cannot be renamed` },
         { status: 400 },
       );
     }

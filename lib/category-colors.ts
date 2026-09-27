@@ -27,6 +27,7 @@ const CATEGORY_HEX: Record<string, string> = {
   Moca: "#7A9E6E",
   Transfer: "#9A9184",
   Cash: "#7D9488",
+  "Cash (Unitemized)": "#7D9488",
   "Sauna/Spa": "#5C9E93",
   Sports: "#4C8F6B",
   Beauty: "#C77BA0",
