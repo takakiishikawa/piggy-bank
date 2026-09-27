@@ -60,8 +60,15 @@ const PAGE_SIZE = 50;
 
 // 「未分類」= フォールバックカテゴリのままAI/手動でまだレビューされていない取引。
 // (既存のCategoryBadge/uncategorized-countと同じ判定基準)
+// 特別支出はカテゴリを持たない扱いなので未分類にも数えない。
 function needsCategory(tx: Transaction): boolean {
-  return tx.category === FALLBACK_CATEGORY && !tx.reviewed;
+  return tx.category === FALLBACK_CATEGORY && !tx.reviewed && !isSpecial(tx);
+}
+
+// 特別支出にした取引は「カテゴリなし」として扱う(カテゴリ欄を空にし、編集もさせない)。
+// DBのcategoryは消さずに残すので、特別支出を外せば元のカテゴリに戻る。
+function isSpecial(tx: Transaction): boolean {
+  return tx.special_entry_id !== null;
 }
 
 function CategoryBadgeInline({ category, lang }: { category: string; lang: "ja" | "en" }) {
@@ -380,40 +387,44 @@ function TransactionsPageInner() {
                   {formatAmount(tx.amount)}
                 </span>
                 <div className="w-[150px] shrink-0 flex items-center gap-1.5">
-                  {uncategorized && (
-                    <AlertCircle size={13} style={{ color: DC.primaryHover }} className="shrink-0" />
+                  {!isSpecial(tx) && (
+                    <>
+                      {uncategorized && (
+                        <AlertCircle size={13} style={{ color: DC.primaryHover }} className="shrink-0" />
+                      )}
+                      <Select
+                        value={uncategorized ? "" : tx.category}
+                        onValueChange={(v) => handleSelectCategory(tx, v)}
+                        disabled={savingId === tx.id}
+                      >
+                        <SelectTrigger
+                          className="h-auto w-full items-center border-0 bg-transparent p-0 shadow-none cursor-pointer [&>svg]:hidden focus:outline-none focus-visible:ring-1 focus-visible:ring-offset-1"
+                        >
+                          {/* DSのSelectTriggerは直下のspanに line-clamp-1(display:-webkit-box)を
+                              当てるため、バッジを直接置くとflexが崩れてアイコンとラベルが縦に
+                              ずれる。ラッパーspanで受けて中身のflexを保つ。
+                              未分類はフォールバック値の「その他」を見せず空欄(点線枠)にする。 */}
+                          <span className="block w-full min-w-0">
+                            {uncategorized ? (
+                              <span
+                                className="block h-5 w-16 rounded-md border border-dashed"
+                                style={{ borderColor: "#F0C7D8" }}
+                              />
+                            ) : (
+                              <CategoryBadgeInline category={tx.category} lang={lang} />
+                            )}
+                          </span>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat} value={cat}>
+                              {catLabel(lang, cat)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </>
                   )}
-                  <Select
-                    value={uncategorized ? "" : tx.category}
-                    onValueChange={(v) => handleSelectCategory(tx, v)}
-                    disabled={savingId === tx.id}
-                  >
-                    <SelectTrigger
-                      className="h-auto w-full items-center border-0 bg-transparent p-0 shadow-none cursor-pointer [&>svg]:hidden focus:outline-none focus-visible:ring-1 focus-visible:ring-offset-1"
-                    >
-                      {/* DSのSelectTriggerは直下のspanに line-clamp-1(display:-webkit-box)を
-                          当てるため、バッジを直接置くとflexが崩れてアイコンとラベルが縦に
-                          ずれる。ラッパーspanで受けて中身のflexを保つ。
-                          未分類はフォールバック値の「その他」を見せず空欄(点線枠)にする。 */}
-                      <span className="block w-full min-w-0">
-                        {uncategorized ? (
-                          <span
-                            className="block h-5 w-16 rounded-md border border-dashed"
-                            style={{ borderColor: "#F0C7D8" }}
-                          />
-                        ) : (
-                          <CategoryBadgeInline category={tx.category} lang={lang} />
-                        )}
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {catLabel(lang, cat)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <NoteTag value={tx.note} onSave={(v) => handleSaveNote(tx.id, v)} lang={lang} />

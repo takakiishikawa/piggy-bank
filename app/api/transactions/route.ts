@@ -93,11 +93,12 @@ export async function GET(req: NextRequest) {
       .order("date", { ascending: false })
       .order("id", { ascending: true })
       .range(offset, offset + limit);
+    // 特別支出はカテゴリなし扱いなので、未分類・カテゴリの絞り込みには含めない。
     if (filter === "needs_category") {
       // 未分類バッジ(uncategorized-count)と同じ判定基準
-      query = query.eq("category", FALLBACK_CATEGORY).eq("reviewed", false);
+      query = query.eq("category", FALLBACK_CATEGORY).eq("reviewed", false).is("special_entry_id", null);
     } else if (category && category !== "all") {
-      query = query.eq("category", category);
+      query = query.eq("category", category).is("special_entry_id", null);
     }
     if (q) query = query.or(`store.ilike.%${q}%,category.ilike.%${q}%`);
 

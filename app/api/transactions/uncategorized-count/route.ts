@@ -14,7 +14,9 @@ export async function GET() {
     .from("transactions")
     .select("id", { count: "exact", head: true })
     .eq("category", FALLBACK_CATEGORY)
-    .eq("reviewed", false);
+    .eq("reviewed", false)
+    // 特別支出はカテゴリなし扱いなので未分類に数えない
+    .is("special_entry_id", null);
 
   if (error) return NextResponse.json({ count: 0 });
 
