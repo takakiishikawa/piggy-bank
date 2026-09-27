@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthDb } from "@/lib/supabase/auth-db";
 import { type Transaction } from "@/lib/supabase/db";
-import { CASH_CATEGORY, fetchCashWallet, monthKeyOf } from "@/lib/cash";
+import { CASH_CATEGORY, fetchCashWallet, monthKeyOf, spendableCashVnd } from "@/lib/cash";
 
-// 現金財布(lib/cash.ts)。その月のATM引き出し額と、記録済みの現金支出を返す。
+// 現金財布(lib/cash.ts)。その月の繰越・ATM引き出し額・記録済みの現金支出・残高を返す。
 export async function GET(req: NextRequest) {
   const result = await getAuthDb();
   if (result instanceof NextResponse) return result;
@@ -22,8 +22,8 @@ const postSchema = z.object({
   note: z.string().trim().max(200).optional(),
 });
 
-// 現金支出を記録する。特定の引き出しとは紐づけず、その月の財布から差し引く。
-// 財布残高(その月の引き出し額 − 記録済み)を超える記録はできない。
+// 現金支出を記録する。特定の引き出しとは紐づけず、財布(繰越込み)から差し引く。
+// 財布残高を超える記録はできない。
 export async function POST(req: NextRequest) {
   const result = await getAuthDb();
   if (result instanceof NextResponse) return result;
@@ -46,10 +46,10 @@ export async function POST(req: NextRequest) {
   const [y, m, d] = date.split("-").map(Number);
   // 日付だけの入力なので、タイムゾーンで前後の月にずれないよう正午にしておく。
   const at = new Date(y, m - 1, d, 12);
-  const wallet = await fetchCashWallet(db, monthKeyOf(at));
-  if (amountVnd > wallet.unallocatedVnd) {
+  const spendable = await spendableCashVnd(db, monthKeyOf(at));
+  if (amountVnd > spendable) {
     return NextResponse.json(
-      { error: "exceeds_balance", balanceVnd: wallet.unallocatedVnd },
+      { error: "exceeds_balance", balanceVnd: spendable },
       { status: 422 },
     );
   }

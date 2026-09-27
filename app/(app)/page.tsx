@@ -45,8 +45,8 @@ interface DashboardData {
   forecastVnd: number | null;
   savingsImpactVnd: number | null;
   lifeBudgetVnd: number;
-  cashWithdrawnVnd: number;
-  cashUnallocatedVnd: number;
+  cashBalanceVnd: number;
+  cashAvailableVnd: number;
 }
 
 interface TxItem {
@@ -185,18 +185,21 @@ function VariableCategoryCard({
   );
 }
 
-// 現金(内訳なし)カード。予算比ではなく「未分類額 / 今月の引き出し額」を出し、
-// クリックで現金支出の記録ダイアログを開く(lib/cash.ts)。バーは引き出し額のうち
-// まだ振り分けていない割合。
+// 現金財布カード。予算比ではなく「財布残高(繰越込み) / 今月使えた額(繰越 + 今月の
+// 引き出し)」を出し、クリックで現金支出の記録ダイアログを開く(lib/cash.ts)。バーは
+// 使えた額のうち、まだ財布に残っている割合。
 function CashCard({
-  unallocatedVnd,
-  withdrawnVnd,
+  balanceVnd,
+  availableVnd,
+  unitemizedSpentVnd,
   onClick,
   formatAmount,
   lang,
 }: {
-  unallocatedVnd: number;
-  withdrawnVnd: number;
+  balanceVnd: number;
+  availableVnd: number;
+  // 今月「手元の現金に合わせる」で確定した現金(内訳なし)の支出
+  unitemizedSpentVnd: number;
   onClick: () => void;
   formatAmount: (vnd: number) => string;
   lang: Lang;
@@ -230,19 +233,25 @@ function CashCard({
       </div>
       <span className="text-[12.5px]" style={{ color: "var(--color-text-secondary)" }}>
         <span className="font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>
-          {formatAmount(unallocatedVnd)}
+          {formatAmount(balanceVnd)}
         </span>
-        <span className="font-num"> / {formatAmount(withdrawnVnd)}</span>
+        <span className="font-num"> / {formatAmount(availableVnd)}</span>
       </span>
       <div className="mt-1.5">
         <ProgressBar
-          actual={unallocatedVnd}
-          budget={withdrawnVnd}
+          actual={balanceVnd}
+          budget={availableVnd}
           todayPct={0}
           showToday={false}
           fillColor="var(--color-text-subtle)"
         />
       </div>
+      {unitemizedSpentVnd > 0 && (
+        <span className="block mt-1.5 text-[11px]" style={{ color: "var(--color-text-secondary)" }}>
+          {t(lang, "cashUnitemizedThisMonth")}{" "}
+          <span className="font-num font-semibold">{formatAmount(unitemizedSpentVnd)}</span>
+        </span>
+      )}
     </button>
   );
 }
@@ -703,8 +712,9 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {hasCashCategory && (
                 <CashCard
-                  unallocatedVnd={data.cashUnallocatedVnd}
-                  withdrawnVnd={data.cashWithdrawnVnd}
+                  balanceVnd={data.cashBalanceVnd}
+                  availableVnd={data.cashAvailableVnd}
+                  unitemizedSpentVnd={data.variableCategories.find((c) => c.name === CASH_CATEGORY)?.actual ?? 0}
                   onClick={() => setCashDialogOpen(true)}
                   formatAmount={formatAmount}
                   lang={lang}

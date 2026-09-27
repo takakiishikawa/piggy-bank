@@ -52,8 +52,13 @@ export function CashWalletDialog({
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [saving, setSaving] = useState(false);
   const [wallet, setWallet] = useState<CashWallet | null>(null);
+  const [reconcileOpen, setReconcileOpen] = useState(false);
+  const [onHandInput, setOnHandInput] = useState("");
+  const [reconciling, setReconciling] = useState(false);
 
   const month = monthKeyOf(date ?? new Date());
+  // 「手元の現金に合わせる」は今の残高に対する操作なので、今月を表示している時だけ出す。
+  const isCurrentMonth = month === monthKeyOf(new Date());
 
   const fetchWallet = useCallback(async (m: string) => {
     const res = await fetch(`/api/cash-wallet?month=${m}`);
@@ -70,7 +75,7 @@ export function CashWalletDialog({
     const val = parseInt(amountInput.replace(/[^0-9]/g, ""), 10);
     return isNaN(val) ? 0 : toVndAmount(val, currency);
   })();
-  const balanceVnd = wallet?.unallocatedVnd ?? 0;
+  const balanceVnd = wallet?.balanceVnd ?? 0;
   const exceeds = wallet !== null && amountVnd > balanceVnd;
 
   const handleSave = async () => {
@@ -94,6 +99,32 @@ export function CashWalletDialog({
     toast.success(t(lang, "cashSaved"));
     setAmountInput("");
     setNote("");
+    fetchWallet(month);
+    onSaved();
+  };
+
+  const onHandVnd = (() => {
+    const val = parseInt(onHandInput.replace(/[^0-9]/g, ""), 10);
+    return isNaN(val) ? null : toVndAmount(val, currency);
+  })();
+  const reconcileDiffVnd = onHandVnd === null ? null : balanceVnd - onHandVnd;
+
+  const handleReconcile = async () => {
+    if (onHandVnd === null || reconcileDiffVnd === null || reconcileDiffVnd < 0) return;
+    setReconciling(true);
+    const res = await fetch("/api/cash-wallet/reconcile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ onHandVnd }),
+    });
+    setReconciling(false);
+    if (!res.ok) {
+      toast.error(t(lang, "cashSaveFailed"));
+      return;
+    }
+    toast.success(t(lang, "cashReconciled"));
+    setOnHandInput("");
+    setReconcileOpen(false);
     fetchWallet(month);
     onSaved();
   };
@@ -122,14 +153,15 @@ export function CashWalletDialog({
             <Skeleton className="h-[52px] w-full rounded-[10px]" />
           ) : (
             <div
-              className="grid grid-cols-3 gap-2 rounded-[10px] px-3 py-2.5"
+              className="grid grid-cols-4 gap-2 rounded-[10px] px-3 py-2.5"
               style={{ backgroundColor: "var(--kg-track)" }}
             >
               {(
                 [
+                  { label: t(lang, "cashCarriedOver"), value: wallet.carriedOverVnd, strong: false },
                   { label: t(lang, "cashWithdrawn"), value: wallet.withdrawnVnd, strong: false },
                   { label: t(lang, "cashRecorded"), value: wallet.recordedVnd, strong: false },
-                  { label: t(lang, "cashBalance"), value: wallet.unallocatedVnd, strong: true },
+                  { label: t(lang, "cashBalance"), value: wallet.balanceVnd, strong: true },
                 ] as const
               ).map((s) => (
                 <div key={s.label} className="flex flex-col gap-0.5 min-w-0">
@@ -147,11 +179,59 @@ export function CashWalletDialog({
             </div>
           )}
 
-          {wallet !== null && wallet.withdrawnVnd === 0 ? (
+          {wallet !== null && wallet.balanceVnd === 0 && wallet.recordedVnd === 0 ? (
             <p className="text-xs text-center py-1" style={labelStyle}>
               {t(lang, "cashNoWithdrawal")}
             </p>
           ) : null}
+
+          {/* 手元の現金に合わせる: 実際の手元の額を入れると、残高との差額を今日の
+              「現金(内訳なし)」の支出として記録し、残高を手元の額にそろえる。 */}
+          {wallet !== null && isCurrentMonth && wallet.balanceVnd > 0 && (
+            reconcileOpen ? (
+              <div className="flex flex-col gap-1.5 rounded-[10px] border px-3 py-2.5" style={{ borderColor: "var(--color-border-default)" }}>
+                <span className="text-xs font-semibold" style={labelStyle}>
+                  {t(lang, "cashOnHandLabel")}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={withThousands(onHandInput, currency)}
+                    onChange={(e) => setOnHandInput(e.target.value.replace(/[^0-9]/g, ""))}
+                    placeholder={`0 (${currency})`}
+                    className="h-8 font-num flex-1"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleReconcile}
+                    disabled={reconciling || reconcileDiffVnd === null || reconcileDiffVnd <= 0}
+                  >
+                    {t(lang, "cashReconcileApply")}
+                  </Button>
+                </div>
+                {reconcileDiffVnd !== null && (
+                  <span
+                    className="text-[11px]"
+                    style={{ color: reconcileDiffVnd < 0 ? "var(--color-danger)" : "var(--color-text-secondary)" }}
+                  >
+                    {reconcileDiffVnd < 0
+                      ? t(lang, "cashOnHandExceeds")
+                      : tf(lang, "cashReconcilePreview", { amount: formatAmount(reconcileDiffVnd) })}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setReconcileOpen(true)}
+                className="self-start text-xs font-semibold underline underline-offset-2 cursor-pointer"
+                style={labelStyle}
+              >
+                {t(lang, "cashReconcileBtn")}
+              </button>
+            )
+          )}
 
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-semibold" style={labelStyle}>

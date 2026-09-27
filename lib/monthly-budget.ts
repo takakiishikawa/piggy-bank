@@ -4,7 +4,7 @@ import { fetchOverridesUpTo, resolveBudgetsForMonth, type CategoryBudgetOverride
 import { VND_PER_JPY } from "@/lib/currency";
 import { isCohabitingYear, resolveCategoryMonthlyYen } from "@/lib/scenario/compute";
 import { normalizeScenarioConfig } from "@/lib/scenario/types";
-import { addTxToCategoryTotals, CASH_CATEGORY } from "@/lib/cash";
+import { addTxToCategoryTotals, countsAsSpending } from "@/lib/cash";
 
 type Db = ReturnType<typeof createDb>;
 
@@ -31,9 +31,6 @@ export interface MonthlyBudget {
   // Sum of every category's monthly budget ("Total Monthly Budget" on the
   // Budget page), regardless of the current month's actual spend.
   lifeBudgetVnd: number;
-  // 現金財布(今月): 引き出し額と、そこから記録済みの現金支出を引いた「現金(内訳なし)」。
-  cashWithdrawnVnd: number;
-  cashUnallocatedVnd: number;
 }
 
 export async function computeMonthlyBudget(db: Db, now: Date = new Date()): Promise<MonthlyBudget> {
@@ -50,7 +47,7 @@ export async function computeMonthlyBudget(db: Db, now: Date = new Date()): Prom
     db.from("categories").select("id, name, budget, is_fixed").order("created_at"),
     db
       .from("transactions")
-      .select("amount, category, source")
+      .select("amount, category, source, date")
       .gte("date", monthStart.toISOString())
       .lte("date", monthEnd.toISOString())
       .eq("excluded_from_dashboard", false),
@@ -94,12 +91,9 @@ export async function computeMonthlyBudget(db: Db, now: Date = new Date()): Prom
   );
 
   const actualMap: Record<string, number> = {};
-  let cashWithdrawnVnd = 0;
   for (const tx of txRes.data ?? []) {
     addTxToCategoryTotals(actualMap, tx);
-    if (tx.category === CASH_CATEGORY && tx.source !== "cash") cashWithdrawnVnd += tx.amount;
   }
-  const cashUnallocatedVnd = actualMap[CASH_CATEGORY] ?? 0;
 
   const withActual = categories.map((c) => ({
     ...c,
@@ -144,8 +138,6 @@ export async function computeMonthlyBudget(db: Db, now: Date = new Date()): Prom
     daysInMonth,
     forecastVnd,
     lifeBudgetVnd,
-    cashWithdrawnVnd,
-    cashUnallocatedVnd,
   };
 }
 
@@ -161,15 +153,15 @@ export async function computeActualSpendByMonth(
 
   const { data } = await db
     .from("transactions")
-    .select("amount, date")
+    .select("amount, date, category, source")
     .gte("date", start.toISOString())
     .lte("date", end.toISOString())
-    .eq("excluded_from_dashboard", false)
-    // 現金支出の記録は引き出し額の内訳なので、合計に足すと二重計上になる。
-    .neq("source", "cash");
+    .eq("excluded_from_dashboard", false);
 
   const byMonth: Record<string, number> = {};
   for (const tx of data ?? []) {
+    // 財布への引き出しは支出ではない(支出は現金支出の記録・内訳なしの差額の方で数える)。
+    if (!countsAsSpending(tx)) continue;
     const d = new Date(tx.date);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     byMonth[key] = (byMonth[key] ?? 0) + tx.amount;
