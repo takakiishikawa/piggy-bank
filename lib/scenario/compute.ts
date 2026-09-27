@@ -345,13 +345,16 @@ function categoryMonthlyActualOrBudgetYen(
     }
     if (m === currentMonth) {
       const actualVnd = monthlyActualVnd?.[key] ?? 0;
-      if (isFixed) {
-        if (actualVnd > 0) return actualVnd / vndPerJpy;
-      } else if (actualVnd > 0 && dayOfMonth > 0) {
-        return (actualVnd / dayOfMonth) * daysInMonth / vndPerJpy;
+      if (!isFixed) {
+        // 変動費は実績を経過日数で按分した見込みだけを使う。実績0円なら見込みも0円
+        // (以前は実績が無いと予算にフォールバックしており、まだ使っていない
+        // カテゴリまで予算満額が当月に計上されていた。ダッシュボードの
+        // computeMonthlyBudgetも予算フォールバックはしていない)。
+        return dayOfMonth > 0 ? (actualVnd / dayOfMonth) * daysInMonth / vndPerJpy : 0;
       }
-      // 実績がまだ無いカテゴリは、見込みようが無いのでその月における「今、
-      // 有効な予算」にフォールバックする。
+      if (actualVnd > 0) return actualVnd / vndPerJpy;
+      // 固定費で実績がまだ無いカテゴリ(家賃の引き落とし前など)は、その月に
+      // おける「今、有効な予算」にフォールバックする。
       return resolveCategoryMonthlyYen(category, overridesForCategory, preAmountByCategory, cohabiting, key, vndPerJpy);
     }
     // 未経過月は、その月における「今、有効な予算」をresolveCategoryMonthlyYenで
