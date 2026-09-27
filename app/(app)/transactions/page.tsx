@@ -326,15 +326,27 @@ function TransactionsPageInner() {
                     <AlertCircle size={13} style={{ color: DC.primaryHover }} className="shrink-0" />
                   )}
                   <Select
-                    value={tx.category}
+                    value={uncategorized ? "" : tx.category}
                     onValueChange={(v) => handleSelectCategory(tx, v)}
                     disabled={savingId === tx.id}
                   >
                     <SelectTrigger
                       className="h-auto w-full items-center border-0 bg-transparent p-0 shadow-none cursor-pointer [&>svg]:hidden focus:outline-none focus-visible:ring-1 focus-visible:ring-offset-1"
-                      style={uncategorized ? { color: DC.primaryHover } : undefined}
                     >
-                      <CategoryBadgeInline category={tx.category} lang={lang} />
+                      {/* DSのSelectTriggerは直下のspanに line-clamp-1(display:-webkit-box)を
+                          当てるため、バッジを直接置くとflexが崩れてアイコンとラベルが縦に
+                          ずれる。ラッパーspanで受けて中身のflexを保つ。
+                          未分類はフォールバック値の「その他」を見せず空欄(点線枠)にする。 */}
+                      <span className="block w-full min-w-0">
+                        {uncategorized ? (
+                          <span
+                            className="block h-5 w-16 rounded-md border border-dashed"
+                            style={{ borderColor: "#F0C7D8" }}
+                          />
+                        ) : (
+                          <CategoryBadgeInline category={tx.category} lang={lang} />
+                        )}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((cat) => (
