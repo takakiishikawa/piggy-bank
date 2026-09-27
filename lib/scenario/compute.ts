@@ -261,6 +261,15 @@ function preCategoryMonthlyYen(
   return preLifeMonthlyYen(preAmt, year, inflationRatePercent, nowYear);
 }
 
+// 同棲後(=カテゴリの実額・オーバーライドを使う)フェーズかどうか。配偶者なしの
+// シナリオには「同棲前」が存在せず、設定画面も同棲前/後の切替を出さずに実額だけを
+// 編集させるため、常に同棲後扱いにする(以前は配偶者なしでも同棲開始年より前の年は
+// 画面から見えない古いpreAmountByCategoryが使われ、今年の未経過月の固定費が
+// 設定値と食い違っていた)。
+export function isCohabitingYear(config: ScenarioConfig, year: number): boolean {
+  return !config.family.spouse || year >= config.cohabitation.startYear;
+}
+
 // 指定した月に「今、有効な予算」を1つのロジックで解決する。同棲後は実カテゴリの
 // オーバーライド(category_budget_overrides、期間限定 > 恒久変更 > 素の予算という
 // 優先順位はfindEffectiveOverrideと同じ)、同棲前はシナリオ内のpreAmountByCategoryを
@@ -429,7 +438,7 @@ export function computeScenarioYears(
   return years.map((year, i) => {
     // 同棲開始年から: 配偶者の収入・カテゴリの実額(同棲後の値)が反映される。
     // それより前: 配偶者収入は0、カテゴリは同棲前専用の値(無ければ同棲後と同じ)。
-    const cohabiting = year >= config.cohabitation.startYear;
+    const cohabiting = isCohabitingYear(config, year);
     const moveInBonusYen = year === config.cohabitation.startYear ? config.cohabitation.moveInBonusYen : 0;
 
     // 入力は手取り(月+ボーナス)。額面年収は設定モーダル側でview-only表示用に

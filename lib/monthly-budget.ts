@@ -2,7 +2,7 @@ import type { createDb } from "@/lib/supabase/db";
 import { monthKey } from "@/lib/budget";
 import { fetchOverridesUpTo, resolveBudgetsForMonth, type CategoryBudgetOverride } from "@/lib/category-budget";
 import { VND_PER_JPY } from "@/lib/currency";
-import { resolveCategoryMonthlyYen } from "@/lib/scenario/compute";
+import { isCohabitingYear, resolveCategoryMonthlyYen } from "@/lib/scenario/compute";
 import { normalizeScenarioConfig } from "@/lib/scenario/types";
 
 type Db = ReturnType<typeof createDb>;
@@ -65,7 +65,7 @@ export async function computeMonthlyBudget(db: Db, now: Date = new Date()): Prom
   const scenarios = (scenariosRes.data ?? []) as { id: string; is_primary: boolean; config: unknown }[];
   const primaryScenario = scenarios.find((s) => s.is_primary) ?? scenarios[0];
   const config = primaryScenario ? normalizeScenarioConfig(primaryScenario.config) : null;
-  const cohabiting = config ? now.getFullYear() >= config.cohabitation.startYear : true;
+  const cohabiting = config ? isCohabitingYear(config, now.getFullYear()) : true;
   const preAmountByCategory = config?.cohabitation.preAmountByCategory ?? {};
   const overridesByCategory = new Map<string, CategoryBudgetOverride[]>();
   for (const o of overrides) {
