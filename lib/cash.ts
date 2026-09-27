@@ -62,6 +62,10 @@ export async function fetchCashWallet(db: Db, month: string): Promise<CashWallet
       .select("amount")
       .eq("category", CASH_CATEGORY)
       .neq("source", "cash")
+      // 特別支出にした引き出しは特別支出として計上済みなので財布には入れない
+      // (ダッシュボードのcomputeMonthlyBudgetと同じ条件。入れると二重計上になり、
+      // カードの引き出し額とダイアログの引き出し額も食い違う)。
+      .eq("excluded_from_dashboard", false)
       .gte("date", start.toISOString())
       .lte("date", end.toISOString()),
     db
