@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthDb } from "@/lib/supabase/auth-db";
 import { type Transaction } from "@/lib/supabase/db";
+import { FALLBACK_CATEGORY } from "@/lib/constants";
 
 export const maxDuration = 60;
 
@@ -70,6 +71,43 @@ export async function GET(req: NextRequest) {
     if (category && category !== "all") q = q.eq("category", category);
     return q;
   };
+
+  // ページング取得(Transactions画面)。以前は period=all で2024年3月から週ごとに
+  // 100本以上のクエリを並列で投げて全件返しており、画面表示が非常に遅かった。
+  // limit を指定した場合は新しい順に offset から limit 件だけ返し、絞り込み
+  // (未分類 / カテゴリ / 検索)もDB側で行う。hasMore 判定のため1件多く取る。
+  const limitParam = searchParams.get("limit");
+  if (limitParam) {
+    const limit = Math.min(Math.max(parseInt(limitParam, 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(searchParams.get("offset") ?? "0", 10) || 0, 0);
+    const filter = searchParams.get("filter");
+    // PostgREST の or() 構文を壊す文字は検索語から除く。
+    const q = (searchParams.get("q") ?? "").trim().replace(/[,()%*\\]/g, "");
+
+    let query = db
+      .from("transactions")
+      .select(
+        "id, store, amount, category, date, reviewed, note, excluded_from_dashboard, special_entry_id, source",
+      )
+      .gt("amount", 0)
+      .order("date", { ascending: false })
+      .order("id", { ascending: true })
+      .range(offset, offset + limit);
+    if (filter === "needs_category") {
+      // 未分類バッジ(uncategorized-count)と同じ判定基準
+      query = query.eq("category", FALLBACK_CATEGORY).eq("reviewed", false);
+    } else if (category && category !== "all") {
+      query = query.eq("category", category);
+    }
+    if (q) query = query.or(`store.ilike.%${q}%,category.ilike.%${q}%`);
+
+    const { data, error } = await query;
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    const rows = (data ?? []) as TxRow[];
+    return NextResponse.json({ items: rows.slice(0, limit), hasMore: rows.length > limit });
+  }
 
   // 任意期間の明細取得（レポートのグラフから特定の週/月をクリックした時など）
   const from = searchParams.get("from");

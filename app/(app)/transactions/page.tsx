@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AlertCircle, Search, Sparkles, UploadCloud } from "lucide-react";
@@ -53,7 +53,10 @@ interface Transaction {
 interface Category {
   id: string;
   name: string;
+  used: boolean;
 }
+
+const PAGE_SIZE = 50;
 
 // 「未分類」= フォールバックカテゴリのままAI/手動でまだレビューされていない取引。
 // (既存のCategoryBadge/uncategorized-countと同じ判定基準)
@@ -90,39 +93,103 @@ function TransactionsPageInner() {
   const { lang, currency } = usePreferences();
   const formatAmount = makeFormatAmount(currency);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const [categories, setCategories] = useState<string[]>([]);
+  const [usedCategories, setUsedCategories] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [catFilter, setCatFilter] = useState<string>(
     searchParams.get("filter") === "needs_category" ? "needs_category" : "all",
   );
   const [savingId, setSavingId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [mizuhoOpen, setMizuhoOpen] = useState(false);
+  // 絞り込みを素早く切り替えた時に、古いリクエストの結果で上書きしないための通し番号。
+  const requestSeq = useRef(0);
 
   const fetchCategories = useCallback(() => {
     fetch("/api/categories")
       .then((r) => r.json())
-      .then((data) => setCategories((data as Category[]).map((c) => c.name)));
+      .then((data: Category[]) => {
+        setCategories(data.map((c) => c.name));
+        // チップに出すカテゴリは、実際に取引で使われているものだけ(空のカテゴリまで
+        // 全部並ぶと長くなりすぎるため)。
+        setUsedCategories(data.filter((c) => c.used).map((c) => c.name));
+      });
   }, []);
 
-  const fetchTransactions = useCallback(async () => {
-    const res = await fetch("/api/transactions?period=all");
-    setTransactions(await res.json());
-    setLoaded(true);
+  const fetchPendingCount = useCallback(async () => {
+    const res = await fetch("/api/transactions/uncategorized-count");
+    if (res.ok) setPendingCount(((await res.json()) as { count: number }).count ?? 0);
   }, []);
+
+  // 検索は入力のたびにリクエストしないよう少し待ってから反映する。
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  // 全件を一度に取ると非常に遅いため、新しい順に PAGE_SIZE 件ずつサーバーから取る
+  // (絞り込み・検索もサーバー側)。
+  const fetchPage = useCallback(
+    async (offset: number) => {
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset) });
+      if (catFilter === "needs_category") params.set("filter", "needs_category");
+      else if (catFilter !== "all") params.set("category", catFilter);
+      if (debouncedSearch) params.set("q", debouncedSearch);
+      const res = await fetch(`/api/transactions?${params.toString()}`);
+      if (!res.ok) return null;
+      return (await res.json()) as { items: Transaction[]; hasMore: boolean };
+    },
+    [catFilter, debouncedSearch],
+  );
+
+  const reload = useCallback(async () => {
+    const seq = ++requestSeq.current;
+    const page = await fetchPage(0);
+    if (seq !== requestSeq.current) return;
+    if (page) {
+      setTransactions(page.items);
+      setHasMore(page.hasMore);
+    }
+    setLoaded(true);
+  }, [fetchPage]);
+
+  const loadMore = async () => {
+    const seq = requestSeq.current;
+    setLoadingMore(true);
+    const page = await fetchPage(transactions.length);
+    setLoadingMore(false);
+    if (seq !== requestSeq.current || !page) return;
+    setTransactions((prev) => {
+      const seen = new Set(prev.map((tx) => tx.id));
+      return [...prev, ...page.items.filter((tx) => !seen.has(tx.id))];
+    });
+    setHasMore(page.hasMore);
+  };
 
   useEffect(() => {
     fetchCategories();
-    fetchTransactions();
-  }, [fetchCategories, fetchTransactions]);
+    fetchPendingCount();
+  }, [fetchCategories, fetchPendingCount]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   // みずほCSV取込が完了したら一覧を取り直す(バナー・当ページどちらから
   // 取り込んでも反映されるように)。
   useEffect(() => {
-    const onUpdated = () => fetchTransactions();
+    const onUpdated = () => {
+      reload();
+      fetchPendingCount();
+      fetchCategories();
+    };
     window.addEventListener(MIZUHO_UPDATED_EVENT, onUpdated);
     return () => window.removeEventListener(MIZUHO_UPDATED_EVENT, onUpdated);
-  }, [fetchTransactions]);
+  }, [reload, fetchPendingCount, fetchCategories]);
 
   const handleSelectCategory = async (tx: Transaction, category: string) => {
     // フォールバックカテゴリ(Other/その他)は未分類の初期値でもあるため、
@@ -143,7 +210,16 @@ function TransactionsPageInner() {
       return;
     }
     toast.success(`Categorized as "${category}"`);
-    fetchTransactions();
+    // 変わるのはこの1件だけなので、全件取り直さず手元で更新する。今の絞り込みに
+    // 合わなくなった行(未分類タブで分類した・別カテゴリに移した)は一覧から外す。
+    const stillMatches = catFilter === "all" || (catFilter !== "needs_category" && catFilter === category);
+    setTransactions((prev) =>
+      stillMatches
+        ? prev.map((t) => (t.id === tx.id ? { ...t, category, reviewed: true } : t))
+        : prev.filter((t) => t.id !== tx.id),
+    );
+    fetchPendingCount();
+    if (!usedCategories.includes(category)) fetchCategories();
   };
 
   const handleSaveNote = async (id: string, note: string | null) => {
@@ -177,8 +253,6 @@ function TransactionsPageInner() {
     toast.success(next ? "Marked as special expense" : "Unmarked as special expense");
   };
 
-  const pendingCount = useMemo(() => transactions.filter(needsCategory).length, [transactions]);
-
   // 未分類をすべて分類し終えるとUncategorizedタブごと消えるため、その状態のまま
   // 残さず「すべて」タブへ自動でフォーカスを移す。
   useEffect(() => {
@@ -186,22 +260,6 @@ function TransactionsPageInner() {
       setCatFilter("all");
     }
   }, [loaded, catFilter, pendingCount]);
-
-  // チップに出すカテゴリは、実際に取引で使われているものだけ(空のカテゴリまで
-  // 全部並ぶと長くなりすぎるため)。
-  const usedCategories = useMemo(() => {
-    const set = new Set(transactions.filter((tx) => !needsCategory(tx)).map((tx) => tx.category));
-    return categories.filter((c) => set.has(c));
-  }, [categories, transactions]);
-
-  const filtered = useMemo(() => {
-    let list = transactions;
-    if (catFilter === "needs_category") list = list.filter(needsCategory);
-    else if (catFilter !== "all") list = list.filter((tx) => tx.category === catFilter);
-    const q = search.trim().toLowerCase();
-    if (q) list = list.filter((tx) => tx.store.toLowerCase().includes(q) || tx.category.toLowerCase().includes(q));
-    return list;
-  }, [transactions, catFilter, search]);
 
   return (
     <div className="flex flex-col gap-3.5 max-w-[900px]">
@@ -298,12 +356,12 @@ function TransactionsPageInner() {
       </div>
 
       <div className="rounded-[14px] border overflow-hidden" style={{ borderColor: DC.cardBorder, backgroundColor: DC.cardBg }}>
-        {filtered.length === 0 ? (
+        {!loaded ? null : transactions.length === 0 ? (
           <p className="text-sm text-center py-10" style={{ color: DC.textSecondary }}>
             {search.trim() ? tf(lang, "txNoMatch", { query: search }) : t(lang, "txNoTransactions")}
           </p>
         ) : (
-          filtered.map((tx) => {
+          transactions.map((tx) => {
             const uncategorized = needsCategory(tx);
             return (
               <div
@@ -370,6 +428,18 @@ function TransactionsPageInner() {
           })
         )}
       </div>
+
+      {hasMore && (
+        <button
+          type="button"
+          onClick={loadMore}
+          disabled={loadingMore}
+          className="self-center rounded-[10px] border px-4 py-2 text-[12.5px] font-semibold cursor-pointer transition-all hover:brightness-95 active:scale-95 disabled:opacity-60 disabled:cursor-default"
+          style={{ borderColor: DC.cardBorder, backgroundColor: DC.cardBg, color: DC.textSecondary }}
+        >
+          {loadingMore ? t(lang, "txLoadingMore") : t(lang, "txLoadMore")}
+        </button>
+      )}
 
       <MizuhoImportDialog open={mizuhoOpen} onOpenChange={setMizuhoOpen} lang={lang} />
     </div>

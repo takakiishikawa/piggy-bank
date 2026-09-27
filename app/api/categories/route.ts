@@ -30,7 +30,9 @@ export async function GET() {
     return a.name.localeCompare(b.name, "ja");
   });
 
-  return NextResponse.json(sorted);
+  // used: 取引で1件でも使われているか(Transactions画面のカテゴリチップを、使用中の
+  // カテゴリだけに絞るのに使う)。
+  return NextResponse.json(sorted.map((c) => ({ ...c, used: (totals[c.name] ?? 0) > 0 })));
 }
 
 export async function POST(req: NextRequest) {
