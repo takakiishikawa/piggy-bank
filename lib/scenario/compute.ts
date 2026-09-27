@@ -295,13 +295,19 @@ export function resolveCategoryMonthlyYen(
   return preAmt.monthlyYen;
 }
 
-// 今年の月次表示専用: 先月までの経過済みの月はその月の実績、当月と未経過の月は
-// 予算ベース(同棲前後どちらのフェーズかに応じた月額)の月額をそのまま使う
-// 12ヶ月ぶんの配列を返す(要望: 「今年の月次表示で過去月にも実績ではなく
-// 年換算の平均値が出ていた」への対応)。
-// 当月を実績ではなく予測(予算)にするのは、月の途中では実績が過少に見えて
-// 当月の支出が小さく=貯蓄が過大に表示されてしまうため(要望: 「当月の実績の
-// 金額は月の予測値が入るようにしてほしい」)。
+// 今年の月次表示専用: 先月までの経過済みの月はその月の実績、当月はダッシュボードの
+// 「今月の見込み」と同じ式でカテゴリ単位に見込みを出し、未経過の月は予算ベース
+// (同棲前後どちらのフェーズかに応じた月額)を使う12ヶ月ぶんの配列を返す
+// (要望: 「今年の月次表示で過去月にも実績ではなく年換算の平均値が出ていた」への対応)。
+// 当月をそのまま実績にすると月の途中では実績が過少に見えて当月の支出が小さく
+// =貯蓄が過大に表示されてしまうため(要望: 「当月の実績の金額は月の予測値が
+// 入るようにしてほしい」)、ダッシュボード(lib/monthly-budget.ts computeMonthlyBudget)
+// と全く同じロジックをカテゴリ単位で適用する:
+//  - 変動費: 実績を経過日数で日割りし、当月の日数ぶんに引き延ばす
+//    (actual / dayOfMonth * daysInMonth)。カテゴリごとに行うことで、
+//    合計もダッシュボードの「今月の見込み」と自然に一致する。
+//  - 固定費: 実績があればその実績、無ければ予算をそのまま使う
+//    (家賃等は月初にまとめて発生するため日割りしない)。
 function categoryMonthlyActualOrBudgetYen(
   category: { id: string; budget: number },
   overridesForCategory: CategoryBudgetOverride[],
@@ -312,6 +318,9 @@ function categoryMonthlyActualOrBudgetYen(
   inflationRatePercent: number,
   vndPerJpy: number,
   nowYear: number,
+  isFixed: boolean,
+  dayOfMonth: number,
+  daysInMonth: number,
 ): number[] {
   return Array.from({ length: 12 }, (_, idx) => {
     const m = idx + 1;
@@ -325,11 +334,17 @@ function categoryMonthlyActualOrBudgetYen(
       const actualVnd = monthlyActualVnd?.[key] ?? 0;
       return actualVnd / vndPerJpy;
     }
-    // 当月(m === currentMonth)以降は実績ではなくその月の予算を使う。当月ぶんは
-    // このあと computeScenarioYears 側で、ダッシュボードの「今月の見込み」に
-    // 合計が一致するよう予算比で按分し直す(当月を実績にすると月の途中では
-    // 過少で貯蓄が過大に見えるため。また Simulation とダッシュボードの当月
-    // 支出を必ず揃えるため)。
+    if (m === currentMonth) {
+      const actualVnd = monthlyActualVnd?.[key] ?? 0;
+      if (isFixed) {
+        if (actualVnd > 0) return actualVnd / vndPerJpy;
+      } else if (actualVnd > 0 && dayOfMonth > 0) {
+        return (actualVnd / dayOfMonth) * daysInMonth / vndPerJpy;
+      }
+      // 実績がまだ無いカテゴリは、見込みようが無いのでその月における「今、
+      // 有効な予算」にフォールバックする。
+      return resolveCategoryMonthlyYen(category, overridesForCategory, preAmountByCategory, cohabiting, key, vndPerJpy);
+    }
     // 未経過月は、その月における「今、有効な予算」をresolveCategoryMonthlyYenで
     // 月単位に解決する(期間限定・恒久変更どちらもその開始月から正しく反映される)。
     return resolveCategoryMonthlyYen(category, overridesForCategory, preAmountByCategory, cohabiting, key, vndPerJpy);
@@ -386,12 +401,14 @@ export function computeScenarioYears(
   // 今年ぶんの投資残高をsimulateYearMonths経由で月次表示(expandMonthly)と
   // 全く同じロジックで計算するために必要(経過済み月は実績、未経過月は複利)。
   investmentEntries: InvestmentEntryInput[] = [],
-  // ダッシュボードの「今月の見込み」(固定費+変動費、JPY)。今年の当月ぶんの
-  // 支出をこの額に一致させる(Simulationとダッシュボードの当月支出を必ず揃える)。
-  currentMonthForecastYen: number | null = null,
 ): ScenarioYearRow[] {
-  const nowYear = new Date().getFullYear();
-  const nowMonth = new Date().getMonth() + 1;
+  const now = new Date();
+  const nowYear = now.getFullYear();
+  const nowMonth = now.getMonth() + 1;
+  // 当月の経過日数・日数(ダッシュボードのcomputeMonthlyBudgetと同じ定義)。
+  // 当月ぶんのカテゴリ見込みを実績の日割りで出すために使う。
+  const dayOfMonth = now.getDate();
+  const daysInMonth = new Date(nowYear, nowMonth, 0).getDate();
   const years = Array.from({ length: SIMULATION_YEARS_AHEAD + 1 }, (_, i) => startYear + i);
 
   const overridesByCategory = new Map<string, CategoryBudgetOverride[]>();
@@ -454,11 +471,10 @@ export function computeScenarioYears(
           );
     };
 
-    // 今年の月次内訳(先月まで=実績、当月以降=予算)。当月ぶんは、この後で
-    // ダッシュボードの「今月の見込み」(currentMonthForecastYen)に固定費+変動費の
-    // 合計が一致するよう、予算比を保ったまま同じ係数で按分し直す。これにより
-    // Simulation の当月支出とダッシュボードの数字が必ず一致し、かつカテゴリ
-    // 内訳の合計=総支出 の関係も崩れない。
+    // 今年の月次内訳(先月まで=実績、当月=日割り見込み、来月以降=予算)。当月ぶんは
+    // categoryMonthlyActualOrBudgetYen がカテゴリごとにダッシュボードと同じ日割り
+    // ロジックを適用するため、ここで改めて合計を揃え直す必要はない(カテゴリ単位で
+    // 正しく計算すれば、合計は自然にダッシュボードの「今月の見込み」と一致する)。
     const fixedMonthly: Record<string, number[]> = {};
     const variableMonthly: Record<string, number[]> = {};
     if (isNowYear) {
@@ -473,6 +489,9 @@ export function computeScenarioYears(
           config.inflationRatePercent,
           vndPerJpy,
           nowYear,
+          true,
+          dayOfMonth,
+          daysInMonth,
         );
       }
       for (const c of variableCats) {
@@ -486,30 +505,10 @@ export function computeScenarioYears(
           config.inflationRatePercent,
           vndPerJpy,
           nowYear,
+          false,
+          dayOfMonth,
+          daysInMonth,
         );
-      }
-      if (currentMonthForecastYen != null && currentMonthForecastYen >= 0) {
-        const curIdx = nowMonth - 1;
-        let rawCur = 0;
-        for (const c of fixedCats) rawCur += fixedMonthly[c.id][curIdx];
-        for (const c of variableCats) rawCur += variableMonthly[c.id][curIdx];
-        if (rawCur > 0) {
-          const factor = currentMonthForecastYen / rawCur;
-          for (const c of fixedCats) fixedMonthly[c.id][curIdx] *= factor;
-          for (const c of variableCats) variableMonthly[c.id][curIdx] *= factor;
-        } else if (currentMonthForecastYen > 0) {
-          // 予算・実績とも0のカテゴリしか無い稀なケース: 予算比で配分。
-          const budgets = [...fixedCats, ...variableCats].map((c) => monthlyYenFor(c));
-          const total = budgets.reduce((s, v) => s + v, 0);
-          if (total > 0) {
-            fixedCats.forEach((c, i) => {
-              fixedMonthly[c.id][curIdx] = currentMonthForecastYen * (budgets[i] / total);
-            });
-            variableCats.forEach((c, i) => {
-              variableMonthly[c.id][curIdx] = currentMonthForecastYen * (budgets[fixedCats.length + i] / total);
-            });
-          }
-        }
       }
     }
 
