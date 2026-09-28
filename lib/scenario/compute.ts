@@ -442,7 +442,10 @@ export function computeScenarioYears(
     // 同棲開始年から: 配偶者の収入・カテゴリの実額(同棲後の値)が反映される。
     // それより前: 配偶者収入は0、カテゴリは同棲前専用の値(無ければ同棲後と同じ)。
     const cohabiting = isCohabitingYear(config, year);
-    const moveInBonusYen = year === config.cohabitation.startYear ? config.cohabitation.moveInBonusYen : 0;
+    // 同棲時の一時収入は配偶者ありの時だけ。配偶者なしでも設定画面から見えない古い
+    // 値が残っていると、同棲開始年に特別収入として上乗せされてしまっていた。
+    const moveInBonusYen =
+      config.family.spouse && year === config.cohabitation.startYear ? config.cohabitation.moveInBonusYen : 0;
 
     // 入力は手取り(月+ボーナス)。額面年収は設定モーダル側でview-only表示用に
     // 逆算するだけで、ここでの収支計算には使わない。産休・育休期間があれば、
