@@ -426,7 +426,9 @@ function TransactionsPageInner() {
                     </>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
+                {/* メモ・特別支出は行ごとに表示有無で幅が変わるため、固定幅の右寄せ枠に
+                    入れて列(店名・金額・カテゴリ)の位置が行ごとにずれないようにする。 */}
+                <div className="w-[236px] shrink-0 flex items-center justify-end gap-1.5">
                   <NoteTag value={tx.note} onSave={(v) => handleSaveNote(tx.id, v)} lang={lang} />
                   <SpecialExpenseToggle
                     active={tx.special_entry_id !== null}
