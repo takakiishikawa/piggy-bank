@@ -112,6 +112,11 @@ export const scenarioConfigSchema = z.object({
     side: z.object({ amountYen: z.number().min(0), startYear: z.number().int().nullable(), endYear: z.number().int().nullable() }),
   }),
   cohabitation: cohabitationSchema,
+  // このシナリオでのカテゴリごとの月額(同棲後 / 配偶者なしの暮らし)。カテゴリid ->
+  // 月額・スケジュール。無いカテゴリは共有の piggybank.categories(予算・オーバーライド)
+  // をそのまま使う。以前はこのフェーズの月額を共有テーブルに直接書いていたため、
+  // あるシナリオで変えると他のシナリオ(とダッシュボード)にも反映されてしまっていた。
+  amountByCategory: z.record(z.string(), preCategoryAmountSchema),
   // キー: kids配列のindex(文字列)。値: ステージキー -> そのステージの年額(円、
   // 塾・習い事込みの合算)。公立/私立ボタンは金額欄への「入力補助(クイック入力)」
   // であり、選んだ後も金額は自由に編集できる。
@@ -254,6 +259,13 @@ export function normalizeScenarioConfig(raw: unknown): ScenarioConfig {
       moveInBonusYen: typeof cohabitation.moveInBonusYen === "number" ? cohabitation.moveInBonusYen : d.cohabitation.moveInBonusYen,
       preAmountByCategory,
     },
+    amountByCategory: (() => {
+      const out: ScenarioConfig["amountByCategory"] = {};
+      if (isRecord(r.amountByCategory)) {
+        for (const [k, v] of Object.entries(r.amountByCategory)) out[k] = normalizePreCategoryAmount(v);
+      }
+      return out;
+    })(),
     education: isRecord(r.education) ? (r.education as ScenarioConfig["education"]) : d.education,
     wedding: (() => {
       const w = isRecord(r.wedding) ? r.wedding : {};
@@ -293,6 +305,7 @@ export const DEFAULT_SCENARIO_CONFIG: ScenarioConfig = {
     side: { amountYen: 0, startYear: null, endYear: null },
   },
   cohabitation: { startYear: new Date().getFullYear(), moveInBonusYen: 0, preAmountByCategory: {} },
+  amountByCategory: {},
   education: {},
   wedding: { enabled: false, year: new Date().getFullYear() + 1, month: 10, amountYen: 2_500_000 },
   travel: { enabled: false, amountYen: 400_000, startYear: new Date().getFullYear() + 1, timesPerYear: 1 },

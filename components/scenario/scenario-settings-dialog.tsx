@@ -20,7 +20,8 @@ import { formatJPY, formatVND } from "@/lib/format";
 import { toVndAmount, withThousands as withThousandsVnd, VND_PER_JPY } from "@/lib/currency";
 import type { CategoryBudgetOverride } from "@/lib/category-budget";
 import { CategoryBudgetCard, type CategoryForCard } from "@/components/category-budget-card";
-import { LifeItemCard } from "@/components/scenario/life-item-card";
+import { LifeItemCard, type PreCategoryAmount } from "@/components/scenario/life-item-card";
+import { applyScenarioCategoryAmounts } from "@/lib/scenario/compute";
 import { EDU_STAGES } from "@/lib/scenario/education-costs";
 import { t, tf, type Lang } from "@/lib/scenario/dictionary";
 import { DC } from "@/lib/scenario/design-colors";
@@ -358,17 +359,61 @@ export function ScenarioSettingsDialog({
     setSideOpen(scenario.config.income.side.amountYen > 0);
   }, [scenario.id, scenario.config]);
 
-  const fixedCats = useMemo(() => categories.filter((c) => c.is_fixed), [categories]);
-  const variableCats = useMemo(() => categories.filter((c) => !c.is_fixed), [categories]);
+  // カテゴリの月額・スケジュールはこのシナリオ固有の値(draft.amountByCategory)を
+  // 優先して表示する(無いカテゴリは共有の値)。計算側と同じ差し替えを通す。
+  const effective = useMemo(
+    () => applyScenarioCategoryAmounts(draft, categories, overrides, vndPerJpy),
+    [draft, categories, overrides, vndPerJpy],
+  );
+  const fixedCats = useMemo(() => effective.categories.filter((c) => c.is_fixed), [effective]);
+  const variableCats = useMemo(() => effective.categories.filter((c) => !c.is_fixed), [effective]);
   const overridesByCategory = useMemo(() => {
     const m = new Map<string, CategoryBudgetOverride[]>();
-    for (const o of overrides) {
+    for (const o of effective.overrides) {
       const arr = m.get(o.category_id);
       if (arr) arr.push(o);
       else m.set(o.category_id, [o]);
     }
     return m;
-  }, [overrides]);
+  }, [effective]);
+
+  // 暮らし(同棲後 / 配偶者なし)のカテゴリ月額・スケジュールの編集は、共有の
+  // カテゴリテーブルではなくこのシナリオの amountByCategory に保存する(以前は共有
+  // テーブルに直接書いていたため、他のシナリオやダッシュボードにも波及していた)。
+  // まだこのシナリオ固有の値が無いカテゴリは、今表示している値(共有の予算と
+  // スケジュール)を元に作ってから変更する。更新料などカテゴリ自体の設定は共有のまま。
+  const ownAmountFor = (categoryId: string): PreCategoryAmount => {
+    const existing = draft.amountByCategory[categoryId];
+    if (existing) return existing;
+    const cat = categories.find((c) => c.id === categoryId);
+    return {
+      monthlyYen: Math.round((cat?.budget ?? 0) / vndPerJpy),
+      overrides: overrides
+        .filter((o) => o.category_id === categoryId)
+        .map((o) => ({ id: o.id, month: o.month, endMonth: o.end_month, amountYen: Math.round(o.budget / vndPerJpy) })),
+    };
+  };
+  const commitOwnAmount = (categoryId: string, next: PreCategoryAmount) =>
+    commit({ ...draft, amountByCategory: { ...draft.amountByCategory, [categoryId]: next } });
+
+  const handleLifeCategoryUpdate: typeof onCategoryUpdate = async (id, patch) => {
+    const { budget, ...rest } = patch;
+    if (budget !== undefined) {
+      commitOwnAmount(id, { ...ownAmountFor(id), monthlyYen: Math.round(budget / vndPerJpy) });
+    }
+    if (Object.keys(rest).length > 0) await onCategoryUpdate(id, rest);
+  };
+  const handleLifeScheduleOverride: typeof onScheduleOverride = async (categoryId, month, endMonth, budget) => {
+    const cur = ownAmountFor(categoryId);
+    commitOwnAmount(categoryId, {
+      ...cur,
+      overrides: [...cur.overrides, { id: `ov${Date.now()}`, month, endMonth, amountYen: Math.round(budget / vndPerJpy) }],
+    });
+  };
+  const handleLifeDeleteOverride: typeof onDeleteOverride = async (categoryId, overrideId) => {
+    const cur = ownAmountFor(categoryId);
+    commitOwnAmount(categoryId, { ...cur, overrides: cur.overrides.filter((o) => o.id !== overrideId) });
+  };
 
   const commit = (next: ScenarioConfig) => {
     setDraft(next);
@@ -1149,9 +1194,9 @@ export function ScenarioSettingsDialog({
                           cat={cat}
                           displayCurrency={currency}
                           overrides={overridesByCategory.get(cat.id) ?? []}
-                          onUpdate={onCategoryUpdate}
-                          onScheduleOverride={onScheduleOverride}
-                          onDeleteOverride={onDeleteOverride}
+                          onUpdate={handleLifeCategoryUpdate}
+                          onScheduleOverride={handleLifeScheduleOverride}
+                          onDeleteOverride={handleLifeDeleteOverride}
                           readOnlyName
                           lang={lang}
                         />

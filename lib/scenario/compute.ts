@@ -393,10 +393,42 @@ function childAllowanceYenForYear(birthYear: number, year: number): number {
   return 0;
 }
 
+// シナリオ固有のカテゴリ月額(config.amountByCategory)を、共有カテゴリの予算・
+// オーバーライドと同じ形に差し替える。設定のあるカテゴリだけ置き換え、無いカテゴリは
+// 共有の値をそのまま使う。これを計算の入り口で通すことで、以降の予算解決ロジック
+// (resolveCategoryMonthlyYen / projectCategoryMonthlyYen / 更新料)はシナリオごとの
+// 値で動く(=あるシナリオの変更が他のシナリオに波及しない)。
+export function applyScenarioCategoryAmounts<C extends { id: string; budget: number }>(
+  config: ScenarioConfig,
+  categories: C[],
+  overrides: CategoryBudgetOverride[],
+  vndPerJpy: number,
+): { categories: C[]; overrides: CategoryBudgetOverride[] } {
+  const own = config.amountByCategory;
+  if (Object.keys(own).length === 0) return { categories, overrides };
+  return {
+    categories: categories.map((c) =>
+      own[c.id] ? { ...c, budget: Math.round(own[c.id].monthlyYen * vndPerJpy) } : c,
+    ),
+    overrides: [
+      ...overrides.filter((o) => !own[o.category_id]),
+      ...Object.entries(own).flatMap(([categoryId, a]) =>
+        a.overrides.map((o) => ({
+          id: o.id,
+          category_id: categoryId,
+          month: o.month,
+          end_month: o.endMonth,
+          budget: Math.round(o.amountYen * vndPerJpy),
+        })),
+      ),
+    ],
+  };
+}
+
 export function computeScenarioYears(
   config: ScenarioConfig,
-  categories: CategoryForScenario[],
-  overrides: CategoryBudgetOverride[],
+  sharedCategories: CategoryForScenario[],
+  sharedOverrides: CategoryBudgetOverride[],
   vndPerJpy: number,
   startYear: number = new Date().getFullYear(),
   // 今年ぶんのカテゴリ別実績(VND、カテゴリ名キー)。今年は予算projectionだけでなく
@@ -422,6 +454,8 @@ export function computeScenarioYears(
   const dayOfMonth = now.getDate();
   const daysInMonth = new Date(nowYear, nowMonth, 0).getDate();
   const years = Array.from({ length: SIMULATION_YEARS_AHEAD + 1 }, (_, i) => startYear + i);
+
+  const { categories, overrides } = applyScenarioCategoryAmounts(config, sharedCategories, sharedOverrides, vndPerJpy);
 
   const overridesByCategory = new Map<string, CategoryBudgetOverride[]>();
   for (const o of overrides) {

@@ -2,7 +2,7 @@ import type { createDb } from "@/lib/supabase/db";
 import { monthKey } from "@/lib/budget";
 import { fetchOverridesUpTo, resolveBudgetsForMonth, type CategoryBudgetOverride } from "@/lib/category-budget";
 import { VND_PER_JPY } from "@/lib/currency";
-import { isCohabitingYear, resolveCategoryMonthlyYen } from "@/lib/scenario/compute";
+import { applyScenarioCategoryAmounts, isCohabitingYear, resolveCategoryMonthlyYen } from "@/lib/scenario/compute";
 import { normalizeScenarioConfig } from "@/lib/scenario/types";
 import { addTxToCategoryTotals, countsAsSpending } from "@/lib/cash";
 
@@ -55,7 +55,7 @@ export async function computeMonthlyBudget(db: Db, now: Date = new Date()): Prom
     db.from("scenarios").select("id, is_primary, config").order("created_at", { ascending: true }),
   ]);
 
-  const categories = (catsRes.data ?? []) as CategoryRow[];
+  const sharedCategories = (catsRes.data ?? []) as CategoryRow[];
 
   // ダッシュボードの予算は「実データの現在値」ではなく、シミュレーション設定
   // (プライマリシナリオ)の金額を正とし、スケジュールがあればそれを当月に反映した
@@ -68,8 +68,12 @@ export async function computeMonthlyBudget(db: Db, now: Date = new Date()): Prom
   const config = primaryScenario ? normalizeScenarioConfig(primaryScenario.config) : null;
   const cohabiting = config ? isCohabitingYear(config, now.getFullYear()) : true;
   const preAmountByCategory = config?.cohabitation.preAmountByCategory ?? {};
+  // シナリオ固有のカテゴリ月額(amountByCategory)があればそれを使う。
+  const { categories, overrides: effectiveOverrides } = config
+    ? applyScenarioCategoryAmounts(config, sharedCategories, overrides, VND_PER_JPY)
+    : { categories: sharedCategories, overrides };
   const overridesByCategory = new Map<string, CategoryBudgetOverride[]>();
-  for (const o of overrides) {
+  for (const o of effectiveOverrides) {
     const arr = overridesByCategory.get(o.category_id);
     if (arr) arr.push(o);
     else overridesByCategory.set(o.category_id, [o]);
