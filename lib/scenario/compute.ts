@@ -304,19 +304,12 @@ export function resolveCategoryMonthlyYen(
   return preAmt.monthlyYen;
 }
 
-// 今年の月次表示専用: 先月までの経過済みの月はその月の実績、当月はダッシュボードの
-// 「今月の見込み」と同じ式でカテゴリ単位に見込みを出し、未経過の月は予算ベース
+// 今年の月次表示専用: 先月までの確定した月はその月の実績、当月と未経過の月は予算
 // (同棲前後どちらのフェーズかに応じた月額)を使う12ヶ月ぶんの配列を返す
 // (要望: 「今年の月次表示で過去月にも実績ではなく年換算の平均値が出ていた」への対応)。
-// 当月をそのまま実績にすると月の途中では実績が過少に見えて当月の支出が小さく
-// =貯蓄が過大に表示されてしまうため(要望: 「当月の実績の金額は月の予測値が
-// 入るようにしてほしい」)、ダッシュボード(lib/monthly-budget.ts computeMonthlyBudget)
-// と全く同じロジックをカテゴリ単位で適用する:
-//  - 変動費: 実績を経過日数で日割りし、当月の日数ぶんに引き延ばす
-//    (actual / dayOfMonth * daysInMonth)。カテゴリごとに行うことで、
-//    合計もダッシュボードの「今月の見込み」と自然に一致する。
-//  - 固定費: 実績があればその実績、無ければ予算をそのまま使う
-//    (家賃等は月初にまとめて発生するため日割りしない)。
+// 当月は以前、実績の日割り見込みを出していたが、月初は数日分の実績を月全体に
+// 引き延ばすため大きく上下してしまう(要望: 当月中は元々の予算金額を入れ、月が
+// 終わったら確定した実績を表示する)。そのため当月は固定費・変動費とも予算にする。
 function categoryMonthlyActualOrBudgetYen(
   category: { id: string; budget: number },
   overridesForCategory: CategoryBudgetOverride[],
@@ -324,12 +317,8 @@ function categoryMonthlyActualOrBudgetYen(
   cohabiting: boolean,
   monthlyActualVnd: Record<string, number> | undefined,
   currentMonth: number,
-  inflationRatePercent: number,
   vndPerJpy: number,
   nowYear: number,
-  isFixed: boolean,
-  dayOfMonth: number,
-  daysInMonth: number,
 ): number[] {
   return Array.from({ length: 12 }, (_, idx) => {
     const m = idx + 1;
@@ -343,28 +332,14 @@ function categoryMonthlyActualOrBudgetYen(
       const actualVnd = monthlyActualVnd?.[key] ?? 0;
       return actualVnd / vndPerJpy;
     }
-    if (m === currentMonth) {
-      const actualVnd = monthlyActualVnd?.[key] ?? 0;
-      if (!isFixed) {
-        // 変動費は実績を経過日数で按分した見込みだけを使う。実績0円なら見込みも0円
-        // (以前は実績が無いと予算にフォールバックしており、まだ使っていない
-        // カテゴリまで予算満額が当月に計上されていた。ダッシュボードの
-        // computeMonthlyBudgetも予算フォールバックはしていない)。
-        return dayOfMonth > 0 ? (actualVnd / dayOfMonth) * daysInMonth / vndPerJpy : 0;
-      }
-      if (actualVnd > 0) return actualVnd / vndPerJpy;
-      // 固定費で実績がまだ無いカテゴリ(家賃の引き落とし前など)は、その月に
-      // おける「今、有効な予算」にフォールバックする。
-      return resolveCategoryMonthlyYen(category, overridesForCategory, preAmountByCategory, cohabiting, key, vndPerJpy);
-    }
-    // 未経過月は、その月における「今、有効な予算」をresolveCategoryMonthlyYenで
+    // 当月・未経過月は、その月における「今、有効な予算」をresolveCategoryMonthlyYenで
     // 月単位に解決する(期間限定・恒久変更どちらもその開始月から正しく反映される)。
     return resolveCategoryMonthlyYen(category, overridesForCategory, preAmountByCategory, cohabiting, key, vndPerJpy);
   });
 }
 
 // 今年より後の年の年額。今年ぶんは computeScenarioYears 側で「月次内訳の合計」から
-// 出す(先月まで=実績、当月=ダッシュボードの見込み、当月より後=予算)ため、
+// 出す(先月まで=実績、当月以降=予算)ため、
 // この関数は原則 year !== nowYear でしか呼ばれない。呼ばれても破綻しないよう
 // 従来の近似(年初来実績 + 残り月数×予算)を残しておく。
 function annualCategoryYen(
@@ -449,10 +424,6 @@ export function computeScenarioYears(
   const now = new Date();
   const nowYear = now.getFullYear();
   const nowMonth = now.getMonth() + 1;
-  // 当月の経過日数・日数(ダッシュボードのcomputeMonthlyBudgetと同じ定義)。
-  // 当月ぶんのカテゴリ見込みを実績の日割りで出すために使う。
-  const dayOfMonth = now.getDate();
-  const daysInMonth = new Date(nowYear, nowMonth, 0).getDate();
   const years = Array.from({ length: SIMULATION_YEARS_AHEAD + 1 }, (_, i) => startYear + i);
 
   const { categories, overrides } = applyScenarioCategoryAmounts(config, sharedCategories, sharedOverrides, vndPerJpy);
@@ -520,10 +491,7 @@ export function computeScenarioYears(
           );
     };
 
-    // 今年の月次内訳(先月まで=実績、当月=日割り見込み、来月以降=予算)。当月ぶんは
-    // categoryMonthlyActualOrBudgetYen がカテゴリごとにダッシュボードと同じ日割り
-    // ロジックを適用するため、ここで改めて合計を揃え直す必要はない(カテゴリ単位で
-    // 正しく計算すれば、合計は自然にダッシュボードの「今月の見込み」と一致する)。
+    // 今年の月次内訳(先月まで=確定した実績、当月以降=予算)。
     const fixedMonthly: Record<string, number[]> = {};
     const variableMonthly: Record<string, number[]> = {};
     if (isNowYear) {
@@ -535,12 +503,8 @@ export function computeScenarioYears(
           cohabiting,
           actualByCategoryMonthVnd[c.name],
           nowMonth,
-          config.inflationRatePercent,
           vndPerJpy,
           nowYear,
-          true,
-          dayOfMonth,
-          daysInMonth,
         );
       }
       for (const c of variableCats) {
@@ -551,12 +515,8 @@ export function computeScenarioYears(
           cohabiting,
           actualByCategoryMonthVnd[c.name],
           nowMonth,
-          config.inflationRatePercent,
           vndPerJpy,
           nowYear,
-          false,
-          dayOfMonth,
-          daysInMonth,
         );
       }
     }
