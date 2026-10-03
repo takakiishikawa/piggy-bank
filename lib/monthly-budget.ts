@@ -5,6 +5,7 @@ import { VND_PER_JPY } from "@/lib/currency";
 import { applyScenarioCategoryAmounts, isCohabitingYear, resolveCategoryMonthlyYen } from "@/lib/scenario/compute";
 import { normalizeScenarioConfig } from "@/lib/scenario/types";
 import { addTxToCategoryTotals, countsAsSpending } from "@/lib/cash";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 
 type Db = ReturnType<typeof createDb>;
 
@@ -155,12 +156,18 @@ export async function computeActualSpendByMonth(
   const start = new Date(year, 0, 1);
   const end = new Date(year, 11, 31, 23, 59, 59, 999);
 
-  const { data } = await db
-    .from("transactions")
-    .select("amount, date, category, source")
-    .gte("date", start.toISOString())
-    .lte("date", end.toISOString())
-    .eq("excluded_from_dashboard", false);
+  const data = await fetchAllRows<{ amount: number; date: string; category: string; source: string | null }>(
+    (from, to) =>
+      db
+        .from("transactions")
+        .select("amount, date, category, source")
+        .gte("date", start.toISOString())
+        .lte("date", end.toISOString())
+        .eq("excluded_from_dashboard", false)
+        .order("date", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
 
   const byMonth: Record<string, number> = {};
   for (const tx of data ?? []) {
@@ -190,12 +197,20 @@ export async function computeActualSpendThisYear(db: Db): Promise<ActualSpendThi
   const now = new Date();
   const start = new Date(now.getFullYear(), 0, 1);
 
-  const { data } = await db
-    .from("transactions")
-    .select("amount, category, date, source")
-    .gte("date", start.toISOString())
-    .lte("date", now.toISOString())
-    .eq("excluded_from_dashboard", false);
+  // 今年の取引は1000件を超えるため全件取り切る(以前は1000件で切り捨てられ、
+  // 直近の月の実績が0円・一部欠けて表示されていた)。
+  const data = await fetchAllRows<{ amount: number; category: string; date: string; source: string | null }>(
+    (from, to) =>
+      db
+        .from("transactions")
+        .select("amount, category, date, source")
+        .gte("date", start.toISOString())
+        .lte("date", now.toISOString())
+        .eq("excluded_from_dashboard", false)
+        .order("date", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
 
   const byCategory: Record<string, number> = {};
   const byCategoryMonth: Record<string, Record<string, number>> = {};

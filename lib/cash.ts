@@ -1,4 +1,5 @@
 import type { createDb } from "@/lib/supabase/db";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 
 type Db = ReturnType<typeof createDb>;
 
@@ -82,34 +83,44 @@ export async function fetchCashWallet(db: Db, month: string): Promise<CashWallet
   const walletStart = monthStart(CASH_WALLET_START_MONTH);
   const start = monthStart(month);
   const end = monthEnd(month);
-  const [withdrawRes, recordRes] = await Promise.all([
-    db
-      .from("transactions")
-      .select("amount, date")
-      .eq("category", CASH_CATEGORY)
-      .neq("source", "cash")
-      // 特別支出にした引き出しは特別支出として計上済みなので財布には入れない
-      // (入れると二重計上になる)。
-      .eq("excluded_from_dashboard", false)
-      .gte("date", walletStart.toISOString())
-      .lte("date", end.toISOString()),
-    db
-      .from("transactions")
-      .select("id, amount, category, date, note")
-      .eq("source", "cash")
-      .gte("date", walletStart.toISOString())
-      .lte("date", end.toISOString())
-      .order("date", { ascending: false }),
+  // 開始月からの累計なので、件数が増えても切り捨てられないよう全件取り切る。
+  const [withdrawRows, recordRows] = await Promise.all([
+    fetchAllRows<{ amount: number; date: string }>((from, to) =>
+      db
+        .from("transactions")
+        .select("amount, date")
+        .eq("category", CASH_CATEGORY)
+        .neq("source", "cash")
+        // 特別支出にした引き出しは特別支出として計上済みなので財布には入れない
+        // (入れると二重計上になる)。
+        .eq("excluded_from_dashboard", false)
+        .gte("date", walletStart.toISOString())
+        .lte("date", end.toISOString())
+        .order("date", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+    fetchAllRows<CashWallet["records"][number]>((from, to) =>
+      db
+        .from("transactions")
+        .select("id, amount, category, date, note")
+        .eq("source", "cash")
+        .gte("date", walletStart.toISOString())
+        .lte("date", end.toISOString())
+        .order("date", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
   ]);
 
   const inMonth = (date: string) => new Date(date) >= start;
   let carriedOverVnd = 0;
   let withdrawnVnd = 0;
-  for (const r of (withdrawRes.data ?? []) as { amount: number; date: string }[]) {
+  for (const r of withdrawRows) {
     if (inMonth(r.date)) withdrawnVnd += r.amount;
     else carriedOverVnd += r.amount;
   }
-  const allRecords = (recordRes.data ?? []) as CashWallet["records"];
+  const allRecords = recordRows;
   const records = allRecords.filter((r) => inMonth(r.date));
   let recordedVnd = 0;
   for (const r of allRecords) {

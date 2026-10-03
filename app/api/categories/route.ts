@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthDb } from "@/lib/supabase/auth-db";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 
 export async function GET() {
   const result = await getAuthDb();
   if (result instanceof NextResponse) return result;
   const { db } = result;
 
-  const [catsRes, txRes] = await Promise.all([
+  const [catsRes, txRows] = await Promise.all([
     db
       .from("categories")
       .select("id, name, budget, is_fixed, renewal_cycle_years, renewal_fee_months")
       .order("created_at"),
-    db.from("transactions").select("category, amount").limit(100000),
+    // .limit(100000) でもサーバー側の上限(1000行)で切られるため全件取り切る。
+    fetchAllRows<{ category: string | null; amount: number | null }>((from, to) =>
+      db.from("transactions").select("category, amount").order("id", { ascending: true }).range(from, to),
+    ),
   ]);
 
   if (catsRes.error) {
@@ -19,7 +23,7 @@ export async function GET() {
   }
 
   const totals: Record<string, number> = {};
-  for (const t of txRes.data ?? []) {
+  for (const t of txRows) {
     if (t.category)
       totals[t.category] = (totals[t.category] ?? 0) + (t.amount ?? 0);
   }
