@@ -110,9 +110,11 @@ export async function GET(req: Request) {
       listVietcombankMessageIds(accessToken),
       listJcbDebitMessageIds(accessToken),
     ]);
+    // JCB を先に並べる。Vietcombank 側には本文を解析できず保存されない(=毎回「新規」
+    // 扱いになる)古いメールが多数あり、後ろに置くと下の 100 件上限を食われて取りこぼす。
     allIds = [
-      ...vcbIds.map((id) => ({ id, kind: "vietcombank" as const })),
       ...jcbIds.map((id) => ({ id, kind: "jcb_debit" as const })),
+      ...vcbIds.map((id) => ({ id, kind: "vietcombank" as const })),
     ];
   } catch (e) {
     return NextResponse.json(
