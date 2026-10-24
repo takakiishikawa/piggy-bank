@@ -22,10 +22,12 @@ export const CASH_WALLET_START_MONTH = "2026-09";
 export const CASH_UNITEMIZED_STORE = "現金(内訳なし)";
 
 // みずほの摘要は全角(例: 「ＡＴＭ－１８５９７７－０７０５５４」「７ＢＫ００Ｍ７Ｏ－４３１５」)。
+// 提携先ATM(ゆうちょ・地銀など)での引き出しは「テイケイ ユウチヨ」「テイケイ ヒヤクゴ」のように
+// 「テイケイ」+ 提携先名になる。
 // 半角で来ても拾えるよう NFKC で正規化してから判定する。
 export function isCashWithdrawalStore(store: string): boolean {
   const s = store.normalize("NFKC").trim().toUpperCase();
-  return s.startsWith("ATM-") || s.startsWith("7BK");
+  return s.startsWith("ATM-") || s.startsWith("7BK") || s.startsWith("テイケイ");
 }
 
 export function monthKeyOf(d: Date): string {
