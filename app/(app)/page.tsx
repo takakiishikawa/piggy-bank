@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Inbox, List, PiggyBank, Plus, TrendingDown, TrendingUp } from "lucide-react";
+import { Inbox, List, PiggyBank, Plus, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { getCategoryColors, getCategoryColorTint } from "@/lib/category-colors";
 import { getCategoryIcon } from "@/lib/category-icons";
 import { makeFormatAmount, toDisplayAmount, toVndAmount, withThousands } from "@/lib/currency";
@@ -185,74 +185,74 @@ function VariableCategoryCard({
   );
 }
 
-// 現金財布カード。予算比ではなく「財布残高(繰越込み) / 今月使えた額(繰越 + 今月の
-// 引き出し)」を出し、クリックで現金支出の記録ダイアログを開く(lib/cash.ts)。バーは
-// 使えた額のうち、まだ財布に残っている割合。
-function CashCard({
+// 現金財布カード。財布は支出のカテゴリではなく「口座 → 財布 → 支出」の中継なので、
+// 変動費のカード一覧には入れず、独立した横長カードで「財布残高(繰越込み) / 今月使えた額
+// (繰越 + 今月の引き出し)」を出す。クリックで現金支出の記録ダイアログを開く(lib/cash.ts)。
+// 使い道が分からなかった差額は「用途不明」カテゴリとして変動費側に出る。
+function CashWalletCard({
   balanceVnd,
   availableVnd,
-  unitemizedSpentVnd,
   onClick,
   formatAmount,
   lang,
 }: {
   balanceVnd: number;
   availableVnd: number;
-  // 今月「手元の現金に合わせる」で確定した現金(内訳なし)の支出
-  unitemizedSpentVnd: number;
   onClick: () => void;
   formatAmount: (vnd: number) => string;
   lang: Lang;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={t(lang, "cashCardHint")}
-      className="text-left rounded-[13px] border p-[11px_14px] transition-all bg-[var(--color-surface-subtle)] hover:bg-muted/40 active:scale-[0.98] active:bg-muted/60 cursor-pointer"
-      style={{ borderColor: "var(--color-border-default)" }}
+    <Card
+      className="p-0 rounded-2xl overflow-hidden animate-fade-up"
+      style={{
+        animationDelay: "40ms",
+        animationFillMode: "both",
+        borderColor: "var(--color-border-default)",
+        boxShadow: CARD_SHADOW,
+      }}
     >
-      <div className="flex items-center justify-between gap-2 mb-1.5">
-        <div className="flex items-center gap-2 min-w-0">
+      <button
+        type="button"
+        onClick={onClick}
+        title={t(lang, "cashCardHint")}
+        className="w-full text-left px-6 py-4 flex items-center gap-4 flex-wrap cursor-pointer transition-all hover:bg-muted/40 active:bg-muted/60"
+      >
+        <div className="flex items-center gap-2.5 shrink-0">
           <div
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[9px]"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]"
             style={{ backgroundColor: getCategoryColorTint(CASH_CATEGORY) }}
           >
-            <CategoryIcon name={CASH_CATEGORY} />
+            <Wallet size={16} style={{ color: "var(--color-text-secondary)" }} />
           </div>
-          <span className="text-[13.5px] font-semibold truncate" style={{ color: "var(--color-text-primary)" }}>
+          <span className="font-display text-[17px] font-semibold" style={{ color: "var(--color-text-primary)" }}>
             {t(lang, "cashCardTitle")}
           </span>
         </div>
+        <span className="text-sm shrink-0" style={{ color: "var(--color-text-secondary)" }}>
+          <b className="font-num text-[17px]" style={{ color: "var(--color-text-primary)" }}>
+            {formatAmount(balanceVnd)}
+          </b>
+          <span className="font-num"> / {formatAmount(availableVnd)}</span>
+        </span>
+        <div className="flex-1 min-w-24">
+          <ProgressBar
+            actual={balanceVnd}
+            budget={availableVnd}
+            todayPct={0}
+            showToday={false}
+            fillColor="var(--color-text-subtle)"
+          />
+        </div>
         <span
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md"
+          className="flex items-center gap-1.5 h-8 rounded-[10px] px-3 text-xs font-semibold shrink-0"
           style={{ backgroundColor: "var(--kg-track)", color: "var(--color-text-secondary)" }}
         >
-          <Plus size={12} />
+          <Plus size={13} />
+          {t(lang, "cashRecordSpending")}
         </span>
-      </div>
-      <span className="text-[12.5px]" style={{ color: "var(--color-text-secondary)" }}>
-        <span className="font-num font-semibold" style={{ color: "var(--color-text-primary)" }}>
-          {formatAmount(balanceVnd)}
-        </span>
-        <span className="font-num"> / {formatAmount(availableVnd)}</span>
-      </span>
-      <div className="mt-1.5">
-        <ProgressBar
-          actual={balanceVnd}
-          budget={availableVnd}
-          todayPct={0}
-          showToday={false}
-          fillColor="var(--color-text-subtle)"
-        />
-      </div>
-      {unitemizedSpentVnd > 0 && (
-        <span className="block mt-1.5 text-[11px]" style={{ color: "var(--color-text-secondary)" }}>
-          {t(lang, "cashUnitemizedThisMonth")}{" "}
-          <span className="font-num font-semibold">{formatAmount(unitemizedSpentVnd)}</span>
-        </span>
-      )}
-    </button>
+      </button>
+    </Card>
   );
 }
 
@@ -540,11 +540,10 @@ export default function Dashboard() {
     ? data.variableTotalBudget > 0 || data.fixedTotalBudget > 0
     : false;
 
-  // 現金(内訳なし)は専用のCashCardで先頭に出すので、通常のカード一覧からは外す。
+  // 現金財布は変動費とは別の CashWalletCard に出す。「用途不明」(CASH_CATEGORY)は
+  // 手元の現金との差額 = 実際の支出なので、通常の変動費カテゴリとして並べる。
   const hasCashCategory = data?.variableCategories.some((c) => c.name === CASH_CATEGORY) ?? false;
-  const sortedVariable = data
-    ? data.variableCategories.filter((c) => c.name !== CASH_CATEGORY).sort((a, b) => b.budget - a.budget)
-    : [];
+  const sortedVariable = data ? [...data.variableCategories].sort((a, b) => b.budget - a.budget) : [];
   const cashTargetCategories = data
     ? [...data.variableCategories, ...data.fixedCategories].map((c) => c.name).filter((n) => n !== CASH_CATEGORY)
     : [];
@@ -652,6 +651,16 @@ export default function Dashboard() {
           onSaved={fetchInvestments}
         />
 
+        {data && hasCashCategory && (
+          <CashWalletCard
+            balanceVnd={data.cashBalanceVnd}
+            availableVnd={data.cashAvailableVnd}
+            onClick={() => setCashDialogOpen(true)}
+            formatAmount={formatAmount}
+            lang={lang}
+          />
+        )}
+
         <CashWalletDialog
           open={cashDialogOpen}
           onOpenChange={setCashDialogOpen}
@@ -704,22 +713,12 @@ export default function Dashboard() {
                 <Skeleton key={i} className="h-20 rounded-lg" />
               ))}
             </div>
-          ) : sortedVariable.length === 0 && !hasCashCategory ? (
+          ) : sortedVariable.length === 0 ? (
             <p className="py-6 text-sm text-center" style={{ color: "var(--color-text-secondary)" }}>
               {t(lang, "dashNoVariableCategories")}
             </p>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {hasCashCategory && (
-                <CashCard
-                  balanceVnd={data.cashBalanceVnd}
-                  availableVnd={data.cashAvailableVnd}
-                  unitemizedSpentVnd={data.variableCategories.find((c) => c.name === CASH_CATEGORY)?.actual ?? 0}
-                  onClick={() => setCashDialogOpen(true)}
-                  formatAmount={formatAmount}
-                  lang={lang}
-                />
-              )}
               {sortedVariable.map((cat) => (
                 <VariableCategoryCard
                   key={cat.id}

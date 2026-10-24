@@ -14,7 +14,7 @@ const postSchema = z.object({
 });
 
 // 手元の現金に合わせる。財布残高と実際の手元の現金の差額(何に使ったか分からない分)を
-// 今日の日付で「現金(内訳なし)」の支出として記録し、残高を手元の額にそろえる。
+// 今日の日付で「用途不明」の支出として記録し、残高を手元の額にそろえる。
 export async function POST(req: NextRequest) {
   const result = await getAuthDb();
   if (result instanceof NextResponse) return result;

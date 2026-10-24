@@ -39,7 +39,7 @@ export function CashWalletDialog({
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  // 振り分け先に選べるカテゴリ名(現金(内訳なし)自体は除く)
+  // 振り分け先に選べるカテゴリ名(用途不明自体は除く)
   categories: string[];
   currency: DisplayCurrency;
   lang: Lang;
@@ -186,7 +186,7 @@ export function CashWalletDialog({
           ) : null}
 
           {/* 手元の現金に合わせる: 実際の手元の額を入れると、残高との差額を今日の
-              「現金(内訳なし)」の支出として記録し、残高を手元の額にそろえる。 */}
+              「用途不明」の支出として記録し、残高を手元の額にそろえる。 */}
           {wallet !== null && isCurrentMonth && wallet.balanceVnd > 0 && (
             reconcileOpen ? (
               <div className="flex flex-col gap-1.5 rounded-[10px] border px-3 py-2.5" style={{ borderColor: "var(--color-border-default)" }}>

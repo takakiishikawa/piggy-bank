@@ -22,6 +22,7 @@ import { makeFormatAmount } from "@/lib/currency";
 import { getCategoryColorTint, getCategoryHex } from "@/lib/category-colors";
 import { getCategoryIcon } from "@/lib/category-icons";
 import { FALLBACK_CATEGORY } from "@/lib/constants";
+import { CASH_WITHDRAWAL_CATEGORY } from "@/lib/cash";
 import { NoteTag } from "@/components/note-tag";
 import { SpecialExpenseToggle } from "@/components/special-expense-toggle";
 import { SourceBadge } from "@/components/source-badge";
@@ -69,6 +70,11 @@ function needsCategory(tx: Transaction): boolean {
 // DBのcategoryは消さずに残すので、特別支出を外せば元のカテゴリに戻る。
 function isSpecial(tx: Transaction): boolean {
   return tx.special_entry_id !== null;
+}
+
+// ATM引き出しは「口座 → 現金財布」への移動で、カテゴリは固定(変えると財布から外れる)。
+function isCashWithdrawal(tx: Transaction): boolean {
+  return tx.category === CASH_WITHDRAWAL_CATEGORY;
 }
 
 function CategoryBadgeInline({ category, lang }: { category: string; lang: "ja" | "en" }) {
@@ -340,7 +346,8 @@ function TransactionsPageInner() {
           <Sparkles size={12} />
           {t(lang, "txAll")}
         </button>
-        {usedCategories.map((cat) => {
+        {/* ATM引き出しは categories テーブルに無いカテゴリなので、チップだけ末尾に足す。 */}
+        {[...usedCategories, CASH_WITHDRAWAL_CATEGORY].map((cat) => {
           const Icon = getCategoryIcon(cat);
           const active = catFilter === cat;
           return (
@@ -387,7 +394,8 @@ function TransactionsPageInner() {
                   {formatAmount(tx.amount)}
                 </span>
                 <div className="w-[150px] shrink-0 flex items-center gap-1.5">
-                  {!isSpecial(tx) && (
+                  {isCashWithdrawal(tx) && !isSpecial(tx) && <CategoryBadgeInline category={tx.category} lang={lang} />}
+                  {!isSpecial(tx) && !isCashWithdrawal(tx) && (
                     <>
                       {uncategorized && (
                         <AlertCircle size={13} style={{ color: DC.primaryHover }} className="shrink-0" />

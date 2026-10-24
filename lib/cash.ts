@@ -4,22 +4,28 @@ import { fetchAllRows } from "@/lib/supabase/fetch-all";
 type Db = ReturnType<typeof createDb>;
 
 // 現金財布機能。
-// - ATMで引き出した現金(摘要が「ＡＴＭ－」「７ＢＫ」で始まる取引)は、このカテゴリ
-//   (= 種類「現金引き出し」)に入れ、財布に加算する。引き出し自体は支出ではなく
-//   「口座 → 財布」への移動として扱う。
+// - ATMで引き出した現金(摘要が「ＡＴＭ－」「７ＢＫ」「テイケイ」で始まる取引)は
+//   「ATM引き出し」カテゴリ(CASH_WITHDRAWAL_CATEGORY)に入れ、財布に加算する。
+//   引き出し自体は支出ではなく「口座 → 財布」への移動として扱う。
 // - 覚えている現金支出は source='cash' の取引として記録し、選んだカテゴリの実績にする。
 // - 手元の現金と財布残高の差額(何に使ったか分からない分)は「手元の現金に合わせる」で
-//   source='cash' かつこのカテゴリの取引として記録し、その月の「現金(内訳なし)」の
-//   支出になる。
+//   source='cash' かつ CASH_CATEGORY(表示名「用途不明」)の取引として記録し、
+//   その月の支出になる。
 // - 財布残高は月をまたいで繰り越す(残高 = 引き出し累計 − 記録累計)。
 export const CASH_CATEGORY = "Cash (Unitemized)";
+
+// ATM引き出し。支出ではないので categories テーブルには持たず(予算・シミュレーション・
+// AI分類の対象にしない)、取引一覧のカテゴリ表示と絞り込みにだけ出す。
+// 以前は引き出しも CASH_CATEGORY に入れていたため、その形の行も引き出しとして扱う
+// (付け替えの migration: 20261024_cash_withdrawal_category.sql)。
+export const CASH_WITHDRAWAL_CATEGORY = "Cash Withdrawal";
 
 // 繰越型の財布を始めた月。これより前のATM引き出しは、従来どおり引き出した時点で
 // 全額「現金(内訳なし)」の支出として扱う(過去月の支出・貯蓄が変わらないように)。
 export const CASH_WALLET_START_MONTH = "2026-09";
 
 // 「手元の現金に合わせる」で作る差額取引の店舗名。
-export const CASH_UNITEMIZED_STORE = "現金(内訳なし)";
+export const CASH_UNITEMIZED_STORE = "用途不明";
 
 // みずほの摘要は全角(例: 「ＡＴＭ－１８５９７７－０７０５５４」「７ＢＫ００Ｍ７Ｏ－４３１５」)。
 // 提携先ATM(ゆうちょ・地銀など)での引き出しは「テイケイ ユウチヨ」「テイケイ ヒヤクゴ」のように
@@ -34,8 +40,15 @@ export function monthKeyOf(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+// 新しく取り込むATM引き出しのカテゴリ。財布を始める前の月の引き出しは、従来どおり
+// 引き出した時点で全額「用途不明」の支出として扱う。
+export function cashWithdrawalCategoryFor(date: Date): string {
+  return monthKeyOf(date) >= CASH_WALLET_START_MONTH ? CASH_WITHDRAWAL_CATEGORY : CASH_CATEGORY;
+}
+
 // 財布に入るだけで支出にはならない引き出しか(繰越型の財布の開始月以降の引き出し)。
 function isWalletTransfer(tx: { category: string; source?: string | null; date: string }): boolean {
+  if (tx.category === CASH_WITHDRAWAL_CATEGORY) return true;
   return (
     tx.category === CASH_CATEGORY &&
     tx.source !== "cash" &&
@@ -91,7 +104,7 @@ export async function fetchCashWallet(db: Db, month: string): Promise<CashWallet
       db
         .from("transactions")
         .select("amount, date")
-        .eq("category", CASH_CATEGORY)
+        .in("category", [CASH_WITHDRAWAL_CATEGORY, CASH_CATEGORY])
         .neq("source", "cash")
         // 特別支出にした引き出しは特別支出として計上済みなので財布には入れない
         // (入れると二重計上になる)。

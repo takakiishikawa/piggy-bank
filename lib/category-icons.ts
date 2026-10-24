@@ -45,6 +45,7 @@ import {
   Tag,
   Layers,
   Shapes,
+  Landmark,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -93,6 +94,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Transfer: Wallet,
   Cash: Banknote,
   "Cash (Unitemized)": Banknote,
+  "Cash Withdrawal": Landmark,
   Entertainment: Tv,
 };
 

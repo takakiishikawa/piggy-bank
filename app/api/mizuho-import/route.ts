@@ -6,7 +6,7 @@ import { VND_PER_JPY } from "@/lib/currency";
 import { FALLBACK_CATEGORY } from "@/lib/constants";
 import { loadStoreRules } from "@/lib/store-rules";
 import { categorizeUncategorized } from "@/lib/ai/categorize";
-import { CASH_CATEGORY, isCashWithdrawalStore } from "@/lib/cash";
+import { cashWithdrawalCategoryFor, isCashWithdrawalStore } from "@/lib/cash";
 
 export const maxDuration = 60;
 
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
       continue;
     }
     const knownCategory = rules.get(w.description.trim());
-    // ATM引き出しは種類「現金引き出し」= 現金財布カテゴリに入れ、AI分類の対象外にする。
+    // ATM引き出しは「ATM引き出し」カテゴリ(現金財布への移動)に入れ、AI分類の対象外にする。
     const isWithdrawal = isCashWithdrawalStore(w.description);
     const id = crypto.randomUUID();
     const { error } = await db.from("transactions").insert({
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
       // みずほは常に円建て。全画面共通の固定レートでVND換算して保存する。
       amount: Math.round(w.amountJpy * VND_PER_JPY),
       date: w.date.toISOString(),
-      category: isWithdrawal ? CASH_CATEGORY : (knownCategory ?? FALLBACK_CATEGORY),
+      category: isWithdrawal ? cashWithdrawalCategoryFor(w.date) : (knownCategory ?? FALLBACK_CATEGORY),
       reviewed: isWithdrawal,
       source: "mizuho",
       external_id: w.externalId,
