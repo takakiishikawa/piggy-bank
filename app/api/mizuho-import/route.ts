@@ -87,6 +87,8 @@ export async function POST(req: NextRequest) {
 
   let imported = 0;
   let skipped = 0;
+  // 取り込んだ明細(取込結果ポップアップに一覧表示する)。
+  const importedRows: { id: string; store: string; date: string; amountJpy: number }[] = [];
   for (const w of parsed.withdrawals) {
     if (existing.has(w.externalId)) {
       skipped++;
@@ -95,8 +97,9 @@ export async function POST(req: NextRequest) {
     const knownCategory = rules.get(w.description.trim());
     // ATM引き出しは種類「現金引き出し」= 現金財布カテゴリに入れ、AI分類の対象外にする。
     const isWithdrawal = isCashWithdrawalStore(w.description);
+    const id = crypto.randomUUID();
     const { error } = await db.from("transactions").insert({
-      id: crypto.randomUUID(),
+      id,
       gmail_id: null,
       store: w.description,
       // みずほは常に円建て。全画面共通の固定レートでVND換算して保存する。
@@ -118,6 +121,7 @@ export async function POST(req: NextRequest) {
     }
     imported++;
     existing.add(w.externalId);
+    importedRows.push({ id, store: w.description, date: w.date.toISOString(), amountJpy: w.amountJpy });
   }
 
   // 今月の実施記録を残す(バナーはこの行があるあいだ非表示)。
@@ -137,7 +141,29 @@ export async function POST(req: NextRequest) {
     // noop
   }
 
+  // AI分類後のカテゴリを付けて返す。
+  const categoryById = new Map<string, string>();
+  if (importedRows.length > 0) {
+    const { data } = await db
+      .from("transactions")
+      .select("id, category")
+      .in(
+        "id",
+        importedRows.map((r) => r.id),
+      );
+    for (const row of data ?? []) categoryById.set(row.id as string, row.category as string);
+  }
+  const items = importedRows
+    .map((r) => ({
+      date: r.date,
+      store: r.store,
+      amountJpy: r.amountJpy,
+      category: categoryById.get(r.id) ?? FALLBACK_CATEGORY,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
   return NextResponse.json({
+    items,
     month,
     imported,
     skipped,
