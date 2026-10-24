@@ -6,11 +6,15 @@
 // お取引内容にこれらの語を含む出金は取り込まない。
 // - ワイズペイメンツジヤパン: Wise への送金。そこから VCB に入るだけで、
 //   自分にとっての支出ではない(要望対応)。
+// - JCBデビット: みずほJCBデビットの利用。Gmail の利用通知から店名付きで自動取込
+//   (app/api/cron/sync)しているので、CSV からも入れると二重計上になる。
 // みずほのカナは全角・小書きなし(ネツト / ジヤパン)なので部分一致で判定する。
-export const MIZUHO_EXCLUDED_DESCRIPTIONS = ["ワイズペイメンツ"];
+// 英数字は全角(ＪＣＢ)で来るため NFKC で半角に揃えてから比較する。
+export const MIZUHO_EXCLUDED_DESCRIPTIONS = ["ワイズペイメンツ", "JCBデビツト", "JCBデビット"];
 
 function isExcludedDescription(description: string): boolean {
-  return MIZUHO_EXCLUDED_DESCRIPTIONS.some((word) => description.includes(word));
+  const normalized = description.normalize("NFKC");
+  return MIZUHO_EXCLUDED_DESCRIPTIONS.some((word) => normalized.includes(word));
 }
 
 export interface MizuhoWithdrawal {

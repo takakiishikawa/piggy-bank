@@ -176,7 +176,7 @@ export const DICT = {
     mizuhoUploadBtn: "CSVをアップロード",
     mizuhoNoExpenseBtn: "日本側の支出なし",
     mizuhoDialogTitle: "みずほ銀行CSVの取込",
-    mizuhoDialogBody: "みずほダイレクトからダウンロードした入出金明細CSVを選択してください。出金のみ取り込みます(入金・給与は対象外)。",
+    mizuhoDialogBody: "みずほダイレクトからダウンロードした入出金明細CSVを選択してください。出金のみ取り込みます(入金・給与と、Gmailから自動取込しているJCBデビットは対象外)。",
     mizuhoOpenBank: "みずほダイレクトを開く",
     mizuhoChooseFile: "CSVファイルを選択",
     mizuhoImporting: "取込中…",
@@ -186,6 +186,7 @@ export const DICT = {
     mizuhoNoExpenseDone: "今月は「支出なし」として記録しました",
     txSource: "経由",
     txSourceMizuho: "みずほ銀行(CSV取込)",
+    txSourceMizuhoDebit: "みずほJCBデビット(Gmail自動取込)",
     txSourceVietcombank: "Vietcombank(Gmail自動取込)",
 
     // ダッシュボード: 投資記録
@@ -439,7 +440,7 @@ export const DICT = {
     mizuhoUploadBtn: "Upload CSV",
     mizuhoNoExpenseBtn: "No expenses this month",
     mizuhoDialogTitle: "Import Mizuho Bank CSV",
-    mizuhoDialogBody: "Choose the transaction-statement CSV downloaded from Mizuho Direct. Only withdrawals are imported (deposits / salary are ignored).",
+    mizuhoDialogBody: "Choose the transaction-statement CSV downloaded from Mizuho Direct. Only withdrawals are imported (deposits / salary, and JCB Debit payments already auto-imported from Gmail, are ignored).",
     mizuhoOpenBank: "Open Mizuho Direct",
     mizuhoChooseFile: "Choose CSV file",
     mizuhoImporting: "Importing…",
@@ -449,6 +450,7 @@ export const DICT = {
     mizuhoNoExpenseDone: "Marked this month as \"no expenses\"",
     txSource: "Via",
     txSourceMizuho: "Mizuho Bank (CSV import)",
+    txSourceMizuhoDebit: "Mizuho JCB Debit (Gmail auto-import)",
     txSourceVietcombank: "Vietcombank (Gmail auto-import)",
 
     // Dashboard: investment record

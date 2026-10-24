@@ -4,8 +4,14 @@ import {
   type Transaction,
   type Settings,
 } from "@/lib/supabase/db";
-import { listVietcombankMessageIds, fetchEmailBody } from "@/lib/gmail";
+import {
+  listVietcombankMessageIds,
+  listJcbDebitMessageIds,
+  fetchEmailBody,
+} from "@/lib/gmail";
 import { parseVietcombankEmail } from "@/lib/parser";
+import { parseJcbDebitEmail } from "@/lib/jcb-debit-parser";
+import { VND_PER_JPY } from "@/lib/currency";
 import { convertToVND } from "@/lib/exchange";
 import { categorizeUncategorized } from "@/lib/ai/categorize";
 import { loadStoreRules } from "@/lib/store-rules";
@@ -97,10 +103,17 @@ export async function GET(req: Request) {
 
   const { access_token: accessToken } = await tokenRes.json();
 
-  // Gmail から全メッセージID取得
-  let allIds: string[] = [];
+  // Gmail から全メッセージID取得(Vietcombank + みずほJCBデビット)
+  let allIds: { id: string; kind: "vietcombank" | "jcb_debit" }[] = [];
   try {
-    allIds = await listVietcombankMessageIds(accessToken);
+    const [vcbIds, jcbIds] = await Promise.all([
+      listVietcombankMessageIds(accessToken),
+      listJcbDebitMessageIds(accessToken),
+    ]);
+    allIds = [
+      ...vcbIds.map((id) => ({ id, kind: "vietcombank" as const })),
+      ...jcbIds.map((id) => ({ id, kind: "jcb_debit" as const })),
+    ];
   } catch (e) {
     return NextResponse.json(
       { error: `Gmail API error: ${String(e)}` },
@@ -134,10 +147,10 @@ export async function GET(req: Request) {
   const rules = await loadStoreRules(db);
   for (const [store, cat] of rules) storeCategory.set(store, cat);
 
-  const newIds = allIds.filter((id) => !existingIds.has(id)).slice(0, 100);
+  const newIds = allIds.filter(({ id }) => !existingIds.has(id)).slice(0, 100);
 
   let synced = 0;
-  for (const id of newIds) {
+  for (const { id, kind } of newIds) {
     let body: string | null = null;
     try {
       body = await fetchEmailBody(accessToken, id);
@@ -145,6 +158,29 @@ export async function GET(req: Request) {
       continue;
     }
     if (!body) continue;
+
+    if (kind === "jcb_debit") {
+      const debit = parseJcbDebitEmail(body);
+      if (!debit.isValid) continue;
+      const { error: err } = await db.from("transactions").insert({
+        id: crypto.randomUUID(),
+        gmail_id: id,
+        store: debit.store,
+        // みずほCSV取込と同じく、円は全画面共通の固定レートでVND換算して保存する。
+        amount: Math.round(debit.amountJpy * VND_PER_JPY),
+        date: debit.date.toISOString(),
+        category: storeCategory.get(debit.store.trim()) ?? FALLBACK_CATEGORY,
+        reviewed: false,
+        source: "mizuho_debit",
+        external_id: id,
+      } satisfies Omit<Transaction, "created_at" | "note" | "excluded_from_dashboard" | "special_entry_id">);
+      if (err) {
+        console.error("[cron/sync] Insert error:", err);
+        break;
+      }
+      synced++;
+      continue;
+    }
 
     const parsed = parseVietcombankEmail(body);
     if (!parsed.isValid) continue;

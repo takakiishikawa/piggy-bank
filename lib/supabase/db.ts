@@ -9,7 +9,7 @@ export interface Category {
   created_at: string;
 }
 
-export type TransactionSource = "vietcombank" | "mizuho" | "cash";
+export type TransactionSource = "vietcombank" | "mizuho" | "mizuho_debit" | "cash";
 
 export interface Transaction {
   id: string;
@@ -23,9 +23,10 @@ export interface Transaction {
   excluded_from_dashboard: boolean;
   special_entry_id: string | null;
   // データ経由: vietcombank = Gmail自動取込 / mizuho = CSV手動アップロード /
+  // mizuho_debit = みずほJCBデビットの利用通知メールをGmail自動取込 /
   // cash = 現金財布から手動記録した現金支出(lib/cash.ts)
   source: TransactionSource;
-  // 取込元での一意キー(みずほ = 明細通番)。重複取込の防止に使う。
+  // 取込元での一意キー(みずほ = 明細通番 / デビット = Gmail メッセージID)。重複取込の防止に使う。
   external_id: string | null;
   created_at: string;
 }

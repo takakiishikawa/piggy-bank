@@ -21,10 +21,8 @@ function extractBody(parts: gmail_v1.Schema$MessagePart[]): string | null {
   return null;
 }
 
-// 全メッセージIDのみを取得（本文は取らない）
-export async function listVietcombankMessageIds(
-  accessToken: string,
-): Promise<string[]> {
+// 検索クエリに一致する全メッセージIDのみを取得（本文は取らない）
+async function listMessageIds(accessToken: string, q: string): Promise<string[]> {
   const auth = new google.auth.OAuth2();
   auth.setCredentials({ access_token: accessToken });
   const gmail = google.gmail({ version: "v1", auth });
@@ -35,8 +33,7 @@ export async function listVietcombankMessageIds(
   do {
     const res = await gmail.users.messages.list({
       userId: "me",
-      // サブドメイン全体をカバー＋成功取引のみ
-      q: 'from:(@vietcombank.com.vn) ("Thành công" OR "Biên lai chuyển tiền")',
+      q,
       maxResults: 500,
       ...(pageToken ? { pageToken } : {}),
     });
@@ -49,6 +46,22 @@ export async function listVietcombankMessageIds(
   } while (pageToken);
 
   return allIds;
+}
+
+export function listVietcombankMessageIds(accessToken: string): Promise<string[]> {
+  // サブドメイン全体をカバー＋成功取引のみ
+  return listMessageIds(
+    accessToken,
+    'from:(@vietcombank.com.vn) ("Thành công" OR "Biên lai chuyển tiền")',
+  );
+}
+
+// みずほJCBデビットの利用通知。カードを使い始めたのが 2026-10 なので、それ以降のみ。
+export function listJcbDebitMessageIds(accessToken: string): Promise<string[]> {
+  return listMessageIds(
+    accessToken,
+    'from:(mail@qa.jcb.co.jp) subject:"JCBデビットカードご利用のお知らせ" after:2026/10/01',
+  );
 }
 
 // 指定IDのメール本文を取得
