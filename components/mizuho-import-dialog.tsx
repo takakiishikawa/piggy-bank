@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ExternalLink, UploadCloud } from "lucide-react";
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, Spinner, toast } from "@takaki/go-design-system";
 import { t, tf, type Lang } from "@/lib/scenario/dictionary";
@@ -30,6 +30,38 @@ export function MizuhoImportDialog({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  // undefined = 未取得 / null = 一度も取り込んでいない
+  const [lastImportedAt, setLastImportedAt] = useState<string | null | undefined>(undefined);
+
+  // 開くたびに最新実施日を取り直す。
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetch("/api/mizuho-import")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!cancelled && j) setLastImportedAt((j.lastImportedAt as string | null) ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  const lastImportedLabel =
+    lastImportedAt === undefined
+      ? null
+      : lastImportedAt === null
+        ? t(lang, "mizuhoLastImportedNone")
+        : tf(lang, "mizuhoLastImported", {
+            date: new Date(lastImportedAt).toLocaleString(lang === "ja" ? "ja-JP" : "en-US", {
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          });
 
   async function handleFile(file: File) {
     setBusy(true);
@@ -71,6 +103,12 @@ export function MizuhoImportDialog({
           <p className="text-[13px] leading-relaxed" style={{ color: DC.textSecondary }}>
             {t(lang, "mizuhoDialogBody")}
           </p>
+
+          {lastImportedLabel && (
+            <p className="text-[12.5px] font-semibold" style={{ color: DC.textPrimary }}>
+              {lastImportedLabel}
+            </p>
+          )}
 
           <a
             href={MIZUHO_DIRECT_URL}
