@@ -185,19 +185,17 @@ function VariableCategoryCard({
   );
 }
 
-// 現金財布カード。財布は支出のカテゴリではなく「口座 → 財布 → 支出」の中継なので、
-// 変動費のカード一覧には入れず、独立した横長カードで「財布残高(繰越込み) / 今月使えた額
-// (繰越 + 今月の引き出し)」を出す。クリックで現金支出の記録ダイアログを開く(lib/cash.ts)。
+// 財布カード。財布は支出のカテゴリではなく「口座 → 財布 → 支出」の中継なので、
+// 変動費のカード一覧には入れず、今月の見込みの横に財布残高(繰越込み)だけを出す。
+// クリックで財布ダイアログ(出入りの一覧と現金支出の記録)を開く(lib/cash.ts)。
 // 使い道が分からなかった差額は「用途不明」カテゴリとして変動費側に出る。
 function CashWalletCard({
   balanceVnd,
-  availableVnd,
   onClick,
   formatAmount,
   lang,
 }: {
   balanceVnd: number;
-  availableVnd: number;
   onClick: () => void;
   formatAmount: (vnd: number) => string;
   lang: Lang;
@@ -217,8 +215,8 @@ function CashWalletCard({
       <button
         type="button"
         onClick={onClick}
-        title={`${t(lang, "cashCardHint")} — ${t(lang, "cashRecordSpending")}`}
-        className="group w-full h-full text-left p-6 flex flex-col justify-center gap-3 cursor-pointer transition-colors hover:bg-muted/40 active:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-border-default)]"
+        title={t(lang, "cashRecordSpending")}
+        className="group w-full h-full text-left p-6 flex flex-col justify-center cursor-pointer transition-colors hover:bg-muted/40 active:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-border-default)]"
       >
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
@@ -229,17 +227,12 @@ function CashWalletCard({
               <Wallet size={13} />
               {t(lang, "cashCardTitle")}
             </p>
-            <div className="flex items-baseline gap-2 flex-wrap">
-              <span
-                className="font-display text-[30px] font-bold leading-none tracking-[-0.01em]"
-                style={{ color: "var(--color-text-primary)" }}
-              >
-                {formatAmount(balanceVnd)}
-              </span>
-              <span className="font-num text-sm" style={{ color: "var(--color-text-secondary)" }}>
-                / {formatAmount(availableVnd)}
-              </span>
-            </div>
+            <span
+              className="font-display text-[38px] font-bold leading-none tracking-[-0.01em]"
+              style={{ color: "var(--color-text-primary)" }}
+            >
+              {formatAmount(balanceVnd)}
+            </span>
           </div>
           <span
             aria-label={t(lang, "cashRecordSpending")}
@@ -249,13 +242,6 @@ function CashWalletCard({
             <Plus size={15} />
           </span>
         </div>
-        <ProgressBar
-          actual={balanceVnd}
-          budget={availableVnd}
-          todayPct={0}
-          showToday={false}
-          fillColor="var(--color-text-subtle)"
-        />
       </button>
     </Card>
   );
@@ -652,7 +638,6 @@ export default function Dashboard() {
         {data && hasCashCategory && (
           <CashWalletCard
             balanceVnd={data.cashBalanceVnd}
-            availableVnd={data.cashAvailableVnd}
             onClick={() => setCashDialogOpen(true)}
             formatAmount={formatAmount}
             lang={lang}
