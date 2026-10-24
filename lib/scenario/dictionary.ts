@@ -610,7 +610,7 @@ const CAT_JA: Record<string, string> = {
   Transfer: "転送",
   Cash: "現金",
   "Cash (Unitemized)": "用途不明",
-  "Cash Withdrawal": "ATM引き出し",
+  "Cash Withdrawal": "ATM",
   Groceries: "食料品",
   Sports: "スポーツ",
   Beauty: "美容",
