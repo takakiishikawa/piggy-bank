@@ -202,6 +202,8 @@ function CashWalletCard({
   formatAmount: (vnd: number) => string;
   lang: Lang;
 }) {
+  // 「今月の見込み」カードと並ぶので、見出し(小さいラベル)・大きい金額・右の操作ボタン
+  // という同じ骨組みにそろえる。
   return (
     <Card
       className="p-0 rounded-2xl overflow-hidden animate-fade-up h-full"
@@ -216,34 +218,37 @@ function CashWalletCard({
         type="button"
         onClick={onClick}
         title={`${t(lang, "cashCardHint")} — ${t(lang, "cashRecordSpending")}`}
-        className="group w-full h-full text-left px-6 py-5 flex flex-col justify-center gap-2.5 cursor-pointer transition-colors hover:bg-muted/40 active:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-border-default)]"
+        className="group w-full h-full text-left p-6 flex flex-col justify-center gap-3 cursor-pointer transition-colors hover:bg-muted/40 active:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-border-default)]"
       >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]"
-              style={{ backgroundColor: getCategoryColorTint(CASH_CATEGORY) }}
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p
+              className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.06em] mb-2"
+              style={{ color: "var(--color-text-subtle)" }}
             >
-              <Wallet size={16} style={{ color: "var(--color-text-secondary)" }} />
-            </div>
-            <span className="font-display text-[17px] font-semibold truncate" style={{ color: "var(--color-text-primary)" }}>
+              <Wallet size={13} />
               {t(lang, "cashCardTitle")}
-            </span>
+            </p>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <span
+                className="font-display text-[30px] font-bold leading-none tracking-[-0.01em]"
+                style={{ color: "var(--color-text-primary)" }}
+              >
+                {formatAmount(balanceVnd)}
+              </span>
+              <span className="font-num text-sm" style={{ color: "var(--color-text-secondary)" }}>
+                / {formatAmount(availableVnd)}
+              </span>
+            </div>
           </div>
           <span
             aria-label={t(lang, "cashRecordSpending")}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] transition-all group-hover:brightness-95 group-active:scale-90"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] transition-all group-hover:brightness-95 group-active:scale-90"
             style={{ backgroundColor: "var(--kg-track)", color: "var(--color-text-secondary)" }}
           >
             <Plus size={15} />
           </span>
         </div>
-        <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-          <b className="font-num text-[22px] font-bold" style={{ color: "var(--color-text-primary)" }}>
-            {formatAmount(balanceVnd)}
-          </b>
-          <span className="font-num"> / {formatAmount(availableVnd)}</span>
-        </span>
         <ProgressBar
           actual={balanceVnd}
           budget={availableVnd}
@@ -557,9 +562,9 @@ export default function Dashboard() {
     <div>
       <div className="mt-6 flex flex-col gap-4">
         {/* 今月の見込みと財布を横に並べる(狭い画面では縦積み)。 */}
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid gap-4 lg:grid-cols-2">
         <Card
-          className="p-6 rounded-2xl animate-fade-up h-full"
+          className="p-6 rounded-2xl animate-fade-up h-full flex flex-col justify-center"
           style={{
             animationDelay: "0ms",
             animationFillMode: "both",
@@ -567,7 +572,7 @@ export default function Dashboard() {
             boxShadow: CARD_SHADOW,
           }}
         >
-          <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="w-full flex items-center justify-between flex-wrap gap-4">
             {!data ? (
               <Skeleton className="h-8 w-64 rounded-lg" />
             ) : !hasBudgets ? (
