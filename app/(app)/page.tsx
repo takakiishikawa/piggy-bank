@@ -204,7 +204,7 @@ function CashWalletCard({
 }) {
   return (
     <Card
-      className="p-0 rounded-2xl overflow-hidden animate-fade-up"
+      className="p-0 rounded-2xl overflow-hidden animate-fade-up h-full"
       style={{
         animationDelay: "40ms",
         animationFillMode: "both",
@@ -215,42 +215,42 @@ function CashWalletCard({
       <button
         type="button"
         onClick={onClick}
-        title={t(lang, "cashCardHint")}
-        className="w-full text-left px-6 py-4 flex items-center gap-4 flex-wrap cursor-pointer transition-all hover:bg-muted/40 active:bg-muted/60"
+        title={`${t(lang, "cashCardHint")} — ${t(lang, "cashRecordSpending")}`}
+        className="group w-full h-full text-left px-6 py-5 flex flex-col justify-center gap-2.5 cursor-pointer transition-colors hover:bg-muted/40 active:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-border-default)]"
       >
-        <div className="flex items-center gap-2.5 shrink-0">
-          <div
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]"
-            style={{ backgroundColor: getCategoryColorTint(CASH_CATEGORY) }}
-          >
-            <Wallet size={16} style={{ color: "var(--color-text-secondary)" }} />
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]"
+              style={{ backgroundColor: getCategoryColorTint(CASH_CATEGORY) }}
+            >
+              <Wallet size={16} style={{ color: "var(--color-text-secondary)" }} />
+            </div>
+            <span className="font-display text-[17px] font-semibold truncate" style={{ color: "var(--color-text-primary)" }}>
+              {t(lang, "cashCardTitle")}
+            </span>
           </div>
-          <span className="font-display text-[17px] font-semibold" style={{ color: "var(--color-text-primary)" }}>
-            {t(lang, "cashCardTitle")}
+          <span
+            aria-label={t(lang, "cashRecordSpending")}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] transition-all group-hover:brightness-95 group-active:scale-90"
+            style={{ backgroundColor: "var(--kg-track)", color: "var(--color-text-secondary)" }}
+          >
+            <Plus size={15} />
           </span>
         </div>
-        <span className="text-sm shrink-0" style={{ color: "var(--color-text-secondary)" }}>
-          <b className="font-num text-[17px]" style={{ color: "var(--color-text-primary)" }}>
+        <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+          <b className="font-num text-[22px] font-bold" style={{ color: "var(--color-text-primary)" }}>
             {formatAmount(balanceVnd)}
           </b>
           <span className="font-num"> / {formatAmount(availableVnd)}</span>
         </span>
-        <div className="flex-1 min-w-24">
-          <ProgressBar
-            actual={balanceVnd}
-            budget={availableVnd}
-            todayPct={0}
-            showToday={false}
-            fillColor="var(--color-text-subtle)"
-          />
-        </div>
-        <span
-          className="flex items-center gap-1.5 h-8 rounded-[10px] px-3 text-xs font-semibold shrink-0"
-          style={{ backgroundColor: "var(--kg-track)", color: "var(--color-text-secondary)" }}
-        >
-          <Plus size={13} />
-          {t(lang, "cashRecordSpending")}
-        </span>
+        <ProgressBar
+          actual={balanceVnd}
+          budget={availableVnd}
+          todayPct={0}
+          showToday={false}
+          fillColor="var(--color-text-subtle)"
+        />
       </button>
     </Card>
   );
@@ -556,8 +556,10 @@ export default function Dashboard() {
   return (
     <div>
       <div className="mt-6 flex flex-col gap-4">
+        {/* 今月の見込みと財布を横に並べる(狭い画面では縦積み)。 */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
         <Card
-          className="p-6 rounded-2xl animate-fade-up"
+          className="p-6 rounded-2xl animate-fade-up h-full"
           style={{
             animationDelay: "0ms",
             animationFillMode: "both",
@@ -642,15 +644,6 @@ export default function Dashboard() {
             </div>
           </div>
         </Card>
-
-        <InvestmentDialog
-          open={investDialogOpen}
-          onOpenChange={setInvestDialogOpen}
-          currency={currency}
-          lang={lang}
-          onSaved={fetchInvestments}
-        />
-
         {data && hasCashCategory && (
           <CashWalletCard
             balanceVnd={data.cashBalanceVnd}
@@ -660,6 +653,15 @@ export default function Dashboard() {
             lang={lang}
           />
         )}
+        </div>
+
+        <InvestmentDialog
+          open={investDialogOpen}
+          onOpenChange={setInvestDialogOpen}
+          currency={currency}
+          lang={lang}
+          onSaved={fetchInvestments}
+        />
 
         <CashWalletDialog
           open={cashDialogOpen}
