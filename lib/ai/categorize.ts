@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createDb } from "@/lib/supabase/db";
 import { AI_CATEGORIZE_BATCH_SIZE, FALLBACK_CATEGORY } from "@/lib/constants";
 import { loadStoreRules } from "@/lib/store-rules";
+import { isConvenienceStore, isFeeStore } from "@/lib/builtin-category-rules";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -82,7 +83,35 @@ export async function categorizeUncategorized(
     }
     if (/\bmoca(vn)?\b/i.test(store) && existingCatSet.has("Moca")) {
       storeMap[store] = "Moca";
+      continue;
     }
+    // コンビニは外食(軽食扱い)
+    if (isConvenienceStore(store) && existingCatSet.has("Dining Out")) {
+      storeMap[store] = "Dining Out";
+    }
+  }
+
+  // 手数料は「その他」で確定させる(未分類に残さない)。
+  // 「その他」はカテゴリを変えずに reviewed だけ立てる。
+  const feeStores = [
+    ...new Set(
+      txs
+        .map((t) => t.store?.trim() ?? "")
+        .filter((s) => s && !storeMap[s] && isFeeStore(s)),
+    ),
+  ];
+  let feeUpdated = 0;
+  if (feeStores.length > 0) {
+    const { error: feeErr } = await db
+      .from("transactions")
+      .update({ reviewed: true })
+      .in("store", feeStores)
+      .eq("category", FALLBACK_CATEGORY)
+      .eq("reviewed", false);
+    if (!feeErr) {
+      feeUpdated = txs.filter((t) => feeStores.includes(t.store?.trim() ?? "")).length;
+    }
+    for (const s of feeStores) storeMap[s] = FALLBACK_CATEGORY;
   }
 
   const unknownStores = [
@@ -154,7 +183,7 @@ Return only the following JSON array (no markdown):
     }
   }
 
-  let updated = 0;
+  let updated = feeUpdated;
   for (const [category, stores] of Object.entries(catToStores)) {
     const { error: updateErr } = await db
       .from("transactions")
