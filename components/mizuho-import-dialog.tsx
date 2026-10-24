@@ -33,7 +33,7 @@ export function MizuhoImportDialog({
   // undefined = 未取得 / null = 一度も取り込んでいない
   const [lastImportedAt, setLastImportedAt] = useState<string | null | undefined>(undefined);
 
-  // 開くたびに最新実施日を取り直す。
+  // 開くたびに最終取込日を取り直す。
   useEffect(() => {
     if (!open) return;
     let cancelled = false;

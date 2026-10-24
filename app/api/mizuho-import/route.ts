@@ -28,7 +28,7 @@ export async function GET() {
     .eq("month", month)
     .maybeSingle();
 
-  // 最後にCSV取込を実施した日時(ポップアップに「最新実施日」として出す)。
+  // 最後にCSV取込を実施した日時(ポップアップに「最終取込日」として出す)。
   const { data: last } = await db
     .from("mizuho_monthly_imports")
     .select("created_at")
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 今月の実施記録を残す(バナーはこの行があるあいだ非表示)。
-  // created_at は同じ月に再取込したときも更新し、「最新実施日」として使う。
+  // created_at は同じ月に再取込したときも更新し、「最終取込日」として使う。
   const month = currentMonthKey();
   await db.from("mizuho_monthly_imports").upsert(
     { month, status: "imported", imported_count: imported, created_at: new Date().toISOString() },
