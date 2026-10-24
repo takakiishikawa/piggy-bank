@@ -20,7 +20,7 @@ import {
 } from "@takaki/go-design-system";
 import { makeFormatAmount, toVndAmount, withThousands } from "@/lib/currency";
 import { catLabel, t, tf, type Lang } from "@/lib/scenario/dictionary";
-import { monthKeyOf, type CashWallet } from "@/lib/cash";
+import { CASH_WITHDRAWAL_CATEGORY, monthKeyOf, type CashWallet } from "@/lib/cash";
 import type { DisplayCurrency } from "@/components/currency-switch";
 
 function toDateInputValue(d: Date): string {
@@ -141,202 +141,295 @@ export function CashWalletDialog({
 
   const labelStyle = { color: "var(--color-text-secondary)" };
 
+  // この月の出入り(ATM引き出し = 入、現金支出の記録 = 出)を時系列に並べ、各行の後の
+  // 財布残高を出す。残高が実際の財布とずれた時に、どこで差が出たか追えるようにするため。
+  const ledger = (() => {
+    if (!wallet) return [];
+    const entries = [
+      ...wallet.withdrawals.map((w) => ({
+        key: `in-${w.id}`,
+        id: w.id,
+        kind: "in" as const,
+        date: w.date,
+        amount: w.amount,
+        label: catLabel(lang, CASH_WITHDRAWAL_CATEGORY),
+        sub: w.store,
+      })),
+      ...wallet.records.map((r) => ({
+        key: `out-${r.id}`,
+        id: r.id,
+        kind: "out" as const,
+        date: r.date,
+        amount: r.amount,
+        label: catLabel(lang, r.category),
+        sub: r.note,
+      })),
+    ];
+    // 古い順に残高を積み上げる(同じ時刻なら引き出しを先に)。表示は新しい順。
+    entries.sort((x, y) => {
+      const d = new Date(x.date).getTime() - new Date(y.date).getTime();
+      if (d !== 0) return d;
+      return x.kind === y.kind ? 0 : x.kind === "in" ? -1 : 1;
+    });
+    let balance = wallet.carriedOverVnd;
+    const withBalance = entries.map((e) => {
+      balance += e.kind === "in" ? e.amount : -e.amount;
+      return { ...e, balanceAfter: balance };
+    });
+    return withBalance.reverse();
+  })();
+
+  const monthLabel = (() => {
+    const [y, m] = month.split("-").map(Number);
+    return lang === "ja"
+      ? `${y}年${m}月`
+      : new Date(y, m - 1, 1).toLocaleDateString("en-US", { year: "numeric", month: "long" });
+  })();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm p-0 overflow-hidden">
-        <DialogHeader className="px-5 py-4 border-b">
-          <DialogTitle>{t(lang, "cashRecordBtn")}</DialogTitle>
+      {/* DSのDialogContentは grid なので、中身の最小幅で横にはみ出さないよう子に min-w-0 を付ける。 */}
+      <DialogContent className="w-[calc(100vw-32px)] max-w-4xl p-0 gap-0 overflow-hidden">
+        <DialogHeader className="px-6 py-4 border-b">
+          <DialogTitle>{t(lang, "cashCardTitle")}</DialogTitle>
         </DialogHeader>
-        <div className="px-5 py-4 flex flex-col gap-3.5">
-          {/* 財布の状況(日付の月) */}
-          {wallet === null ? (
-            <Skeleton className="h-[52px] w-full rounded-[10px]" />
-          ) : (
-            <div
-              className="grid grid-cols-4 gap-2 rounded-[10px] px-3 py-2.5"
-              style={{ backgroundColor: "var(--kg-track)" }}
-            >
-              {(
-                [
-                  { label: t(lang, "cashCarriedOver"), value: wallet.carriedOverVnd, strong: false },
-                  { label: t(lang, "cashWithdrawn"), value: wallet.withdrawnVnd, strong: false },
-                  { label: t(lang, "cashRecorded"), value: wallet.recordedVnd, strong: false },
-                  { label: t(lang, "cashBalance"), value: wallet.balanceVnd, strong: true },
-                ] as const
-              ).map((s) => (
-                <div key={s.label} className="flex flex-col gap-0.5 min-w-0">
-                  <span className="text-[11px]" style={labelStyle}>
-                    {s.label}
+        <div className="min-w-0 grid md:grid-cols-[minmax(0,1fr)_340px] max-h-[80vh] overflow-y-auto md:overflow-hidden">
+          {/* 左: その月の財布の出入り(残高の内訳と明細) */}
+          <section className="min-w-0 flex flex-col gap-3.5 px-6 py-5 md:overflow-y-auto md:max-h-[80vh]">
+            <span className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
+              {monthLabel}
+            </span>
+
+            {/* 繰越 + 引き出し − 記録した支出 − 用途不明 = 残高 */}
+            {wallet === null ? (
+              <Skeleton className="h-[72px] w-full rounded-[10px]" />
+            ) : (
+              <div
+                className="grid grid-cols-2 sm:grid-cols-5 gap-x-3 gap-y-2 rounded-[10px] px-4 py-3"
+                style={{ backgroundColor: "var(--kg-track)" }}
+              >
+                {(
+                  [
+                    { sign: "", label: t(lang, "cashCarriedOver"), value: wallet.carriedOverVnd, strong: false },
+                    { sign: "+", label: t(lang, "cashWithdrawn"), value: wallet.withdrawnVnd, strong: false },
+                    { sign: "−", label: t(lang, "cashRecordedItemized"), value: wallet.recordedVnd - wallet.unknownVnd, strong: false },
+                    { sign: "−", label: t(lang, "cashUnknownUse"), value: wallet.unknownVnd, strong: false },
+                    { sign: "=", label: t(lang, "cashBalance"), value: wallet.balanceVnd, strong: true },
+                  ] as const
+                ).map((s) => (
+                  <div key={s.label} className="flex flex-col gap-0.5 min-w-0">
+                    <span className="text-[11px] truncate" style={labelStyle}>
+                      {s.sign && <span className="font-num mr-1">{s.sign}</span>}
+                      {s.label}
+                    </span>
+                    <span
+                      className={`font-num truncate ${s.strong ? "text-[15px] font-bold" : "text-[13.5px] font-semibold"}`}
+                      style={{ color: "var(--color-text-primary)" }}
+                    >
+                      {formatAmount(s.value)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {wallet !== null && wallet.balanceVnd === 0 && wallet.recordedVnd === 0 && wallet.withdrawals.length === 0 ? (
+              <p className="text-xs text-center py-1" style={labelStyle}>
+                {t(lang, "cashNoWithdrawal")}
+              </p>
+            ) : null}
+
+            {/* 手元の現金に合わせる: 実際の手元の額を入れると、残高との差額を今日の
+                「用途不明」の支出として記録し、残高を手元の額にそろえる。 */}
+            {wallet !== null && isCurrentMonth && wallet.balanceVnd > 0 && (
+              reconcileOpen ? (
+                <div className="flex flex-col gap-1.5 rounded-[10px] border px-3.5 py-3" style={{ borderColor: "var(--color-border-default)" }}>
+                  <span className="text-xs font-semibold" style={labelStyle}>
+                    {t(lang, "cashOnHandLabel")}
                   </span>
-                  <span
-                    className={`font-num text-[13px] truncate ${s.strong ? "font-bold" : "font-semibold"}`}
-                    style={{ color: "var(--color-text-primary)" }}
-                  >
-                    {formatAmount(s.value)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      value={withThousands(onHandInput, currency)}
+                      onChange={(e) => setOnHandInput(e.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder={`0 (${currency})`}
+                      className="h-9 font-num flex-1 min-w-0"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={handleReconcile}
+                      disabled={reconciling || reconcileDiffVnd === null || reconcileDiffVnd <= 0}
+                    >
+                      {t(lang, "cashReconcileApply")}
+                    </Button>
+                  </div>
+                  {reconcileDiffVnd !== null && (
+                    <span
+                      className="text-[11px]"
+                      style={{ color: reconcileDiffVnd < 0 ? "var(--color-danger)" : "var(--color-text-secondary)" }}
+                    >
+                      {reconcileDiffVnd < 0
+                        ? t(lang, "cashOnHandExceeds")
+                        : tf(lang, "cashReconcilePreview", { amount: formatAmount(reconcileDiffVnd) })}
+                    </span>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setReconcileOpen(true)}
+                  className="self-start text-xs font-semibold underline underline-offset-2 cursor-pointer"
+                  style={labelStyle}
+                >
+                  {t(lang, "cashReconcileBtn")}
+                </button>
+              )
+            )}
 
-          {wallet !== null && wallet.balanceVnd === 0 && wallet.recordedVnd === 0 ? (
-            <p className="text-xs text-center py-1" style={labelStyle}>
-              {t(lang, "cashNoWithdrawal")}
-            </p>
-          ) : null}
-
-          {/* 手元の現金に合わせる: 実際の手元の額を入れると、残高との差額を今日の
-              「用途不明」の支出として記録し、残高を手元の額にそろえる。 */}
-          {wallet !== null && isCurrentMonth && wallet.balanceVnd > 0 && (
-            reconcileOpen ? (
-              <div className="flex flex-col gap-1.5 rounded-[10px] border px-3 py-2.5" style={{ borderColor: "var(--color-border-default)" }}>
-                <span className="text-xs font-semibold" style={labelStyle}>
-                  {t(lang, "cashOnHandLabel")}
+            {wallet !== null && (
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-semibold pb-1.5" style={labelStyle}>
+                  {t(lang, "cashRecordsTitle")}
                 </span>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    value={withThousands(onHandInput, currency)}
-                    onChange={(e) => setOnHandInput(e.target.value.replace(/[^0-9]/g, ""))}
-                    placeholder={`0 (${currency})`}
-                    className="h-8 font-num flex-1"
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handleReconcile}
-                    disabled={reconciling || reconcileDiffVnd === null || reconcileDiffVnd <= 0}
-                  >
-                    {t(lang, "cashReconcileApply")}
-                  </Button>
-                </div>
-                {reconcileDiffVnd !== null && (
-                  <span
-                    className="text-[11px]"
-                    style={{ color: reconcileDiffVnd < 0 ? "var(--color-danger)" : "var(--color-text-secondary)" }}
-                  >
-                    {reconcileDiffVnd < 0
-                      ? t(lang, "cashOnHandExceeds")
-                      : tf(lang, "cashReconcilePreview", { amount: formatAmount(reconcileDiffVnd) })}
-                  </span>
+                {ledger.length === 0 ? (
+                  <p className="text-xs py-1" style={labelStyle}>
+                    {t(lang, "cashNoRecords")}
+                  </p>
+                ) : (
+                  <ul className="flex flex-col max-h-72 md:max-h-none overflow-y-auto">
+                    <li
+                      className="flex items-center gap-3 py-1.5 border-b text-[11px]"
+                      style={{ ...labelStyle, borderColor: "var(--color-border-default)" }}
+                    >
+                      <span className="w-10 shrink-0">{t(lang, "cashDateLabel")}</span>
+                      <span className="flex-1 min-w-0" />
+                      <span className="w-24 shrink-0 text-right">{t(lang, "cashAmountLabel")}</span>
+                      <span className="w-24 shrink-0 text-right">{t(lang, "cashBalance")}</span>
+                      <span className="w-[21px] shrink-0" />
+                    </li>
+                    {ledger.map((e) => (
+                      <li
+                        key={e.key}
+                        className="flex items-center gap-3 py-2 border-b last:border-b-0 text-[12.5px]"
+                        style={{ borderColor: "var(--color-border-default)" }}
+                      >
+                        <span className="w-10 shrink-0 font-num" style={labelStyle}>
+                          {new Date(e.date).toLocaleDateString(lang === "ja" ? "ja-JP" : "en-US", {
+                            month: "numeric",
+                            day: "numeric",
+                          })}
+                        </span>
+                        <span className="flex-1 min-w-0 truncate" style={{ color: "var(--color-text-primary)" }}>
+                          {e.label}
+                          {e.sub && (
+                            <span className="ml-1.5" style={labelStyle}>
+                              {e.sub}
+                            </span>
+                          )}
+                        </span>
+                        <span
+                          className="w-24 shrink-0 text-right font-num font-semibold"
+                          style={{ color: e.kind === "in" ? "var(--color-success)" : "var(--color-text-primary)" }}
+                        >
+                          {e.kind === "in" ? "+" : "−"}
+                          {formatAmount(e.amount)}
+                        </span>
+                        <span className="w-24 shrink-0 text-right font-num text-[11.5px]" style={labelStyle}>
+                          {formatAmount(e.balanceAfter)}
+                        </span>
+                        {e.kind === "out" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(e.id)}
+                            className="w-[21px] shrink-0 p-1 rounded-md cursor-pointer transition-colors hover:bg-muted/60"
+                            style={labelStyle}
+                            aria-label="delete"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        ) : (
+                          <span className="w-[21px] shrink-0" />
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setReconcileOpen(true)}
-                className="self-start text-xs font-semibold underline underline-offset-2 cursor-pointer"
-                style={labelStyle}
-              >
-                {t(lang, "cashReconcileBtn")}
-              </button>
-            )
-          )}
-
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold" style={labelStyle}>
-              {t(lang, "cashAmountLabel")}
-            </span>
-            <Input
-              type="text"
-              inputMode="numeric"
-              autoFocus
-              value={withThousands(amountInput, currency)}
-              onChange={(e) => setAmountInput(e.target.value.replace(/[^0-9]/g, ""))}
-              placeholder={`0 (${currency})`}
-              className="h-9 font-num"
-            />
-            {exceeds && (
-              <span className="text-[11px]" style={{ color: "var(--color-danger)" }}>
-                {tf(lang, "cashExceedsBalance", { balance: formatAmount(balanceVnd) })}
-              </span>
             )}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold" style={labelStyle}>
-              {t(lang, "cashCategoryLabel")}
-            </span>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="—" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {catLabel(lang, c)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold" style={labelStyle}>
-              {t(lang, "cashDateLabel")}
-            </span>
-            <DatePicker value={date} onChange={setDate} toDate={new Date()} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold" style={labelStyle}>
-              {t(lang, "cashNoteLabel")}
-            </span>
-            <Input
-              type="text"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={t(lang, "cashNotePlaceholder")}
-              maxLength={200}
-              className="h-9"
-            />
-          </div>
-          <Button onClick={handleSave} disabled={saving || amountVnd <= 0 || !category || !date || exceeds || wallet === null}>
-            {t(lang, "cashRecordBtn")}
-          </Button>
+          </section>
 
-          {wallet !== null && (
-            <div className="flex flex-col gap-1.5 pt-1 border-t" style={{ borderColor: "var(--color-border-default)" }}>
-              <span className="text-xs font-semibold pt-2" style={labelStyle}>
-                {t(lang, "cashRecordsTitle")}
+          {/* 右: 現金支出の記録フォーム */}
+          <section
+            className="min-w-0 flex flex-col gap-3.5 px-6 py-5 border-t md:border-t-0 md:border-l md:overflow-y-auto md:max-h-[80vh]"
+            style={{ borderColor: "var(--color-border-default)", backgroundColor: "var(--color-surface-subtle)" }}
+          >
+            <span className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
+              {t(lang, "cashRecordBtn")}
+            </span>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold" style={labelStyle}>
+                {t(lang, "cashAmountLabel")}
               </span>
-              {wallet.records.length === 0 ? (
-                <p className="text-xs py-1" style={labelStyle}>
-                  {t(lang, "cashNoRecords")}
-                </p>
-              ) : (
-                <ul className="flex flex-col max-h-40 overflow-y-auto">
-                  {wallet.records.map((r) => (
-                    <li key={r.id} className="flex items-center gap-2 py-1.5 text-[12.5px]">
-                      <span className="w-12 shrink-0 font-num" style={labelStyle}>
-                        {new Date(r.date).toLocaleDateString(lang === "ja" ? "ja-JP" : "en-US", {
-                          month: "numeric",
-                          day: "numeric",
-                        })}
-                      </span>
-                      <span className="flex-1 min-w-0 truncate" style={{ color: "var(--color-text-primary)" }}>
-                        {catLabel(lang, r.category)}
-                        {r.note && (
-                          <span className="ml-1.5" style={labelStyle}>
-                            {r.note}
-                          </span>
-                        )}
-                      </span>
-                      <span className="font-num shrink-0" style={{ color: "var(--color-text-primary)" }}>
-                        {formatAmount(r.amount)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(r.id)}
-                        className="shrink-0 p-1 rounded-md cursor-pointer transition-colors hover:bg-muted/60"
-                        style={labelStyle}
-                        aria-label="delete"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+              <Input
+                type="text"
+                inputMode="numeric"
+                autoFocus
+                value={withThousands(amountInput, currency)}
+                onChange={(e) => setAmountInput(e.target.value.replace(/[^0-9]/g, ""))}
+                placeholder={`0 (${currency})`}
+                className="h-9 font-num"
+              />
+              {exceeds && (
+                <span className="text-[11px]" style={{ color: "var(--color-danger)" }}>
+                  {tf(lang, "cashExceedsBalance", { balance: formatAmount(balanceVnd) })}
+                </span>
               )}
             </div>
-          )}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold" style={labelStyle}>
+                {t(lang, "cashCategoryLabel")}
+              </span>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {catLabel(lang, c)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold" style={labelStyle}>
+                {t(lang, "cashDateLabel")}
+              </span>
+              <DatePicker value={date} onChange={setDate} toDate={new Date()} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold" style={labelStyle}>
+                {t(lang, "cashNoteLabel")}
+              </span>
+              <Input
+                type="text"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder={t(lang, "cashNotePlaceholder")}
+                maxLength={200}
+                className="h-9"
+              />
+            </div>
+            <Button
+              className="mt-1"
+              onClick={handleSave}
+              disabled={saving || amountVnd <= 0 || !category || !date || exceeds || wallet === null}
+            >
+              {t(lang, "cashRecordBtn")}
+            </Button>
+          </section>
         </div>
       </DialogContent>
     </Dialog>

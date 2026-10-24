@@ -78,9 +78,13 @@ export interface CashWallet {
   // この月の引き出し額・記録済みの現金支出(差額の内訳なしも含む)
   withdrawnVnd: number;
   recordedVnd: number;
+  // recordedVnd のうち「手元の現金に合わせる」で記録した用途不明の差額
+  unknownVnd: number;
   // この月末時点(当月なら今)の財布残高 = 繰越 + 引き出し − 記録
   balanceVnd: number;
   records: { id: string; amount: number; category: string; date: string; note: string | null }[];
+  // この月のATM引き出し(財布への入金)
+  withdrawals: { id: string; amount: number; date: string; store: string }[];
 }
 
 function monthStart(month: string): Date {
@@ -100,10 +104,10 @@ export async function fetchCashWallet(db: Db, month: string): Promise<CashWallet
   const end = monthEnd(month);
   // 開始月からの累計なので、件数が増えても切り捨てられないよう全件取り切る。
   const [withdrawRows, recordRows] = await Promise.all([
-    fetchAllRows<{ amount: number; date: string }>((from, to) =>
+    fetchAllRows<CashWallet["withdrawals"][number]>((from, to) =>
       db
         .from("transactions")
-        .select("amount, date")
+        .select("id, amount, date, store")
         .in("category", [CASH_WITHDRAWAL_CATEGORY, CASH_CATEGORY])
         .neq("source", "cash")
         // 特別支出にした引き出しは特別支出として計上済みなので財布には入れない
@@ -131,24 +135,32 @@ export async function fetchCashWallet(db: Db, month: string): Promise<CashWallet
   const inMonth = (date: string) => new Date(date) >= start;
   let carriedOverVnd = 0;
   let withdrawnVnd = 0;
+  const withdrawals: CashWallet["withdrawals"] = [];
   for (const r of withdrawRows) {
-    if (inMonth(r.date)) withdrawnVnd += r.amount;
-    else carriedOverVnd += r.amount;
+    if (inMonth(r.date)) {
+      withdrawnVnd += r.amount;
+      withdrawals.push(r);
+    } else carriedOverVnd += r.amount;
   }
   const allRecords = recordRows;
   const records = allRecords.filter((r) => inMonth(r.date));
   let recordedVnd = 0;
+  let unknownVnd = 0;
   for (const r of allRecords) {
-    if (inMonth(r.date)) recordedVnd += r.amount;
-    else carriedOverVnd -= r.amount;
+    if (inMonth(r.date)) {
+      recordedVnd += r.amount;
+      if (r.category === CASH_CATEGORY) unknownVnd += r.amount;
+    } else carriedOverVnd -= r.amount;
   }
   return {
     month,
     carriedOverVnd,
     withdrawnVnd,
     recordedVnd,
+    unknownVnd,
     balanceVnd: carriedOverVnd + withdrawnVnd - recordedVnd,
     records,
+    withdrawals,
   };
 }
 
