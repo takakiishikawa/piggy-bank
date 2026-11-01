@@ -21,7 +21,7 @@ import {
   TabsTrigger,
   toast,
 } from "@takaki/go-design-system";
-import { makeFormatAmount, toVndAmount, withThousands } from "@/lib/currency";
+import { makeFormatAmount, toDisplayAmount, toVndAmount, withThousands } from "@/lib/currency";
 import { catLabel, t, tf, type Lang } from "@/lib/scenario/dictionary";
 import { CASH_WITHDRAWAL_CATEGORY, monthKeyOf, type CashWallet } from "@/lib/cash";
 import type { DisplayCurrency } from "@/components/currency-switch";
@@ -155,7 +155,69 @@ export function CashWalletDialog({
       toast.error(t(lang, "cashDeleteFailed"));
       return;
     }
+    if (editingId === id) setEditingId(null);
     fetchWallet(month);
+    onSaved();
+  };
+
+  // 記録した現金支出の編集(明細の行をクリックすると、その行の下に編集欄が開く)。
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDate, setEditDate] = useState<Date | undefined>(undefined);
+  const [editCategory, setEditCategory] = useState("");
+  const [editNote, setEditNote] = useState("");
+  const [editAmountInput, setEditAmountInput] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
+  useEffect(() => {
+    setEditingId(null);
+  }, [open, month]);
+
+  const startEdit = (r: CashWallet["records"][number]) => {
+    if (editingId === r.id) {
+      setEditingId(null);
+      return;
+    }
+    setEditingId(r.id);
+    setEditDate(new Date(r.date));
+    setEditCategory(r.category);
+    setEditNote(r.note ?? "");
+    setEditAmountInput(String(Math.round(toDisplayAmount(r.amount, currency))));
+  };
+
+  const editAmountVnd = (() => {
+    const val = parseInt(editAmountInput.replace(/[^0-9]/g, ""), 10);
+    return isNaN(val) ? 0 : toVndAmount(val, currency);
+  })();
+
+  const handleEditSave = async () => {
+    if (!editingId || !editDate || !editCategory || editAmountVnd <= 0) return;
+    setEditSaving(true);
+    const res = await fetch(`/api/cash-wallet/${editingId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        amountVnd: editAmountVnd,
+        category: editCategory,
+        date: toDateInputValue(editDate),
+        note: editNote.trim() || null,
+      }),
+    });
+    setEditSaving(false);
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { error?: string; balanceVnd?: number } | null;
+      toast.error(
+        body?.error === "exceeds_balance"
+          ? tf(lang, "cashExceedsBalance", { balance: formatAmount(body.balanceVnd ?? 0) })
+          : t(lang, "cashSaveFailed"),
+      );
+      return;
+    }
+    toast.success(t(lang, "cashEdited"));
+    setEditingId(null);
+    // 日付を別の月に動かした時は、その月の財布を見せる。
+    const newMonth = monthKeyOf(editDate);
+    if (newMonth !== month) setMonth(newMonth);
+    else fetchWallet(month);
     onSaved();
   };
 
@@ -183,6 +245,7 @@ export function CashWalletDialog({
         amount: r.amount,
         label: catLabel(lang, r.category),
         sub: r.note,
+        record: r,
       })),
     ];
     // 古い順に残高を積み上げる(同じ時刻なら引き出しを先に)。表示は新しい順。
@@ -340,8 +403,16 @@ export function CashWalletDialog({
                     {ledger.map((e) => (
                       <li
                         key={e.key}
-                        className="flex items-center gap-3 py-2 border-b last:border-b-0 text-[12.5px]"
+                        className="flex flex-col border-b last:border-b-0"
                         style={{ borderColor: "var(--color-border-default)" }}
+                      >
+                      <div
+                        // 記録した現金支出の行だけ、クリックで編集欄を開く(ATM引き出しは銀行の取込なので編集しない)。
+                        onClick={"record" in e && e.record ? () => startEdit(e.record) : undefined}
+                        className={`flex items-center gap-3 py-2 text-[12.5px] ${
+                          e.kind === "out" ? "cursor-pointer rounded-md transition-colors hover:bg-muted/40" : ""
+                        }`}
+                        style={editingId === e.id ? { backgroundColor: "var(--kg-track)" } : undefined}
                       >
                         <span className="w-10 shrink-0 font-num" style={labelStyle}>
                           {new Date(e.date).toLocaleDateString(lang === "ja" ? "ja-JP" : "en-US", {
@@ -370,7 +441,10 @@ export function CashWalletDialog({
                         {e.kind === "out" ? (
                           <button
                             type="button"
-                            onClick={() => handleDelete(e.id)}
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              handleDelete(e.id);
+                            }}
                             className="w-[21px] shrink-0 p-1 rounded-md cursor-pointer transition-colors hover:bg-muted/60"
                             style={labelStyle}
                             aria-label="delete"
@@ -380,6 +454,76 @@ export function CashWalletDialog({
                         ) : (
                           <span className="w-[21px] shrink-0" />
                         )}
+                      </div>
+                      {editingId === e.id && (
+                        <div
+                          className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 rounded-[10px] px-3.5 py-3 mb-2"
+                          style={{ backgroundColor: "var(--kg-track)" }}
+                        >
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] font-semibold" style={labelStyle}>
+                              {t(lang, "cashDateLabel")}
+                            </span>
+                            <DatePicker value={editDate} onChange={setEditDate} toDate={new Date()} />
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] font-semibold" style={labelStyle}>
+                              {t(lang, "cashCategoryLabel")}
+                            </span>
+                            <Select value={editCategory} onValueChange={setEditCategory}>
+                              <SelectTrigger className="h-9">
+                                <SelectValue placeholder="—" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {/* 用途不明で記録したものは、そのまま残すことも選べるようにする */}
+                                {(categories.includes(editCategory) ? categories : [editCategory, ...categories]).map((c) => (
+                                  <SelectItem key={c} value={c}>
+                                    {catLabel(lang, c)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] font-semibold" style={labelStyle}>
+                              {t(lang, "cashNoteLabel")}
+                            </span>
+                            <Input
+                              type="text"
+                              value={editNote}
+                              onChange={(ev) => setEditNote(ev.target.value)}
+                              placeholder={t(lang, "cashNotePlaceholder")}
+                              maxLength={200}
+                              className="h-9"
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] font-semibold" style={labelStyle}>
+                              {t(lang, "cashAmountLabel")}
+                            </span>
+                            <Input
+                              type="text"
+                              inputMode="numeric"
+                              value={withThousands(editAmountInput, currency)}
+                              onChange={(ev) => setEditAmountInput(ev.target.value.replace(/[^0-9]/g, ""))}
+                              placeholder={`0 (${currency})`}
+                              className="h-9 font-num"
+                            />
+                          </label>
+                          <div className="sm:col-span-2 flex justify-end gap-2">
+                            <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
+                              {t(lang, "cancel")}
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={handleEditSave}
+                              disabled={editSaving || !editDate || !editCategory || editAmountVnd <= 0}
+                            >
+                              {t(lang, "save")}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                       </li>
                     ))}
                   </ul>
