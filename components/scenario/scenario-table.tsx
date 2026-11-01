@@ -254,12 +254,7 @@ export function ScenarioTable({
                               textAlign: "center",
                               fontSize: 11,
                               fontWeight: 700,
-                              color:
-                                cell.deltaMark.mark === "+"
-                                  ? DC.danger
-                                  : cell.deltaMark.mark === "−"
-                                    ? DC.success
-                                    : DC.textFaint,
+                              color: cell.deltaMark.mark === "+" ? DC.danger : DC.success,
                             }}
                           >
                             {cell.deltaMark.mark}

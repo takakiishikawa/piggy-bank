@@ -9,9 +9,9 @@ export interface TableCell {
   // その期間(年/月)ぶんの増減。総貯蓄の行にだけ付けて、プラス/マイナスが
   // ひと目でわかるようにする。
   delta?: { fmt: string; positive: boolean };
-  // 支出のカテゴリ行の予算比は金額を出さず、記号(+ / − / =)だけを金額の横に添えて
+  // 支出のカテゴリ行の予算比は金額を出さず、記号(+ / −)だけを金額の横に添えて
   // 1行に収める(金額はツールチップ)。固定費・変動費の合計行は金額も2行目に出す。
-  deltaMark?: { mark: "+" | "−" | "="; fmt: string };
+  deltaMark?: { mark: "+" | "−"; fmt: string };
   // 支出のカテゴリ行で、実績の月にだけ付く予算額。予算オーバー(+)は赤、予算内(−)は緑。
   // テーブル側で凡例・ツールチップに使う。
   budgetFmt?: string;
@@ -47,16 +47,17 @@ function cellWithDelta(v: number, deltaV: number, fmt: (n: number) => string, is
 }
 
 // 支出のカテゴリ行専用: 実績の月(budgetYenがある月)だけ予算比(実績 − 予算)を
-// 記号で添える。支出なので、予算オーバー(+)が悪い(赤)、予算内(−)が良い(緑)、
-// ちょうど予算どおりなら「=」。
+// 記号で添える。支出なので、予算オーバー(+)が悪い(赤)、予算内(−)が良い(緑)。
+// 差が0円なら付けない。
 function cellWithBudget(c: { valueYen: number; budgetYen?: number } | undefined, fmt: (n: number) => string): TableCell {
   const base = cell(c?.valueYen ?? 0, fmt);
   if (!c || c.budgetYen === undefined) return base;
   const diff = Math.round(c.valueYen - c.budgetYen);
-  const diffFmt = diff > 0 ? `+${fmt(diff)}` : diff < 0 ? `−${fmt(-diff)}` : fmt(0);
+  if (diff === 0) return base;
+  const over = diff > 0;
   return {
     ...base,
-    deltaMark: { mark: diff > 0 ? "+" : diff < 0 ? "−" : "=", fmt: diffFmt },
+    deltaMark: { mark: over ? "+" : "−", fmt: over ? `+${fmt(diff)}` : `−${fmt(-diff)}` },
     budgetFmt: fmt(c.budgetYen),
   };
 }
