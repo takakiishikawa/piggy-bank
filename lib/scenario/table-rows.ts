@@ -9,6 +9,9 @@ export interface TableCell {
   // その期間(年/月)ぶんの増減。総貯蓄の行にだけ付けて、プラス/マイナスが
   // ひと目でわかるようにする。
   delta?: { fmt: string; positive: boolean };
+  // 支出のカテゴリ行で、実績の月にだけ付く予算額。deltaは「予算比」(実績 − 予算)で、
+  // 予算オーバー(+)は赤、予算内(−)は緑。テーブル側で凡例・ツールチップに使う。
+  budgetFmt?: string;
 }
 
 export interface TableRow {
@@ -38,6 +41,21 @@ function cellWithDelta(v: number, deltaV: number, fmt: (n: number) => string, is
   const base = cell(v, fmt, isNeg);
   const positive = deltaV >= 0;
   return { ...base, delta: { fmt: `${positive ? "+" : ""}${fmt(deltaV)}`, positive } };
+}
+
+// 支出のカテゴリ行専用: 実績の月(budgetYenがある月)だけ予算比(実績 − 予算)を添える。
+// 支出なので、予算オーバー(+)が悪い(赤)、予算内(−)が良い(緑)。差が0円なら付けない。
+function cellWithBudget(c: { valueYen: number; budgetYen?: number } | undefined, fmt: (n: number) => string): TableCell {
+  const base = cell(c?.valueYen ?? 0, fmt);
+  if (!c || c.budgetYen === undefined) return base;
+  const diff = Math.round(c.valueYen - c.budgetYen);
+  if (diff === 0) return base;
+  const over = diff > 0;
+  return {
+    ...base,
+    delta: { fmt: over ? `+${fmt(diff)}` : `−${fmt(-diff)}`, positive: !over },
+    budgetFmt: fmt(c.budgetYen),
+  };
 }
 
 // 年次の列(yearLabel="2026")はその年の全月、月次の列(yearLabel="2026/06")は
@@ -205,7 +223,7 @@ export function buildSingleTableRows(
           key: `expense.fixed.${c.id}`,
           depth: 2,
           label: catLabel(lang, c.name),
-          cells: rows.map((r) => cell(r.fixedByCategory.find((fc) => fc.id === c.id)?.valueYen ?? 0, fmt)),
+          cells: rows.map((r) => cellWithBudget(r.fixedByCategory.find((fc) => fc.id === c.id), fmt)),
         });
       }
     }
@@ -222,7 +240,7 @@ export function buildSingleTableRows(
           key: `expense.variable.${c.id}`,
           depth: 2,
           label: catLabel(lang, c.name),
-          cells: rows.map((r) => cell(r.variableByCategory.find((vc) => vc.id === c.id)?.valueYen ?? 0, fmt)),
+          cells: rows.map((r) => cellWithBudget(r.variableByCategory.find((vc) => vc.id === c.id), fmt)),
         });
       }
     }
@@ -357,7 +375,7 @@ export function buildCompareTableRows(
             key: `${fk}.${c.id}`,
             depth: 3,
             label: catLabel(lang, c.name),
-            cells: scn.rows.map((r) => cell(r.fixedByCategory.find((fc) => fc.id === c.id)?.valueYen ?? 0, fmt)),
+            cells: scn.rows.map((r) => cellWithBudget(r.fixedByCategory.find((fc) => fc.id === c.id), fmt)),
           });
         }
       }
@@ -369,7 +387,7 @@ export function buildCompareTableRows(
             key: `${vk}.${c.id}`,
             depth: 3,
             label: catLabel(lang, c.name),
-            cells: scn.rows.map((r) => cell(r.variableByCategory.find((vc) => vc.id === c.id)?.valueYen ?? 0, fmt)),
+            cells: scn.rows.map((r) => cellWithBudget(r.variableByCategory.find((vc) => vc.id === c.id), fmt)),
           });
         }
       }

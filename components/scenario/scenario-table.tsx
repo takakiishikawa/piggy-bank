@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { ChevronRight, UnfoldVertical, FoldVertical } from "lucide-react";
 import type { TableRow as ScenarioTableRow } from "@/lib/scenario/table-rows";
-import { t, type Lang } from "@/lib/scenario/dictionary";
+import { t, tf, type Lang } from "@/lib/scenario/dictionary";
 import { DC } from "@/lib/scenario/design-colors";
 
 // 1列目だけ固定幅、年月列はその列の実際の値の桁数から幅を見積もって指定する
@@ -101,8 +101,19 @@ export function ScenarioTable({
     </colgroup>
   );
 
+  // 支出のカテゴリ行に予算比が1つでも出ている時だけ、その数字の意味を凡例で添える。
+  const hasBudgetDiff = rows.some((r) => r.cells.some((c) => c.budgetFmt !== undefined));
+
   return (
     <div className="flex flex-col gap-2">
+      {hasBudgetDiff && (
+        <p className="flex items-center gap-2 flex-wrap text-[11px]" style={{ color: DC.textSecondary }}>
+          <span className="inline-flex items-center gap-1 font-semibold">
+            <span style={{ color: DC.danger }}>+</span>/<span style={{ color: DC.success }}>−</span>
+          </span>
+          {t(lang, "budgetDiffLegend")}
+        </p>
+      )}
       {/* 注意: このラッパーに overflow-hidden を付けると、それが sticky ヘッダーの
           最も近い「overflowが非visibleな祖先」になってしまい、ページの縦スクロールに
           追従しなくなる(実機で確認済みのバグ)。角丸クリップは代わりにヘッダー/本体
@@ -219,7 +230,13 @@ export function ScenarioTable({
                     return (
                       <td
                         key={i}
-                        title={cell.delta ? `${cell.fmt} (${cell.delta.fmt})` : cell.fmt}
+                        title={
+                          cell.delta && cell.budgetFmt !== undefined
+                            ? `${cell.fmt} (${tf(lang, "budgetDiffTooltip", { budget: cell.budgetFmt, diff: cell.delta.fmt })})`
+                            : cell.delta
+                              ? `${cell.fmt} (${cell.delta.fmt})`
+                              : cell.fmt
+                        }
                         className="text-right whitespace-nowrap overflow-hidden text-ellipsis"
                         style={{
                           padding: "7px 10px",

@@ -108,6 +108,9 @@ export interface ScenarioCategoryValue {
   name: string;
   valueYen: number;
   color: string;
+  // 月次行で、valueYenが実績(経過済みの月)の時だけ付く、その月の予算額。
+  // テーブルで「予算比 +/−」を出すのに使う。予算そのものを表示している月には無い。
+  budgetYen?: number;
 }
 
 export interface ScenarioYearRow {
@@ -132,6 +135,10 @@ export interface ScenarioYearRow {
   // (undefinedならexpandMonthly側で従来通り年額を均等按分する)。
   fixedByCategoryMonthly?: Record<string, number[]>;
   variableByCategoryMonthly?: Record<string, number[]>;
+  // 上の月次内訳と同じ形で、経過月(実績を表示している月)にだけその月の予算額を
+  // 入れたもの。未経過月(予算そのものを表示している月)は null。
+  fixedBudgetByCategoryMonthly?: Record<string, (number | null)[]>;
+  variableBudgetByCategoryMonthly?: Record<string, (number | null)[]>;
   educationTotalYen: number;
   eventsTotalYen: number;
   specialExpenseYen: number;
@@ -494,7 +501,25 @@ export function computeScenarioYears(
     // 今年の月次内訳(先月まで=確定した実績、当月以降=予算)。
     const fixedMonthly: Record<string, number[]> = {};
     const variableMonthly: Record<string, number[]> = {};
+    // 経過月(実績を表示している月)の予算額。テーブルの「予算比 +/−」用。
+    const fixedBudgetMonthly: Record<string, (number | null)[]> = {};
+    const variableBudgetMonthly: Record<string, (number | null)[]> = {};
+    const pastBudgets = (c: CategoryForScenario) =>
+      Array.from({ length: 12 }, (_, idx) =>
+        idx + 1 < nowMonth
+          ? resolveCategoryMonthlyYen(
+              c,
+              overridesByCategory.get(c.id) ?? [],
+              config.cohabitation.preAmountByCategory,
+              cohabiting,
+              `${nowYear}-${String(idx + 1).padStart(2, "0")}`,
+              vndPerJpy,
+            )
+          : null,
+      );
     if (isNowYear) {
+      for (const c of fixedCats) fixedBudgetMonthly[c.id] = pastBudgets(c);
+      for (const c of variableCats) variableBudgetMonthly[c.id] = pastBudgets(c);
       for (const c of fixedCats) {
         fixedMonthly[c.id] = categoryMonthlyActualOrBudgetYen(
           c,
@@ -544,6 +569,8 @@ export function computeScenarioYears(
     });
     const variableTotalYen = variableByCategory.reduce((s, c) => s + c.valueYen, 0);
     const variableByCategoryMonthly: Record<string, number[]> | undefined = isNowYear ? variableMonthly : undefined;
+    const fixedBudgetByCategoryMonthly = isNowYear ? fixedBudgetMonthly : undefined;
+    const variableBudgetByCategoryMonthly = isNowYear ? variableBudgetMonthly : undefined;
 
     const educationTotalYen = config.family.kids.reduce((sum, kid, kidIdx) => {
       const age = year - kid.birthYear;
@@ -596,8 +623,10 @@ export function computeScenarioYears(
         specialIncomeYen,
         fixedByCategory,
         fixedByCategoryMonthly,
+        fixedBudgetByCategoryMonthly,
         variableByCategory,
         variableByCategoryMonthly,
+        variableBudgetByCategoryMonthly,
         educationTotalYen,
       },
       config,
@@ -630,9 +659,11 @@ export function computeScenarioYears(
       fixedByCategory,
       fixedTotalYen,
       fixedByCategoryMonthly,
+      fixedBudgetByCategoryMonthly,
       variableByCategory,
       variableTotalYen,
       variableByCategoryMonthly,
+      variableBudgetByCategoryMonthly,
       educationTotalYen,
       eventsTotalYen,
       specialExpenseYen,
@@ -670,8 +701,10 @@ type YearRowForMonthlySim = Pick<
   | "specialIncomeYen"
   | "fixedByCategory"
   | "fixedByCategoryMonthly"
+  | "fixedBudgetByCategoryMonthly"
   | "variableByCategory"
   | "variableByCategoryMonthly"
+  | "variableBudgetByCategoryMonthly"
   | "educationTotalYen"
 >;
 
@@ -790,11 +823,13 @@ function simulateYearMonths(
     const fixedByCategory = row.fixedByCategory.map((c) => ({
       ...c,
       valueYen: row.fixedByCategoryMonthly?.[c.id]?.[m - 1] ?? divide(c.valueYen),
+      budgetYen: row.fixedBudgetByCategoryMonthly?.[c.id]?.[m - 1] ?? undefined,
     }));
     const fixedTotalYen = fixedByCategory.reduce((s, c) => s + c.valueYen, 0);
     const variableByCategory = row.variableByCategory.map((c) => ({
       ...c,
       valueYen: row.variableByCategoryMonthly?.[c.id]?.[m - 1] ?? divide(c.valueYen),
+      budgetYen: row.variableBudgetByCategoryMonthly?.[c.id]?.[m - 1] ?? undefined,
     }));
     const variableTotalYen = variableByCategory.reduce((s, c) => s + c.valueYen, 0);
 
