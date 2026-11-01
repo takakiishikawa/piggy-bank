@@ -9,8 +9,11 @@ export interface TableCell {
   // その期間(年/月)ぶんの増減。総貯蓄の行にだけ付けて、プラス/マイナスが
   // ひと目でわかるようにする。
   delta?: { fmt: string; positive: boolean };
-  // 支出のカテゴリ行で、実績の月にだけ付く予算額。deltaは「予算比」(実績 − 予算)で、
-  // 予算オーバー(+)は赤、予算内(−)は緑。テーブル側で凡例・ツールチップに使う。
+  // 支出のカテゴリ行の予算比は金額を出さず、記号(+ / − / =)だけを金額の横に添えて
+  // 1行に収める(金額はツールチップ)。固定費・変動費の合計行は金額も2行目に出す。
+  deltaMark?: { mark: "+" | "−" | "="; fmt: string };
+  // 支出のカテゴリ行で、実績の月にだけ付く予算額。予算オーバー(+)は赤、予算内(−)は緑。
+  // テーブル側で凡例・ツールチップに使う。
   budgetFmt?: string;
 }
 
@@ -43,18 +46,38 @@ function cellWithDelta(v: number, deltaV: number, fmt: (n: number) => string, is
   return { ...base, delta: { fmt: `${positive ? "+" : ""}${fmt(deltaV)}`, positive } };
 }
 
-// 支出のカテゴリ行専用: 実績の月(budgetYenがある月)だけ予算比(実績 − 予算)を添える。
-// 支出なので、予算オーバー(+)が悪い(赤)、予算内(−)が良い(緑)。差が0円なら付けない。
+// 支出のカテゴリ行専用: 実績の月(budgetYenがある月)だけ予算比(実績 − 予算)を
+// 記号で添える。支出なので、予算オーバー(+)が悪い(赤)、予算内(−)が良い(緑)、
+// ちょうど予算どおりなら「=」。
 function cellWithBudget(c: { valueYen: number; budgetYen?: number } | undefined, fmt: (n: number) => string): TableCell {
   const base = cell(c?.valueYen ?? 0, fmt);
   if (!c || c.budgetYen === undefined) return base;
   const diff = Math.round(c.valueYen - c.budgetYen);
+  const diffFmt = diff > 0 ? `+${fmt(diff)}` : diff < 0 ? `−${fmt(-diff)}` : fmt(0);
+  return {
+    ...base,
+    deltaMark: { mark: diff > 0 ? "+" : diff < 0 ? "−" : "=", fmt: diffFmt },
+    budgetFmt: fmt(c.budgetYen),
+  };
+}
+
+// 固定費・変動費の合計行専用: 実績の月(全カテゴリに budgetYen がある月)だけ、
+// 予算比(実績 − 予算合計)を金額で2行目に添える。
+function totalCellWithBudget(
+  totalYen: number,
+  cats: { budgetYen?: number }[],
+  fmt: (n: number) => string,
+): TableCell {
+  const base = cell(totalYen, fmt);
+  if (cats.length === 0 || cats.some((c) => c.budgetYen === undefined)) return base;
+  const budgetYen = cats.reduce((sum, c) => sum + (c.budgetYen ?? 0), 0);
+  const diff = Math.round(totalYen - budgetYen);
   if (diff === 0) return base;
   const over = diff > 0;
   return {
     ...base,
     delta: { fmt: over ? `+${fmt(diff)}` : `−${fmt(-diff)}`, positive: !over },
-    budgetFmt: fmt(c.budgetYen),
+    budgetFmt: fmt(budgetYen),
   };
 }
 
@@ -214,7 +237,7 @@ export function buildSingleTableRows(
       key: "expense.fixed",
       depth: 1,
       label: t(lang, "fixed"),
-      cells: rows.map((r) => cell(r.fixedTotalYen, fmt)),
+      cells: rows.map((r) => totalCellWithBudget(r.fixedTotalYen, r.fixedByCategory, fmt)),
       expandable: true,
     });
     if (isExpanded("expense.fixed")) {
@@ -231,7 +254,7 @@ export function buildSingleTableRows(
       key: "expense.variable",
       depth: 1,
       label: t(lang, "variable"),
-      cells: rows.map((r) => cell(r.variableTotalYen, fmt)),
+      cells: rows.map((r) => totalCellWithBudget(r.variableTotalYen, r.variableByCategory, fmt)),
       expandable: true,
     });
     if (isExpanded("expense.variable")) {
@@ -368,7 +391,7 @@ export function buildCompareTableRows(
     push({ key: ek, depth: 1, label: t(lang, "totalExpense"), cells: scn.rows.map((r) => cell(r.expenseTotalYen, fmt)), expandable: true });
     if (isExpanded(ek)) {
       const fk = `${ek}.fixed`;
-      push({ key: fk, depth: 2, label: t(lang, "fixed"), cells: scn.rows.map((r) => cell(r.fixedTotalYen, fmt)), expandable: true });
+      push({ key: fk, depth: 2, label: t(lang, "fixed"), cells: scn.rows.map((r) => totalCellWithBudget(r.fixedTotalYen, r.fixedByCategory, fmt)), expandable: true });
       if (isExpanded(fk)) {
         for (const c of first?.fixedByCategory ?? []) {
           push({
@@ -380,7 +403,7 @@ export function buildCompareTableRows(
         }
       }
       const vk = `${ek}.variable`;
-      push({ key: vk, depth: 2, label: t(lang, "variable"), cells: scn.rows.map((r) => cell(r.variableTotalYen, fmt)), expandable: true });
+      push({ key: vk, depth: 2, label: t(lang, "variable"), cells: scn.rows.map((r) => totalCellWithBudget(r.variableTotalYen, r.variableByCategory, fmt)), expandable: true });
       if (isExpanded(vk)) {
         for (const c of first?.variableByCategory ?? []) {
           push({

@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { ChevronRight, UnfoldVertical, FoldVertical } from "lucide-react";
 import type { TableRow as ScenarioTableRow } from "@/lib/scenario/table-rows";
 import { t, tf, type Lang } from "@/lib/scenario/dictionary";
+import { HelpTip } from "@/components/scenario/help-tip";
 import { DC } from "@/lib/scenario/design-colors";
 
 // 1列目だけ固定幅、年月列はその列の実際の値の桁数から幅を見積もって指定する
@@ -49,15 +50,19 @@ export function ExpandToggleButton({
   lang: Lang;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all hover:brightness-95 active:scale-95 shrink-0"
-      style={{ backgroundColor: DC.track, color: DC.textSecondary }}
-    >
-      {expandAll ? <FoldVertical size={12} /> : <UnfoldVertical size={12} />}
-      {expandAll ? t(lang, "collapseAll") : t(lang, "expandAll")}
-    </button>
+    <div className="flex items-center gap-2 shrink-0">
+      {/* 予算比の記号・数字の意味(以前は表の上に常時出していた凡例) */}
+      <HelpTip text={t(lang, "budgetDiffLegend")} />
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all hover:brightness-95 active:scale-95 shrink-0"
+        style={{ backgroundColor: DC.track, color: DC.textSecondary }}
+      >
+        {expandAll ? <FoldVertical size={12} /> : <UnfoldVertical size={12} />}
+        {expandAll ? t(lang, "collapseAll") : t(lang, "expandAll")}
+      </button>
+    </div>
   );
 }
 
@@ -101,19 +106,9 @@ export function ScenarioTable({
     </colgroup>
   );
 
-  // 支出のカテゴリ行に予算比が1つでも出ている時だけ、その数字の意味を凡例で添える。
-  const hasBudgetDiff = rows.some((r) => r.cells.some((c) => c.budgetFmt !== undefined));
 
   return (
     <div className="flex flex-col gap-2">
-      {hasBudgetDiff && (
-        <p className="flex items-center gap-2 flex-wrap text-[11px]" style={{ color: DC.textSecondary }}>
-          <span className="inline-flex items-center gap-1 font-semibold">
-            <span style={{ color: DC.danger }}>+</span>/<span style={{ color: DC.success }}>−</span>
-          </span>
-          {t(lang, "budgetDiffLegend")}
-        </p>
-      )}
       {/* 注意: このラッパーに overflow-hidden を付けると、それが sticky ヘッダーの
           最も近い「overflowが非visibleな祖先」になってしまい、ページの縦スクロールに
           追従しなくなる(実機で確認済みのバグ)。角丸クリップは代わりにヘッダー/本体
@@ -231,8 +226,8 @@ export function ScenarioTable({
                       <td
                         key={i}
                         title={
-                          cell.delta && cell.budgetFmt !== undefined
-                            ? `${cell.fmt} (${tf(lang, "budgetDiffTooltip", { budget: cell.budgetFmt, diff: cell.delta.fmt })})`
+                          (cell.delta || cell.deltaMark) && cell.budgetFmt !== undefined
+                            ? `${cell.fmt} (${tf(lang, "budgetDiffTooltip", { budget: cell.budgetFmt, diff: (cell.delta ?? cell.deltaMark)!.fmt })})`
                             : cell.delta
                               ? `${cell.fmt} (${cell.delta.fmt})`
                               : cell.fmt
@@ -250,6 +245,26 @@ export function ScenarioTable({
                         }}
                       >
                         {cell.fmt}
+                        {cell.deltaMark && (
+                          <span
+                            style={{
+                              display: "inline-block",
+                              width: 10,
+                              marginLeft: 3,
+                              textAlign: "center",
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color:
+                                cell.deltaMark.mark === "+"
+                                  ? DC.danger
+                                  : cell.deltaMark.mark === "−"
+                                    ? DC.success
+                                    : DC.textFaint,
+                            }}
+                          >
+                            {cell.deltaMark.mark}
+                          </span>
+                        )}
                         {cell.delta && (
                           <div
                             style={{
