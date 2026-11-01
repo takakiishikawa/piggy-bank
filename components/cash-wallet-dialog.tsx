@@ -213,22 +213,21 @@ export function CashWalletDialog({
       {/* DSのDialogContentは grid なので、中身の最小幅で横にはみ出さないよう子に min-w-0 を付ける。 */}
       <DialogContent className="w-[calc(100vw-32px)] max-w-4xl p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-6 py-4 border-b">
-          <div className="flex items-center gap-4 flex-wrap pr-8">
-            <DialogTitle>{t(lang, "cashCardTitle")}</DialogTitle>
-            <Tabs value={month} onValueChange={setMonth}>
-              <TabsList>
+          <DialogTitle>{t(lang, "cashCardTitle")}</DialogTitle>
+        </DialogHeader>
+        <div className="min-w-0 grid md:grid-cols-[minmax(0,1fr)_340px] max-h-[80vh] overflow-y-auto md:overflow-hidden">
+          {/* 左: その月の財布の出入り(残高の内訳と明細) */}
+          <section className="min-w-0 flex flex-col gap-3.5 px-6 py-5 md:overflow-y-auto md:max-h-[80vh]">
+            {/* 表示する月の切り替え(先月/今月)。内訳と明細の上に小さく置く。 */}
+            <Tabs value={month} onValueChange={setMonth} className="self-start">
+              <TabsList className="h-8">
                 {monthTabs.map((m) => (
-                  <TabsTrigger key={m} value={m}>
+                  <TabsTrigger key={m} value={m} className="h-7 px-2.5 py-0 text-xs">
                     {monthLabel(m)}
                   </TabsTrigger>
                 ))}
               </TabsList>
             </Tabs>
-          </div>
-        </DialogHeader>
-        <div className="min-w-0 grid md:grid-cols-[minmax(0,1fr)_340px] max-h-[80vh] overflow-y-auto md:overflow-hidden">
-          {/* 左: その月の財布の出入り(残高の内訳と明細) */}
-          <section className="min-w-0 flex flex-col gap-3.5 px-6 py-5 md:overflow-y-auto md:max-h-[80vh]">
             {/* 繰越 + 引き出し − 記録した支出 − 用途不明 = 残高 */}
             {wallet === null ? (
               <Skeleton className="h-[72px] w-full rounded-[10px]" />
