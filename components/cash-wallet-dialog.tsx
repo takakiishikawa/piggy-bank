@@ -16,6 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
+  Tabs,
+  TabsList,
+  TabsTrigger,
   toast,
 } from "@takaki/go-design-system";
 import { makeFormatAmount, toVndAmount, withThousands } from "@/lib/currency";
@@ -56,9 +59,25 @@ export function CashWalletDialog({
   const [onHandInput, setOnHandInput] = useState("");
   const [reconciling, setReconciling] = useState(false);
 
-  const month = monthKeyOf(date ?? new Date());
+  // 左側に表示する月。タブで先月/今月を切り替えて過去の出入りを見返せるようにする。
+  // フォームの日付を別の月にした時も、その月の財布を見せるよう追従させる。
+  const currentMonth = monthKeyOf(new Date());
+  const prevMonth = (() => {
+    const d = new Date();
+    return monthKeyOf(new Date(d.getFullYear(), d.getMonth() - 1, 1));
+  })();
+  const [month, setMonth] = useState(currentMonth);
   // 「手元の現金に合わせる」は今の残高に対する操作なので、今月を表示している時だけ出す。
-  const isCurrentMonth = month === monthKeyOf(new Date());
+  const isCurrentMonth = month === currentMonth;
+
+  useEffect(() => {
+    if (open) setMonth(monthKeyOf(new Date()));
+  }, [open]);
+
+  const handleDateChange = (d: Date | undefined) => {
+    setDate(d);
+    if (d) setMonth(monthKeyOf(d));
+  };
 
   const fetchWallet = useCallback(async (m: string) => {
     const res = await fetch(`/api/cash-wallet?month=${m}`);
@@ -76,7 +95,8 @@ export function CashWalletDialog({
     return isNaN(val) ? 0 : toVndAmount(val, currency);
   })();
   const balanceVnd = wallet?.balanceVnd ?? 0;
-  const exceeds = wallet !== null && amountVnd > balanceVnd;
+  // 表示中の月とフォームの日付の月が違う時は、表示中の残高では判定できないのでサーバー側の検証に任せる。
+  const exceeds = wallet !== null && !!date && monthKeyOf(date) === month && amountVnd > balanceVnd;
 
   const handleSave = async () => {
     if (amountVnd <= 0 || !category || !date || exceeds) return;
@@ -179,24 +199,32 @@ export function CashWalletDialog({
     return withBalance.reverse();
   })();
 
-  const monthLabel = (() => {
-    const [y, m] = month.split("-").map(Number);
+  const monthLabel = (key: string) => {
+    const [y, m] = key.split("-").map(Number);
     return lang === "ja"
       ? `${y}年${m}月`
       : new Date(y, m - 1, 1).toLocaleDateString("en-US", { year: "numeric", month: "long" });
-  })();
+  };
+  // フォームの日付で先月より前の月を選んだ時は、その月もタブに出す。
+  const monthTabs = [prevMonth, currentMonth].includes(month) ? [prevMonth, currentMonth] : [month, prevMonth, currentMonth];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* DSのDialogContentは grid なので、中身の最小幅で横にはみ出さないよう子に min-w-0 を付ける。 */}
       <DialogContent className="w-[calc(100vw-32px)] max-w-4xl p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-6 py-4 border-b">
-          <DialogTitle>
-            {t(lang, "cashCardTitle")}
-            <span className="ml-2 font-normal" style={labelStyle}>
-              {monthLabel}
-            </span>
-          </DialogTitle>
+          <div className="flex items-center gap-4 flex-wrap pr-8">
+            <DialogTitle>{t(lang, "cashCardTitle")}</DialogTitle>
+            <Tabs value={month} onValueChange={setMonth}>
+              <TabsList>
+                {monthTabs.map((m) => (
+                  <TabsTrigger key={m} value={m}>
+                    {monthLabel(m)}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </div>
         </DialogHeader>
         <div className="min-w-0 grid md:grid-cols-[minmax(0,1fr)_340px] max-h-[80vh] overflow-y-auto md:overflow-hidden">
           {/* 左: その月の財布の出入り(残高の内訳と明細) */}
@@ -405,7 +433,7 @@ export function CashWalletDialog({
               <span className="text-xs font-semibold" style={labelStyle}>
                 {t(lang, "cashDateLabel")}
               </span>
-              <DatePicker value={date} onChange={setDate} toDate={new Date()} />
+              <DatePicker value={date} onChange={handleDateChange} toDate={new Date()} />
             </div>
             <div className="flex flex-col gap-1.5">
               <span className="text-xs font-semibold" style={labelStyle}>
