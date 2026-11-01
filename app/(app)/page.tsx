@@ -601,10 +601,11 @@ export default function Dashboard() {
                 <a
                   href="/transactions"
                   title={t(lang, "dashTransactionsTitle")}
-                  className="flex items-center justify-center h-9 w-9 rounded-[10px] transition-all hover:brightness-95 active:scale-[0.98]"
+                  className="flex items-center gap-2 h-9 rounded-[10px] px-3.5 text-xs font-semibold transition-all hover:brightness-95 active:scale-[0.98]"
                   style={{ backgroundColor: "var(--kg-track)", color: "var(--color-text-secondary)" }}
                 >
-                  <List size={15} />
+                  <List size={14} className="shrink-0" />
+                  {t(lang, "dashTransactionsBtn")}
                 </a>
               )}
               {uncategorizedCount > 0 && (
@@ -625,7 +626,7 @@ export default function Dashboard() {
                 style={{ backgroundColor: "var(--kg-track)", color: "var(--color-text-secondary)" }}
               >
                 <PiggyBank size={14} className="shrink-0" />
-                {t(lang, "investRecordBtn")}
+                {t(lang, "investBtn")}
                 {totalInvestedVnd > 0 && (
                   <span className="font-num" style={{ color: "var(--color-text-primary)" }}>
                     · {formatAmount(totalInvestedVnd)}
