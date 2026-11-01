@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { PiggyBank, LayoutGrid, Target, Landmark, LogOut, LogIn } from "lucide-react";
+import { PiggyBank, LayoutGrid, FileChartColumn, Landmark, LogOut, LogIn } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@takaki/go-design-system";
 import { usePreferences } from "@/lib/preferences";
@@ -29,7 +29,7 @@ function SidebarTooltip({ label, children }: { label: string; children: React.Re
 // 切り替え機構)はあえて使わず、デザイン通りの見た目に最適化したプレーンな実装にする。
 const NAV_ITEMS = [
   { href: "/", labelKey: "dashboard" as const, icon: LayoutGrid },
-  { href: "/simulation", labelKey: "simulation" as const, icon: Target },
+  { href: "/simulation", labelKey: "simulation" as const, icon: FileChartColumn },
 ];
 
 const DARK_BG = "#20242A";

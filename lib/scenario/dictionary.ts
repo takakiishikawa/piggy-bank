@@ -3,7 +3,7 @@ export type Lang = "ja" | "en";
 export const DICT = {
   ja: {
     dashboard: "ダッシュボード",
-    simulation: "シミュレーション",
+    simulation: "レポート",
     single: "単体",
     compare: "比較",
     yearly: "年次",
@@ -13,7 +13,7 @@ export const DICT = {
     totalIncome: "収入",
     totalExpense: "支出",
     totalSavings: "貯蓄",
-    settingsBtn: "シミュレーション設定",
+    settingsBtn: "レポート設定",
     scenarios: "シナリオ管理",
     manageDialogTitle: "管理",
     manageScenariosTab: "シナリオ",
@@ -242,7 +242,7 @@ export const DICT = {
     investSaveFailed: "保存に失敗しました",
 
     // ダッシュボード: 本体
-    dashNoBudgetForecast: "予算を設定すると今月の見込みが表示されます(シミュレーション設定→暮らし)。",
+    dashNoBudgetForecast: "予算を設定すると今月の見込みが表示されます(レポート設定→暮らし)。",
     dashNoTransactionsThisMonth: "今月はまだ取引がありません。",
     dashMonthForecast: "今月の見込み",
     dashUnderBudget: "予算内",
@@ -253,8 +253,8 @@ export const DICT = {
     dashOnTrackLine: "順調ライン ({pct}%)",
     dashVariableCosts: "変動費",
     dashFixedCosts: "固定費",
-    dashNoVariableCategories: "変動費カテゴリがまだありません。シミュレーション設定→暮らしで追加してください。",
-    dashNoFixedCategories: "固定費カテゴリがまだありません。シミュレーション設定→暮らしで追加してください。",
+    dashNoVariableCategories: "変動費カテゴリがまだありません。レポート設定→暮らしで追加してください。",
+    dashNoFixedCategories: "固定費カテゴリがまだありません。レポート設定→暮らしで追加してください。",
     dashThisMonth: "今月",
     dashNoSpendingThisMonth: "今月はこのカテゴリの支出がありません。",
     dashTotal: "合計",
@@ -263,8 +263,8 @@ export const DICT = {
     noteAdd: "+ メモ",
     notePlaceholder: "例: ルームメイトと折半",
     specialExpenseLabel: "特別支出",
-    specialExpenseActiveTitle: "特別支出(ダッシュボード対象外・シミュレーションで集計)。クリックで解除",
-    specialExpenseInactiveTitle: "特別支出としてマーク(ダッシュボード対象外・シミュレーションで集計)",
+    specialExpenseActiveTitle: "特別支出(ダッシュボード対象外・レポートで集計)。クリックで解除",
+    specialExpenseInactiveTitle: "特別支出としてマーク(ダッシュボード対象外・レポートで集計)",
 
     // 投資方針ダイアログ
     investmentPolicy: "投資方針",
@@ -287,7 +287,7 @@ export const DICT = {
   },
   en: {
     dashboard: "Dashboard",
-    simulation: "Simulation",
+    simulation: "Report",
     single: "Single",
     compare: "Compare",
     yearly: "Yearly",
@@ -297,7 +297,7 @@ export const DICT = {
     totalIncome: "Total income",
     totalExpense: "Total expense",
     totalSavings: "Total savings",
-    settingsBtn: "Simulation settings",
+    settingsBtn: "Report settings",
     scenarios: "Scenarios",
     manageDialogTitle: "Manage",
     manageScenariosTab: "Scenarios",
@@ -519,7 +519,7 @@ export const DICT = {
     investSaveFailed: "Failed to save",
 
     // Dashboard: main
-    dashNoBudgetForecast: "Set a monthly budget for each category in Simulation settings → Life to see this month's forecast.",
+    dashNoBudgetForecast: "Set a monthly budget for each category in Report settings → Life to see this month's forecast.",
     dashNoTransactionsThisMonth: "No transactions yet this month.",
     dashMonthForecast: "This month's forecast",
     dashUnderBudget: "under budget",
@@ -530,8 +530,8 @@ export const DICT = {
     dashOnTrackLine: "On-track line ({pct}%)",
     dashVariableCosts: "Variable Costs",
     dashFixedCosts: "Fixed Costs",
-    dashNoVariableCategories: "No variable cost categories yet. Add some in Simulation settings → Life.",
-    dashNoFixedCategories: "No fixed cost categories yet. Add some in Simulation settings → Life.",
+    dashNoVariableCategories: "No variable cost categories yet. Add some in Report settings → Life.",
+    dashNoFixedCategories: "No fixed cost categories yet. Add some in Report settings → Life.",
     dashThisMonth: "This month",
     dashNoSpendingThisMonth: "No spending in this category this month.",
     dashTotal: "Total",
@@ -540,8 +540,8 @@ export const DICT = {
     noteAdd: "+ Note",
     notePlaceholder: "e.g. half for roommate",
     specialExpenseLabel: "Special expense",
-    specialExpenseActiveTitle: "Special expense — excluded from dashboard, tracked in Simulation. Click to undo",
-    specialExpenseInactiveTitle: "Mark as special expense — excludes from dashboard, tracked in Simulation",
+    specialExpenseActiveTitle: "Special expense — excluded from dashboard, tracked in Report. Click to undo",
+    specialExpenseInactiveTitle: "Mark as special expense — excludes from dashboard, tracked in Report",
 
     // Investment policy dialog
     investmentPolicy: "Investment Policy",
