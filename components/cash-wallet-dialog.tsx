@@ -223,7 +223,11 @@ export function CashWalletDialog({
               <TabsList className="h-8">
                 {monthTabs.map((m) => (
                   <TabsTrigger key={m} value={m} className="h-7 px-2.5 py-0 text-xs">
-                    {monthLabel(m)}
+                    {m === currentMonth
+                      ? t(lang, "dashThisMonth")
+                      : m === prevMonth
+                        ? t(lang, "cashLastMonthTab")
+                        : monthLabel(m)}
                   </TabsTrigger>
                 ))}
               </TabsList>
