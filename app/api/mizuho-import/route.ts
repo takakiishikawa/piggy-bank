@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthDb } from "@/lib/supabase/auth-db";
+import { getCurrentMonthKey } from "@/lib/budget";
 import { type Transaction } from "@/lib/supabase/db";
 import { decodeMizuhoCsv, parseMizuhoCsv } from "@/lib/mizuho-parser";
 import { VND_PER_JPY } from "@/lib/currency";
@@ -10,10 +11,8 @@ import { cashWithdrawalCategoryFor, isCashWithdrawalStore } from "@/lib/cash";
 
 export const maxDuration = 60;
 
-function currentMonthKey(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
+// 月の切り替えは ICT 基準(ふりかえりの「今月のみずほ取込が済んだか」判定とそろえる)。
+const currentMonthKey = () => getCurrentMonthKey();
 
 // GET: 今月のみずほCSVアップロードが済んでいるか(バナー表示の判定に使う)。
 export async function GET() {

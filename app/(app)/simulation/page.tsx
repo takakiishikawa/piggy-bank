@@ -27,6 +27,7 @@ import { DC } from "@/lib/scenario/design-colors";
 import type { Scenario, ScenarioConfig } from "@/lib/scenario/types";
 import type { DisplayCurrency } from "@/components/currency-switch";
 import type { SpecialEntry } from "@/lib/simulation";
+import { MonthlyReviewButton } from "@/components/monthly-review-dialog";
 
 const CUR_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: SIMULATION_YEARS_AHEAD + 1 }, (_, i) => CUR_YEAR + i);
@@ -455,6 +456,7 @@ export default function SimulationPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <MonthlyReviewButton lang={lang} />
           <SegmentedControl
             value={viewMode}
             onChange={(v) => setViewMode(v as "table" | "graph")}

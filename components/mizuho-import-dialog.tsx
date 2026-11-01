@@ -30,6 +30,13 @@ const MIZUHO_DIRECT_URL = "https://web.ib.mizuhobank.co.jp/servlet/LOGBNK0000000
 // バナーからも、Transactions画面のボタンからも同じものを開く。
 // 取込/「支出なし」が完了したら window イベントを飛ばし、バナー側が再取得する。
 export const MIZUHO_UPDATED_EVENT = "piggybank:mizuho-updated";
+// 取込結果を閉じた / 「支出なし」を記録した = 今月のみずほの作業が終わった。
+// 先月のふりかえり(monthly-review-dialog)はこれを待ってから表示する。
+export const MIZUHO_FLOW_DONE_EVENT = "piggybank:mizuho-flow-done";
+
+export function fireMizuhoFlowDone() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(MIZUHO_FLOW_DONE_EVENT));
+}
 
 // 取込APIが返す、新しく取り込んだ明細1行分。
 interface ImportedItem {
@@ -177,7 +184,14 @@ export function MizuhoImportDialog({
         </DialogContent>
       </Dialog>
 
-      <MizuhoImportResultDialog result={result} onClose={() => setResult(null)} lang={lang} />
+      <MizuhoImportResultDialog
+        result={result}
+        onClose={() => {
+          setResult(null);
+          fireMizuhoFlowDone();
+        }}
+        lang={lang}
+      />
     </>
   );
 }

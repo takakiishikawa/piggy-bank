@@ -4,9 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { UploadCloud } from "lucide-react";
 import { toast } from "@takaki/go-design-system";
 import { usePreferences } from "@/lib/preferences";
-import { t } from "@/lib/scenario/dictionary";
+import { t, tf } from "@/lib/scenario/dictionary";
 import { DC } from "@/lib/scenario/design-colors";
-import { MizuhoImportDialog, MIZUHO_UPDATED_EVENT } from "@/components/mizuho-import-dialog";
+import { MizuhoImportDialog, MIZUHO_UPDATED_EVENT, fireMizuhoFlowDone } from "@/components/mizuho-import-dialog";
+import { reviewMonthLabel } from "@/components/monthly-review-dialog";
+import type { MonthlyReviewStatus } from "@/lib/monthly-review";
 
 const supabaseConfigured =
   !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -19,6 +21,8 @@ export function MizuhoImportBanner() {
   const [done, setDone] = useState<boolean | null>(null); // null = 未取得
   const [dialogOpen, setDialogOpen] = useState(false);
   const [skipping, setSkipping] = useState(false);
+  // 先月のふりかえりがまだなら、バナーの文言を「ふりかえりの前に取り込みましょう」にする。
+  const [reviewMonth, setReviewMonth] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     if (!supabaseConfigured) return;
@@ -26,6 +30,10 @@ export function MizuhoImportBanner() {
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setDone(j ? !!j.done : null))
       .catch(() => setDone(null));
+    fetch("/api/monthly-review/status")
+      .then((r) => (r.ok ? (r.json() as Promise<MonthlyReviewStatus>) : null))
+      .then((s) => setReviewMonth(s && !s.dismissed ? s.month : null))
+      .catch(() => setReviewMonth(null));
   }, []);
 
   useEffect(() => {
@@ -50,12 +58,16 @@ export function MizuhoImportBanner() {
       }
       toast.success(t(lang, "mizuhoNoExpenseDone"));
       setDone(true);
+      fireMizuhoFlowDone();
     } finally {
       setSkipping(false);
     }
   }
 
-  if (done !== false) return null;
+  // 取込が済んでバナーが消えても、取込結果のポップアップを出し続けるために
+  // ダイアログは常にマウントしておく。
+  const dialog = <MizuhoImportDialog open={dialogOpen} onOpenChange={setDialogOpen} lang={lang} />;
+  if (done !== false) return dialog;
 
   return (
     <>
@@ -64,7 +76,11 @@ export function MizuhoImportBanner() {
         style={{ backgroundColor: "#FBF1E4", borderColor: "#EAD9BF", color: DC.textPrimary }}
       >
         <UploadCloud size={15} style={{ color: DC.warning }} className="shrink-0" />
-        <span className="font-semibold">{t(lang, "mizuhoBannerTitle")}</span>
+        <span className="font-semibold">
+          {reviewMonth
+            ? tf(lang, "reviewMizuhoFirst", { month: reviewMonthLabel(reviewMonth, lang) })
+            : t(lang, "mizuhoBannerTitle")}
+        </span>
         <div className="flex items-center gap-2 ml-auto shrink-0">
           <button
             type="button"
@@ -86,7 +102,7 @@ export function MizuhoImportBanner() {
         </div>
       </div>
 
-      <MizuhoImportDialog open={dialogOpen} onOpenChange={setDialogOpen} lang={lang} />
+      {dialog}
     </>
   );
 }
