@@ -244,13 +244,13 @@ export function ScenarioTable({
                           borderBottom: isCurrent && isLastRow ? `1px solid ${DC.primary}` : `1px solid ${DC.trackAlt}`,
                         }}
                       >
-                        {cell.fmt}
+                        {/* 予算比の記号は金額の左に置く(右に置くと金額の右端が他の行とそろわない) */}
                         {cell.deltaMark && (
                           <span
                             style={{
                               display: "inline-block",
                               width: 10,
-                              marginLeft: 3,
+                              marginRight: 3,
                               textAlign: "center",
                               fontSize: 11,
                               fontWeight: 700,
@@ -265,6 +265,7 @@ export function ScenarioTable({
                             {cell.deltaMark.mark}
                           </span>
                         )}
+                        {cell.fmt}
                         {cell.delta && (
                           <div
                             style={{
